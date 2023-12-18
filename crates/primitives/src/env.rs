@@ -5,6 +5,9 @@ use crate::{
 };
 use core::cmp::{min, Ordering};
 
+#[cfg(feature = "taiko")]
+use crate::taiko::env::TaikoFields;
+
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Env {
@@ -183,6 +186,10 @@ pub struct TxEnv {
     #[cfg_attr(feature = "serde", serde(flatten))]
     #[cfg(feature = "optimism")]
     pub optimism: OptimismFields,
+
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[cfg(feature = "taiko")]
+    pub taiko: TaikoFields,
 }
 
 impl TxEnv {
@@ -442,6 +449,8 @@ impl Default for TxEnv {
             max_fee_per_blob_gas: None,
             #[cfg(feature = "optimism")]
             optimism: OptimismFields::default(),
+            #[cfg(feature = "taiko")]
+            taiko: TaikoFields::default(),
         }
     }
 }
@@ -646,6 +655,11 @@ impl Env {
             balance_check = balance_check
                 .checked_add(U256::from(data_fee))
                 .ok_or(InvalidTransaction::OverflowPaymentInTransaction)?;
+        }
+
+        #[cfg(feature = "taiko")]
+        if self.tx.taiko.is_anchor {
+            return Ok(());
         }
 
         // Check if account has enough balance for gas_limit*gas_price and value transfer.
