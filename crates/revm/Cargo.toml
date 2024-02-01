@@ -41,7 +41,7 @@ criterion = "0.5"
 indicatif = "0.17"
 
 [features]
-default = ["std", "c-kzg", "secp256k1"]
+default = ["std", "c-kzg", "secp256k1", "taiko"]
 std = ["serde?/std", "serde_json?/std", "serde_json?/preserve_order", "revm-interpreter/std", "revm-precompile/std"]
 serde = ["dep:serde", "dep:serde_json", "revm-interpreter/serde"]
 arbitrary = ["revm-interpreter/arbitrary"]

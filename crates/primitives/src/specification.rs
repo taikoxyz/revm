@@ -62,37 +62,7 @@ pub enum SpecId {
     SHANGHAI = 18,
     CANYON = 19,
     CANCUN = 20,
-    ECOTONE = 21, 
-    LATEST = u8::MAX,
-}
-
-/// Specification IDs and their activation block.
-///
-/// Information was obtained from the [Ethereum Execution Specifications](https://github.com/ethereum/execution-specs)
-#[cfg(all(feature = "taiko", not(feature = "optimism")))]
-#[repr(u8)]
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, enumn::N)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum SpecId {
-    FRONTIER = 0,
-    FRONTIER_THAWING = 1,
-    HOMESTEAD = 2,
-    DAO_FORK = 3,
-    TANGERINE = 4,
-    SPURIOUS_DRAGON = 5,
-    BYZANTIUM = 6,
-    CONSTANTINOPLE = 7,
-    PETERSBURG = 8,
-    ISTANBUL = 9,
-    MUIR_GLACIER = 10,
-    BERLIN = 11,
-    LONDON = 12,
-    ARROW_GLACIER = 13,
-    GRAY_GLACIER = 14,
-    MERGE = 15,
-    SHANGHAI = 16,
-    CANCUN = 17,
-    KATLA = 18,
+    ECOTONE = 21,
     LATEST = u8::MAX,
 }
 
@@ -455,10 +425,10 @@ mod tests {
     // TODO(Cecilia):  update this range of bits
     #[test]
     fn test_katla_post_merge_hardforks() {
-        assert!(SpecId::enabled(SpecId::MERGE));
-        assert!(SpecId::enabled(SpecId::SHANGHAI));
-        assert!(!SpecId::enabled(SpecId::CANCUN));
-        assert!(!SpecId::enabled(SpecId::LATEST));
-        assert!(SpecId::enabled(SpecId::KATLA));
+        assert!(SpecId::enabled(SpecId::KATLA, SpecId::MERGE));
+        assert!(SpecId::enabled(SpecId::KATLA, SpecId::SHANGHAI));
+        assert!(!SpecId::enabled(SpecId::KATLA, SpecId::CANCUN));
+        assert!(!SpecId::enabled(SpecId::KATLA, SpecId::LATEST));
+        assert!(SpecId::enabled(SpecId::KATLA, SpecId::KATLA));
     }
 }

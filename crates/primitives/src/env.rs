@@ -802,14 +802,11 @@ mod op_tests {
     }
 }
 
-
-
 #[cfg(all(feature = "taiko", not(feature = "optimism")))]
 #[test]
 fn taiko_test() {
     // TODO(Cecilia): taiko tests
 }
-
 
 #[cfg(test)]
 mod tests {
