@@ -91,8 +91,8 @@ pub enum SpecId {
     GRAY_GLACIER = 14,
     MERGE = 15,
     SHANGHAI = 16,
-    CANCUN = 17,
-    KATLA = 18,
+    KATLA = 17, // KATLA is before CANCUN, aka does not have 4844
+    CANCUN = 18,
     LATEST = u8::MAX,
 }
 
@@ -419,7 +419,7 @@ mod optimism_tests {
 
 #[cfg(all(feature = "taiko", not(feature = "optimism")))]
 #[cfg(test)]
-mod tests {
+mod taiko_tests {
     use super::*;
 
     // TODO(Cecilia):  update this range of bits
