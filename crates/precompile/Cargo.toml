@@ -46,6 +46,7 @@ std = [
 asm-keccak = ["revm-primitives/asm-keccak"]
 
 optimism = ["revm-primitives/optimism"]
+taiko = ["revm-primitives/taiko"]
 
 # These libraries may not work on all no_std platforms as they depend on C.
 

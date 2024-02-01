@@ -235,7 +235,7 @@ pub enum InvalidTransaction {
     /// special gas accounting rules are applied. Normally on L1, [EVMError::Transaction] errors
     /// are cause for non-inclusion, so a special [HaltReason] variant was introduced to handle this
     /// case for failed deposit transactions.
-    #[cfg(feature = "optimism")]
+    #[cfg(all(feature = "optimism", not(feature = "taiko")))]
     DepositSystemTxPostRegolith,
     /// Deposit transaction haults bubble up to the global main return handler, wiping state and
     /// only increasing the nonce + persisting the mint value.
@@ -251,8 +251,12 @@ pub enum InvalidTransaction {
     /// special gas accounting rules are applied. Normally on L1, [EVMError::Transaction] errors
     /// are cause for non-inclusion, so a special [HaltReason] variant was introduced to handle this
     /// case for failed deposit transactions.
-    #[cfg(feature = "optimism")]
+    #[cfg(all(feature = "optimism", not(feature = "taiko")))]
     HaltedDepositPostRegolith,
+
+    /// Anchor check failed
+    #[cfg(all(feature = "taiko", not(feature = "optimism")))]
+    InvalidAnchorTransaction,
 }
 
 #[cfg(feature = "std")]
@@ -311,19 +315,23 @@ impl fmt::Display for InvalidTransaction {
             InvalidTransaction::BlobCreateTransaction => write!(f, "Blob create transaction"),
             InvalidTransaction::TooManyBlobs => write!(f, "Too many blobs"),
             InvalidTransaction::BlobVersionNotSupported => write!(f, "Blob version not supported"),
-            #[cfg(feature = "optimism")]
+            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
             InvalidTransaction::DepositSystemTxPostRegolith => {
                 write!(
                     f,
                     "Deposit system transactions post regolith hardfork are not supported"
                 )
             }
-            #[cfg(feature = "optimism")]
+            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
             InvalidTransaction::HaltedDepositPostRegolith => {
                 write!(
                     f,
                     "Deposit transaction halted post-regolith. Error will be bubbled up to main return handler."
                 )
+            }
+            #[cfg(all(feature = "taiko", not(feature = "optimism")))]
+            InvalidTransaction::InvalidAnchorTransaction => {
+                write!(f, "Invalid Anchor transaction.")
             }
         }
     }
@@ -397,7 +405,7 @@ pub enum HaltReason {
     CallTooDeep,
 
     /* Optimism errors */
-    #[cfg(feature = "optimism")]
+    #[cfg(all(feature = "optimism", not(feature = "taiko")))]
     FailedDeposit,
 }
 

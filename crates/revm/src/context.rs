@@ -58,7 +58,7 @@ pub struct EvmContext<DB: Database> {
     /// Precompiles that are available for evm.
     pub precompiles: Precompiles,
     /// Used as temporary value holder to store L1 block info.
-    #[cfg(feature = "optimism")]
+    #[cfg(all(feature = "optimism", not(feature = "taiko")))]
     pub l1_block_info: Option<crate::optimism::L1BlockInfo>,
 }
 
@@ -70,7 +70,7 @@ impl<DB: Database> EvmContext<DB> {
             db,
             error: None,
             precompiles: self.precompiles,
-            #[cfg(feature = "optimism")]
+            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
             l1_block_info: self.l1_block_info,
         }
     }
@@ -81,7 +81,7 @@ impl<DB: Database> EvmContext<DB> {
             db,
             error: None,
             precompiles: Precompiles::default(),
-            #[cfg(feature = "optimism")]
+            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
             l1_block_info: None,
         }
     }
@@ -94,7 +94,7 @@ impl<DB: Database> EvmContext<DB> {
             db,
             error: None,
             precompiles: Precompiles::default(),
-            #[cfg(feature = "optimism")]
+            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
             l1_block_info: None,
         }
     }
@@ -578,7 +578,7 @@ pub(crate) mod test_utils {
             db,
             error: None,
             precompiles: Precompiles::default(),
-            #[cfg(feature = "optimism")]
+            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
             l1_block_info: None,
         }
     }
@@ -591,7 +591,7 @@ pub(crate) mod test_utils {
             db,
             error: None,
             precompiles: Precompiles::default(),
-            #[cfg(feature = "optimism")]
+            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
             l1_block_info: None,
         }
     }

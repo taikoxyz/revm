@@ -87,7 +87,7 @@ impl From<HaltReason> for InstructionResult {
             HaltReason::CallNotAllowedInsideStatic => Self::CallNotAllowedInsideStatic,
             HaltReason::OutOfFunds => Self::OutOfFunds,
             HaltReason::CallTooDeep => Self::CallTooDeep,
-            #[cfg(feature = "optimism")]
+            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
             HaltReason::FailedDeposit => Self::FatalExternalError,
         }
     }

@@ -27,6 +27,7 @@ arbitrary = ["std", "revm-primitives/arbitrary"]
 asm-keccak = ["revm-primitives/asm-keccak"]
 
 optimism = ["revm-primitives/optimism"]
+taiko = ["revm-primitives/taiko"]
 
 dev = [
     "memory_limit",

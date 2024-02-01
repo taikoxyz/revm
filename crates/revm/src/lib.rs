@@ -23,8 +23,10 @@ mod frame;
 pub mod handler;
 mod inspector;
 mod journaled_state;
-#[cfg(feature = "optimism")]
+#[cfg(all(feature = "optimism", not(feature = "taiko")))]
 pub mod optimism;
+#[cfg(all(feature = "taiko", not(feature = "optimism")))]
+pub mod taiko;
 
 // Export items.
 
@@ -43,7 +45,7 @@ pub use inspector::{
 };
 pub use journaled_state::{JournalCheckpoint, JournalEntry, JournaledState};
 // export Optimism types, helpers, and constants
-#[cfg(feature = "optimism")]
+#[cfg(all(feature = "optimism", not(feature = "taiko")))]
 pub use optimism::{L1BlockInfo, BASE_FEE_RECIPIENT, L1_BLOCK_CONTRACT, L1_FEE_RECIPIENT};
 
 // Reexport libraries

@@ -50,6 +50,7 @@ asm-keccak = ["revm-interpreter/asm-keccak", "revm-precompile/asm-keccak"]
 test-utils = []
 
 optimism = ["revm-interpreter/optimism", "revm-precompile/optimism"]
+taiko = ["revm-interpreter/taiko", "revm-precompile/taiko"]
 
 ethersdb = ["std", "tokio", "futures", "ethers-providers", "ethers-core"]
 
