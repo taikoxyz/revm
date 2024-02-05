@@ -1,3 +1,3 @@
-//! Optimism-specific constants, types, and helpers.
+//! Taiko-specific constants, types, and helpers.
 
-mod handler_register;
+pub mod handler_register;
