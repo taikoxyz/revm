@@ -14,7 +14,7 @@ pub fn taiko_handle_register<DB: Database, EXT>(handler: &mut EvmHandler<'_, EXT
         handler.pre_execution.deduct_caller = Arc::new(deduct_caller::<SPEC, EXT, DB>);
         handler.post_execution.reimburse_caller = Arc::new(reimburse_caller::<SPEC, EXT, DB>);
         handler.post_execution.reward_beneficiary = Arc::new(reward_beneficiary::<SPEC, EXT, DB>);
-        // Done with flags in mainnet
+        // Done with flags to avoid repetitive code
         // handler.validation.tx_against_state = Arc::new(mainnet::validate_tx_against_state::<SPEC, EXT, DB>);
     });
 }
