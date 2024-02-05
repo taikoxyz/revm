@@ -238,6 +238,11 @@ impl Env {
                 .ok_or(InvalidTransaction::OverflowPaymentInTransaction)?;
         }
 
+        #[cfg(feature = "taiko")]
+        if self.tx.taiko.is_anchor {
+            return Ok(());
+        }
+
         // Check if account has enough balance for gas_limit*gas_price and value transfer.
         // Transfer will be done inside `*_inner` functions.
         if balance_check > account.info.balance {
