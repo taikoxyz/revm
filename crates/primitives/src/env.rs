@@ -79,7 +79,7 @@ impl Env {
     /// Return initial spend gas (Gas needed to execute transaction).
     #[inline]
     pub fn validate_tx<SPEC: Spec>(&self) -> Result<(), InvalidTransaction> {
-        #[cfg(all(feature = "optimism", not(feature = "taiko")))]
+        #[cfg(feature = "optimism")]
         if self.cfg.optimism {
             // Do not allow for a system transaction to be processed if Regolith is enabled.
             if self.tx.optimism.is_system_transaction.unwrap_or(false)
@@ -206,7 +206,7 @@ impl Env {
 
         // On Optimism, deposit transactions do not have verification on the nonce
         // nor the balance of the account.
-        #[cfg(all(feature = "optimism", not(feature = "taiko")))]
+        #[cfg(feature = "optimism")]
         if self.cfg.optimism && self.tx.optimism.source_hash.is_some() {
             return Ok(());
         }
@@ -316,10 +316,10 @@ pub struct CfgEnv {
     /// allowing for features like multichain fork testing. Setting this field
     /// to false will disable all optimism execution changes regardless of
     /// compilation with the optimism feature flag.
-    #[cfg(all(feature = "optimism", not(feature = "taiko")))]
+    #[cfg(feature = "optimism")]
     pub optimism: bool,
 
-    #[cfg(all(feature = "taiko", not(feature = "optimism")))]
+    #[cfg(feature = "taiko")]
     pub taiko: bool,
 }
 
@@ -384,12 +384,12 @@ impl CfgEnv {
         false
     }
 
-    #[cfg(all(feature = "optimism", not(feature = "taiko")))]
+    #[cfg(feature = "optimism")]
     pub fn is_optimism(&self) -> bool {
         self.optimism
     }
 
-    #[cfg(all(feature = "taiko", not(feature = "optimism")))]
+    #[cfg(feature = "taiko")]
     pub fn is_taiko(&self) -> bool {
         self.taiko
     }
@@ -417,9 +417,9 @@ impl Default for CfgEnv {
             disable_base_fee: false,
             #[cfg(feature = "optional_beneficiary_reward")]
             disable_beneficiary_reward: false,
-            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
+            #[cfg(feature = "optimism")]
             optimism: false,
-            #[cfg(all(feature = "taiko", not(feature = "optimism")))]
+            #[cfg(feature = "taiko")]
             taiko: false,
         }
     }
@@ -466,7 +466,7 @@ pub struct BlockEnv {
     pub blob_excess_gas_and_price: Option<BlobExcessGasAndPrice>,
 }
 
-#[cfg(all(feature = "taiko", not(feature = "optimism")))]
+#[cfg(feature = "taiko")]
 #[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TaikoFields {
@@ -582,11 +582,11 @@ pub struct TxEnv {
     pub max_fee_per_blob_gas: Option<U256>,
 
     #[cfg_attr(feature = "serde", serde(flatten))]
-    #[cfg(all(feature = "optimism", not(feature = "taiko")))]
+    #[cfg(feature = "optimism")]
     pub optimism: OptimismFields,
 
     #[cfg_attr(feature = "serde", serde(flatten))]
-    #[cfg(all(feature = "taiko", not(feature = "optimism")))]
+    #[cfg(feature = "taiko")]
     pub taiko: TaikoFields,
 }
 
@@ -680,9 +680,9 @@ impl Default for TxEnv {
             access_list: Vec::new(),
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
-            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
+            #[cfg(feature = "optimism")]
             optimism: OptimismFields::default(),
-            #[cfg(all(feature = "taiko", not(feature = "optimism")))]
+            #[cfg(feature = "taiko")]
             taiko: TaikoFields::default(),
         }
     }
@@ -757,7 +757,7 @@ pub enum AnalysisKind {
 }
 
 #[cfg(test)]
-#[cfg(all(feature = "optimism", not(feature = "taiko")))]
+#[cfg(feature = "optimism")]
 mod op_tests {
     use super::*;
 
@@ -802,7 +802,7 @@ mod op_tests {
     }
 }
 
-#[cfg(all(feature = "taiko", not(feature = "optimism")))]
+#[cfg(feature = "taiko")]
 #[test]
 fn taiko_test() {
     // TODO(Cecilia): taiko tests

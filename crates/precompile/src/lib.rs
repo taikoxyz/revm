@@ -256,11 +256,11 @@ impl PrecompileSpecId {
             BERLIN | LONDON | ARROW_GLACIER | GRAY_GLACIER | MERGE | SHANGHAI => Self::BERLIN,
             CANCUN => Self::CANCUN,
             LATEST => Self::LATEST,
-            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
+            #[cfg(feature = "optimism")]
             BEDROCK | REGOLITH | CANYON => Self::BERLIN,
-            #[cfg(all(feature = "optimism", not(feature = "taiko")))]
+            #[cfg(feature = "optimism")]
             ECOTONE => Self::CANCUN,
-            #[cfg(all(feature = "taiko", not(feature = "optimism")))]
+            #[cfg(feature = "taiko")]
             KATLA => Self::BERLIN, // TODO(Cecilia): what is this?
         }
     }
