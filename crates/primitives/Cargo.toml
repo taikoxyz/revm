@@ -40,7 +40,7 @@ serde = { version = "1.0", default-features = false, features = ["derive", "rc"]
 hex = { version = "0.4", default-features = false }
 
 [features]
-default = ["std", "c-kzg", "taiko"]
+default = ["std", "c-kzg"]
 std = [
     "serde?/std",
     "alloy-primitives/std",
