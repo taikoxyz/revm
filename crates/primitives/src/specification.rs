@@ -134,7 +134,7 @@ impl From<&str> for SpecId {
             "Canyon" => SpecId::CANYON,
             #[cfg(feature = "optimism")]
             "Ecotone" => SpecId::ECOTONE,
-            #[cfg(feature = "taiko")]
+            #[cfg(all(feature = "taiko", not(feature = "optimism")))]
             "Katla" => SpecId::KATLA,
             _ => Self::LATEST,
         }
@@ -277,7 +277,7 @@ macro_rules! spec_to_generic {
                 use $crate::EcotoneSpec as SPEC;
                 $e
             }
-            #[cfg(feature = "taiko")]
+            #[cfg(all(feature = "taiko", not(feature = "optimism")))]
             $crate::SpecId::KATLA => {
                 use $crate::KatlaSpec as SPEC;
                 $e
@@ -414,7 +414,7 @@ mod optimism_tests {
     }
 }
 
-#[cfg(feature = "taiko")]
+#[cfg(all(feature = "taiko", not(feature = "optimism")))]
 #[cfg(test)]
 mod taiko_tests {
     use super::*;
