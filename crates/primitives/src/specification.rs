@@ -195,7 +195,7 @@ spec!(CANYON, CanyonSpec);
 spec!(ECOTONE, EcotoneSpec);
 
 // Taiko Hardforks
-#[cfg(feature = "taiko")]
+#[cfg(all(feature = "taiko", not(feature = "optimism")))]
 spec!(KATLA, KatlaSpec);
 
 #[macro_export]
