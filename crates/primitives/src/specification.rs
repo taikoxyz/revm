@@ -66,7 +66,7 @@ pub enum SpecId {
 /// Specification IDs and their activation block.
 ///
 /// Information was obtained from the [Ethereum Execution Specifications](https://github.com/ethereum/execution-specs)
-#[cfg(feature = "taiko")]
+#[cfg(all(feature = "taiko", not(feature = "optimism")))]
 #[repr(u8)]
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, enumn::N)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
