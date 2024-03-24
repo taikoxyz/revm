@@ -253,6 +253,10 @@ pub enum InvalidTransaction {
     /// case for failed deposit transactions.
     #[cfg(feature = "optimism")]
     HaltedDepositPostRegolith,
+
+    /// Anchor check failed
+    #[cfg(feature = "taiko")]
+    InvalidAnchorTransaction,
 }
 
 #[cfg(feature = "std")]
@@ -324,6 +328,10 @@ impl fmt::Display for InvalidTransaction {
                     f,
                     "Deposit transaction halted post-regolith. Error will be bubbled up to main return handler."
                 )
+            }
+            #[cfg(feature = "taiko")]
+            InvalidTransaction::InvalidAnchorTransaction => {
+                write!(f, "Invalid Anchor transaction.")
             }
         }
     }

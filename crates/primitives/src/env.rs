@@ -238,6 +238,11 @@ impl Env {
                 .ok_or(InvalidTransaction::OverflowPaymentInTransaction)?;
         }
 
+        #[cfg(feature = "taiko")]
+        if self.tx.taiko.is_anchor {
+            return Ok(());
+        }
+
         // Check if account has enough balance for gas_limit*gas_price and value transfer.
         // Transfer will be done inside `*_inner` functions.
         if balance_check > account.info.balance {
@@ -318,6 +323,9 @@ pub struct CfgEnv {
     /// compilation with the optimism feature flag.
     #[cfg(feature = "optimism")]
     pub optimism: bool,
+
+    #[cfg(feature = "taiko")]
+    pub taiko: bool,
 }
 
 impl CfgEnv {
@@ -386,9 +394,9 @@ impl CfgEnv {
         self.optimism
     }
 
-    #[cfg(not(feature = "optimism"))]
-    pub fn is_optimism(&self) -> bool {
-        false
+    #[cfg(feature = "taiko")]
+    pub fn is_taiko(&self) -> bool {
+        self.taiko
     }
 }
 
@@ -416,6 +424,8 @@ impl Default for CfgEnv {
             disable_beneficiary_reward: false,
             #[cfg(feature = "optimism")]
             optimism: false,
+            #[cfg(feature = "taiko")]
+            taiko: false,
         }
     }
 }
@@ -459,6 +469,14 @@ pub struct BlockEnv {
     ///
     /// [EIP-4844]: https://eips.ethereum.org/EIPS/eip-4844
     pub blob_excess_gas_and_price: Option<BlobExcessGasAndPrice>,
+}
+
+#[cfg(feature = "taiko")]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TaikoFields {
+    pub treasury: Address,
+    pub is_anchor: bool,
 }
 
 impl BlockEnv {
@@ -571,6 +589,10 @@ pub struct TxEnv {
     #[cfg_attr(feature = "serde", serde(flatten))]
     #[cfg(feature = "optimism")]
     pub optimism: OptimismFields,
+
+    #[cfg_attr(feature = "serde", serde(flatten))]
+    #[cfg(feature = "taiko")]
+    pub taiko: TaikoFields,
 }
 
 impl TxEnv {
@@ -586,27 +608,6 @@ impl TxEnv {
     #[inline]
     pub fn clear(&mut self) {
         *self = Self::default();
-    }
-}
-
-impl Default for TxEnv {
-    fn default() -> Self {
-        Self {
-            caller: Address::ZERO,
-            gas_limit: u64::MAX,
-            gas_price: U256::ZERO,
-            gas_priority_fee: None,
-            transact_to: TransactTo::Call(Address::ZERO), // will do nothing
-            value: U256::ZERO,
-            data: Bytes::new(),
-            chain_id: None,
-            nonce: None,
-            access_list: Vec::new(),
-            blob_hashes: Vec::new(),
-            max_fee_per_blob_gas: None,
-            #[cfg(feature = "optimism")]
-            optimism: OptimismFields::default(),
-        }
     }
 }
 
@@ -667,6 +668,29 @@ pub struct OptimismFields {
     /// for non-optimism chains when the `optimism` feature is enabled,
     /// but the [CfgEnv] `optimism` field is set to false.
     pub enveloped_tx: Option<Bytes>,
+}
+
+impl Default for TxEnv {
+    fn default() -> Self {
+        Self {
+            caller: Address::ZERO,
+            gas_limit: u64::MAX,
+            gas_price: U256::ZERO,
+            gas_priority_fee: None,
+            transact_to: TransactTo::Call(Address::ZERO), // will do nothing
+            value: U256::ZERO,
+            data: Bytes::new(),
+            chain_id: None,
+            nonce: None,
+            access_list: Vec::new(),
+            blob_hashes: Vec::new(),
+            max_fee_per_blob_gas: None,
+            #[cfg(feature = "optimism")]
+            optimism: OptimismFields::default(),
+            #[cfg(feature = "taiko")]
+            taiko: TaikoFields::default(),
+        }
+    }
 }
 
 /// Transaction destination.
@@ -781,6 +805,12 @@ mod op_tests {
             .validate_tx_against_state::<LatestSpec>(&mut Account::default())
             .is_ok());
     }
+}
+
+#[cfg(feature = "taiko")]
+#[test]
+fn taiko_test() {
+    // TODO(Cecilia): taiko tests
 }
 
 #[cfg(test)]

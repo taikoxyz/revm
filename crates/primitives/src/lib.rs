@@ -7,6 +7,9 @@
 #![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
+#[cfg(all(feature = "taiko", feature = "optimism"))]
+compile_error!("Features 'taiko' and 'optimism' cannot be enabled at the same time.");
+
 extern crate alloc;
 
 mod bytecode;

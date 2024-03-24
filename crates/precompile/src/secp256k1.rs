@@ -1,19 +1,42 @@
-use crate::{Error, Precompile, PrecompileResult, PrecompileWithAddress, StandardPrecompileFn};
+use crate::{utilities::right_pad, Error, Precompile, PrecompileResult, PrecompileWithAddress};
 use alloc::vec::Vec;
+use revm_primitives::{alloy_primitives::B512, B256};
 use core::cmp::min;
-use revm_primitives::B256;
 
 pub const ECRECOVER: PrecompileWithAddress = PrecompileWithAddress(
     crate::u64_to_address(1),
-    Precompile::Standard(ec_recover_run as StandardPrecompileFn),
+    Precompile::Standard(ec_recover_run),
 );
 
-#[cfg(not(feature = "secp256k1"))]
+#[cfg(all(target_os = "zkvm", target_vendor = "succinct"))]
+#[allow(clippy::module_inception)]
+mod secp256k1 {
+    use crate::B256;
+    use revm_primitives::keccak256;
+
+    pub fn ecrecover(sig: &[u8; 65], msg: &B256) -> Result<B256, anyhow::Error> {
+        let recovered_key = sp1_precompiles::secp256k1::ecrecover(sig, msg)?;
+
+        let mut hash = keccak256(&recovered_key[1..]);
+
+        // truncate to 20 bytes
+        hash[..12].fill(0);
+        Ok(hash)
+    } 
+}
+
+#[cfg(all(
+    not(all(target_os = "zkvm", target_vendor = "succinct")),
+    not(feature = "secp256k1")
+))]
 #[allow(clippy::module_inception)]
 mod secp256k1 {
     use crate::B256;
     use k256::ecdsa::{Error, RecoveryId, Signature, VerifyingKey};
     use revm_primitives::keccak256;
+
+    // Silence the unused crate dependency warning.
+    use anyhow as _;
 
     pub fn ecrecover(sig: &[u8; 65], msg: &B256) -> Result<B256, Error> {
         // parse signature
@@ -42,7 +65,10 @@ mod secp256k1 {
     }
 }
 
-#[cfg(feature = "secp256k1")]
+#[cfg(all(
+    not(all(target_os = "zkvm", target_vendor = "succinct")),
+    feature = "secp256k1"
+))]
 #[allow(clippy::module_inception)]
 mod secp256k1 {
     use crate::B256;
@@ -53,7 +79,9 @@ mod secp256k1 {
     };
 
     // Silence the unused crate dependency warning.
+    use anyhow as _;
     use k256 as _;
+    use sp1_precompiles as _;
 
     pub fn ecrecover(sig: &[u8; 65], msg: &B256) -> Result<B256, secp256k1::Error> {
         let sig =
@@ -69,6 +97,7 @@ mod secp256k1 {
 }
 
 fn ec_recover_run(i: &[u8], target_gas: u64) -> PrecompileResult {
+
     const ECRECOVER_BASE: u64 = 3_000;
 
     if ECRECOVER_BASE > target_gas {
