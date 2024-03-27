@@ -18,6 +18,7 @@ pub mod identity;
 pub mod kzg_point_evaluation;
 pub mod modexp;
 pub mod secp256k1;
+pub mod xcalloptions;
 pub mod utilities;
 
 use core::hash::Hash;
@@ -127,6 +128,7 @@ impl Precompiles {
             precompiles.extend([
                 // EIP-2565: ModExp Gas Cost.
                 modexp::BERLIN,
+                xcalloptions::XCALLOPTIONS,
             ]);
             Box::new(precompiles)
         })

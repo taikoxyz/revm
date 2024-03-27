@@ -3,13 +3,14 @@ use ethers_core::abi::parse_abi;
 use ethers_providers::{Http, Provider};
 use revm::{
     db::{CacheDB, EmptyDB, EthersDB},
-    primitives::{address, ExecutionResult, Output, TransactTo, U256},
+    primitives::{address, ExecutionResult, Output, TransactTo, U256, ChainAddress},
     Database, Evm,
 };
 use std::sync::Arc;
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
+    let chain_id = 1;
     // create ethers client and wrap it in Arc<M>
     let client = Provider::<Http>::try_from(
         "https://mainnet.infura.io/v3/c60b0bb42f8a4c6481ecd229eddaca27",
@@ -32,7 +33,7 @@ async fn main() -> anyhow::Result<()> {
     let slot = U256::from(8);
 
     // ETH/USDT pair on Uniswap V2
-    let pool_address = address!("0d4a11d5EEaaC28EC3F61d100daF4d40471f1852");
+    let pool_address = ChainAddress(chain_id, address!("0d4a11d5EEaaC28EC3F61d100daF4d40471f1852"));
 
     // generate abi for the calldata from the human readable interface
     let abi = BaseContract::from(
@@ -70,7 +71,7 @@ async fn main() -> anyhow::Result<()> {
         .modify_tx_env(|tx| {
             // fill in missing bits of env struct
             // change that to whatever caller you want to be
-            tx.caller = address!("0000000000000000000000000000000000000000");
+            tx.caller = ChainAddress(chain_id, address!("0000000000000000000000000000000000000000"));
             // account you want to transact with
             tx.transact_to = TransactTo::Call(pool_address);
             // calldata formed via abigen

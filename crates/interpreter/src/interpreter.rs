@@ -49,6 +49,12 @@ pub struct Interpreter {
     /// Set inside CALL or CREATE instructions and RETURN or REVERT instructions. Additionally those instructions will set
     /// InstructionResult to CallOrCreate/Return/Revert so we know the reason.
     pub next_action: InterpreterAction,
+    /// Booster: chain storage to use
+    pub chain_id: u64,
+    /// Booster: call options set using XCALLOPTIONS
+    pub call_options: Option<CallOptions>,
+    /// Booster: when running sandboxed, always revert the state changes done inside the call
+    pub is_sandboxed: bool,
 }
 
 /// The result of an interpreter operation.
@@ -115,7 +121,7 @@ impl InterpreterAction {
 
 impl Interpreter {
     /// Create new interpreter
-    pub fn new(contract: Contract, gas_limit: u64, is_static: bool) -> Self {
+    pub fn new(contract: Contract, gas_limit: u64, is_static: bool, chain_id: u64, sandboxed: bool) -> Self {
         Self {
             instruction_pointer: contract.bytecode.as_ptr(),
             contract,
@@ -126,6 +132,9 @@ impl Interpreter {
             shared_memory: EMPTY_SHARED_MEMORY,
             stack: Stack::new(),
             next_action: InterpreterAction::None,
+            chain_id,
+            call_options: None,
+            is_sandboxed: sandboxed,
         }
     }
 

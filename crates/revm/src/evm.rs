@@ -7,7 +7,7 @@ use crate::{
         SelfDestructResult, SharedMemory,
     },
     primitives::{
-        specification::SpecId, Address, BlockEnv, Bytecode, CfgEnv, EVMError, EVMResult, Env,
+        specification::SpecId, ChainAddress, BlockEnv, Bytecode, CfgEnv, EVMError, EVMResult, Env,
         EnvWithHandlerCfg, ExecutionResult, HandlerCfg, Log, ResultAndState, TransactTo, TxEnv,
         B256, U256,
     },
@@ -338,7 +338,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
         // load precompiles
         let precompiles = pre_exec.load_precompiles();
-        ctx.evm.set_precompiles(precompiles);
+        ctx.evm.set_precompiles(ctx.evm.env.cfg.chain_id, precompiles);
 
         // deduce caller balance with its limit.
         pre_exec.deduct_caller(ctx)?;
@@ -389,15 +389,15 @@ impl<EXT, DB: Database> Host for Evm<'_, EXT, DB> {
         &self.context.evm.env
     }
 
-    fn block_hash(&mut self, number: U256) -> Option<B256> {
+    fn block_hash(&mut self, chain_id: u64, number: U256) -> Option<B256> {
         self.context
             .evm
-            .block_hash(number)
+            .block_hash(chain_id, number)
             .map_err(|e| self.context.evm.error = Err(e))
             .ok()
     }
 
-    fn load_account(&mut self, address: Address) -> Option<(bool, bool)> {
+    fn load_account(&mut self, address: ChainAddress) -> Option<(bool, bool)> {
         self.context
             .evm
             .load_account_exist(address)
@@ -405,7 +405,7 @@ impl<EXT, DB: Database> Host for Evm<'_, EXT, DB> {
             .ok()
     }
 
-    fn balance(&mut self, address: Address) -> Option<(U256, bool)> {
+    fn balance(&mut self, address: ChainAddress) -> Option<(U256, bool)> {
         self.context
             .evm
             .balance(address)
@@ -413,7 +413,7 @@ impl<EXT, DB: Database> Host for Evm<'_, EXT, DB> {
             .ok()
     }
 
-    fn code(&mut self, address: Address) -> Option<(Bytecode, bool)> {
+    fn code(&mut self, address: ChainAddress) -> Option<(Bytecode, bool)> {
         self.context
             .evm
             .code(address)
@@ -421,7 +421,7 @@ impl<EXT, DB: Database> Host for Evm<'_, EXT, DB> {
             .ok()
     }
 
-    fn code_hash(&mut self, address: Address) -> Option<(B256, bool)> {
+    fn code_hash(&mut self, address: ChainAddress) -> Option<(B256, bool)> {
         self.context
             .evm
             .code_hash(address)
@@ -429,7 +429,7 @@ impl<EXT, DB: Database> Host for Evm<'_, EXT, DB> {
             .ok()
     }
 
-    fn sload(&mut self, address: Address, index: U256) -> Option<(U256, bool)> {
+    fn sload(&mut self, address: ChainAddress, index: U256) -> Option<(U256, bool)> {
         self.context
             .evm
             .sload(address, index)
@@ -437,7 +437,7 @@ impl<EXT, DB: Database> Host for Evm<'_, EXT, DB> {
             .ok()
     }
 
-    fn sstore(&mut self, address: Address, index: U256, value: U256) -> Option<SStoreResult> {
+    fn sstore(&mut self, address: ChainAddress, index: U256, value: U256) -> Option<SStoreResult> {
         self.context
             .evm
             .sstore(address, index, value)
@@ -445,11 +445,11 @@ impl<EXT, DB: Database> Host for Evm<'_, EXT, DB> {
             .ok()
     }
 
-    fn tload(&mut self, address: Address, index: U256) -> U256 {
+    fn tload(&mut self, address: ChainAddress, index: U256) -> U256 {
         self.context.evm.tload(address, index)
     }
 
-    fn tstore(&mut self, address: Address, index: U256, value: U256) {
+    fn tstore(&mut self, address: ChainAddress, index: U256, value: U256) {
         self.context.evm.tstore(address, index, value)
     }
 
@@ -457,7 +457,7 @@ impl<EXT, DB: Database> Host for Evm<'_, EXT, DB> {
         self.context.evm.journaled_state.log(log);
     }
 
-    fn selfdestruct(&mut self, address: Address, target: Address) -> Option<SelfDestructResult> {
+    fn selfdestruct(&mut self, address: ChainAddress, target: ChainAddress) -> Option<SelfDestructResult> {
         self.context
             .evm
             .inner

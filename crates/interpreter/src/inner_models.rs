@@ -1,3 +1,5 @@
+use revm_primitives::ChainAddress;
+
 pub use crate::primitives::CreateScheme;
 use crate::primitives::{Address, Bytes, TransactTo, TxEnv, U256};
 use core::ops::Range;
@@ -7,8 +9,10 @@ use std::boxed::Box;
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CallInputs {
+    /// Booster: The target chain of the call
+    pub chain_id: u64,
     /// The target of the call.
-    pub contract: Address,
+    pub contract: ChainAddress,
     /// The transfer, if any, in this call.
     pub transfer: Transfer,
     /// The call data of the call.
@@ -21,6 +25,8 @@ pub struct CallInputs {
     pub is_static: bool,
     /// The return memory offset where the output of the call is written.
     pub return_memory_offset: Range<usize>,
+    /// Booster: Whether this is a sandboxed call.
+    pub is_sandboxed: bool,
 }
 
 /// Inputs for a create call.
@@ -28,7 +34,7 @@ pub struct CallInputs {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CreateInputs {
     /// Caller address of the EVM.
-    pub caller: Address,
+    pub caller: ChainAddress,
     /// The create scheme.
     pub scheme: CreateScheme,
     /// The value to transfer.
@@ -97,11 +103,32 @@ impl CreateInputs {
     /// Returns the address that this create call will create.
     pub fn created_address(&self, nonce: u64) -> Address {
         match self.scheme {
-            CreateScheme::Create => self.caller.create(nonce),
+            CreateScheme::Create => self.create(nonce),
             CreateScheme::Create2 { salt } => self
-                .caller
+                .caller.1
                 .create2_from_code(salt.to_be_bytes(), &self.init_code),
         }
+    }
+
+    /// Returns the address that this create call will create, without calculating the init code hash.
+    ///
+    /// Note: `hash` must be `keccak256(&self.init_code)`.
+    pub fn created_address_with_hash(&self, nonce: u64, hash: &B256) -> Address {
+        match self.scheme {
+            CreateScheme::Create => self.create(nonce),
+            CreateScheme::Create2 { salt } => self.caller.1.create2(salt.to_be_bytes(), hash),
+        }
+    }
+
+    /// Modified CREATE address on booster chains
+    fn create(&self, nonce: u64) -> Address {
+        // If we're not on L1, change the CREATE address to contain the chain_id
+        let chain_id = if self.caller.0 != 1 {
+            Some(self.caller.0)
+        } else {
+            None
+        };
+        self.caller.1.create(nonce, chain_id)
     }
 }
 
@@ -124,11 +151,11 @@ pub enum CallScheme {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CallContext {
     /// Execution address.
-    pub address: Address,
+    pub address: ChainAddress,
     /// Caller address of the EVM.
-    pub caller: Address,
+    pub caller: ChainAddress,
     /// The address the contract code was loaded from, if any.
-    pub code_address: Address,
+    pub code_address: ChainAddress,
     /// Apparent value of the EVM.
     pub apparent_value: U256,
     /// The scheme used for the call.
@@ -138,9 +165,9 @@ pub struct CallContext {
 impl Default for CallContext {
     fn default() -> Self {
         CallContext {
-            address: Address::default(),
-            caller: Address::default(),
-            code_address: Address::default(),
+            address: ChainAddress::default(),
+            caller: ChainAddress::default(),
+            code_address: ChainAddress::default(),
             apparent_value: U256::default(),
             scheme: CallScheme::Call,
         }
@@ -152,9 +179,9 @@ impl Default for CallContext {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Transfer {
     /// The source address.
-    pub source: Address,
+    pub source: ChainAddress,
     /// The target address.
-    pub target: Address,
+    pub target: ChainAddress,
     /// The transfer value.
     pub value: U256,
 }

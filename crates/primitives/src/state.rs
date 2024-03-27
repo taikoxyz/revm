@@ -2,14 +2,26 @@ use crate::{Address, Bytecode, HashMap, B256, KECCAK_EMPTY, U256};
 use bitflags::bitflags;
 use core::hash::{Hash, Hasher};
 
+/// Chain specific address
+///
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ChainAddress(pub u64, pub Address);
+
 /// EVM State is a mapping from addresses to accounts.
-pub type State = HashMap<Address, Account>;
+pub type State = HashMap<ChainAddress, Account>;
 
 /// Structure used for EIP-1153 transient storage.
-pub type TransientStorage = HashMap<(Address, U256), U256>;
+pub type TransientStorage = HashMap<(ChainAddress, U256), U256>;
 
 /// An account's Storage is a mapping from 256-bit integer keys to [StorageSlot]s.
 pub type Storage = HashMap<U256, StorageSlot>;
+
+impl Default for ChainAddress {
+    fn default() -> Self {
+        ChainAddress(0, Address::default())
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

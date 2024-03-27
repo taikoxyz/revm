@@ -115,8 +115,8 @@ impl<DB: Database> InnerEvmContext<DB> {
 
     /// Fetch block hash from database.
     #[inline]
-    pub fn block_hash(&mut self, number: U256) -> Result<B256, EVMError<DB::Error>> {
-        self.db.block_hash(number).map_err(EVMError::Database)
+    pub fn block_hash(&mut self, chain_id: u64, number: U256) -> Result<B256, EVMError<DB::Error>> {
+        self.db.block_hash(chain_id, number).map_err(EVMError::Database)
     }
 
     /// Mark account as touched as only touched accounts will be added to state.

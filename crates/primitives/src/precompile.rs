@@ -1,4 +1,4 @@
-use crate::{Bytes, Env};
+use crate::{Bytes, Env, CallOptions};
 use core::fmt;
 use dyn_clone::DynClone;
 use std::{boxed::Box, string::String, sync::Arc};
@@ -10,6 +10,8 @@ pub type PrecompileResult = Result<(u64, Bytes), PrecompileError>;
 
 pub type StandardPrecompileFn = fn(&Bytes, u64) -> PrecompileResult;
 pub type EnvPrecompileFn = fn(&Bytes, u64, env: &Env) -> PrecompileResult;
+/// TODO: the input is a CallOptions struct to avoid having to put the interpreter in the primitives crate
+pub type CtxPrecompileFn = fn(&[u8], u64, env: &Env, interpreter: &mut Option<CallOptions>) -> PrecompileResult;
 
 /// Stateful precompile trait. It is used to create
 /// a arc precompile Precompile::Stateful.
@@ -125,6 +127,11 @@ pub enum PrecompileError {
     BlobMismatchedVersion,
     /// The proof verification failed.
     BlobVerifyKzgProofFailed,
+    /// XCALLOPTIONS errors
+    /// The input length is not the expected length
+    XCallOptionsInvalidInputLength,
+    /// The version given is not supported
+    XCallOptionsInvalidVersion,
     /// Catch-all variant for other errors.
     Other(String),
 }
@@ -153,6 +160,8 @@ impl fmt::Display for PrecompileError {
             Self::BlobInvalidInputLength => "invalid blob input length",
             Self::BlobMismatchedVersion => "mismatched blob version",
             Self::BlobVerifyKzgProofFailed => "verifying blob kzg proof failed",
+            Self::XCallOptionsInvalidInputLength => "XCallOptionsInvalidInputLength",
+            Self::XCallOptionsInvalidVersion => "XCallOptionsInvalidVersion",
             Self::Other(s) => s,
         };
         f.write_str(s)
