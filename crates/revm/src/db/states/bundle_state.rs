@@ -6,25 +6,26 @@ use super::{
 use core::{mem, ops::RangeInclusive};
 use revm_interpreter::primitives::{
     hash_map::{self, Entry},
-    AccountInfo, Address, Bytecode, HashMap, HashSet, StorageSlot, B256, KECCAK_EMPTY, U256,
+    AccountInfo, Bytecode, HashMap, HashSet, StorageSlot, B256, KECCAK_EMPTY, U256,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
     vec::Vec,
 };
+use crate::primitives::ChainAddress;
 
 /// This builder is used to help to facilitate the initialization of `BundleState` struct
 #[derive(Debug)]
 pub struct BundleBuilder {
-    states: HashSet<Address>,
-    state_original: HashMap<Address, AccountInfo>,
-    state_present: HashMap<Address, AccountInfo>,
-    state_storage: HashMap<Address, HashMap<U256, (U256, U256)>>,
+    states: HashSet<ChainAddress>,
+    state_original: HashMap<ChainAddress, AccountInfo>,
+    state_present: HashMap<ChainAddress, AccountInfo>,
+    state_storage: HashMap<ChainAddress, HashMap<U256, (U256, U256)>>,
 
-    reverts: BTreeSet<(u64, Address)>,
+    reverts: BTreeSet<(u64, ChainAddress)>,
     revert_range: RangeInclusive<u64>,
-    revert_account: HashMap<(u64, Address), Option<Option<AccountInfo>>>,
-    revert_storage: HashMap<(u64, Address), Vec<(U256, U256)>>,
+    revert_account: HashMap<(u64, ChainAddress), Option<Option<AccountInfo>>>,
+    revert_storage: HashMap<(u64, ChainAddress), Vec<(U256, U256)>>,
 
     contracts: HashMap<B256, Bytecode>,
 }
@@ -79,27 +80,27 @@ impl BundleBuilder {
     }
 
     /// Collect address info of BundleState state
-    pub fn state_address(mut self, address: Address) -> Self {
+    pub fn state_address(mut self, address: ChainAddress) -> Self {
         self.states.insert(address);
         self
     }
 
     /// Collect account info of BundleState state
-    pub fn state_original_account_info(mut self, address: Address, original: AccountInfo) -> Self {
+    pub fn state_original_account_info(mut self, address: ChainAddress, original: AccountInfo) -> Self {
         self.states.insert(address);
         self.state_original.insert(address, original);
         self
     }
 
     /// Collect account info of BundleState state
-    pub fn state_present_account_info(mut self, address: Address, present: AccountInfo) -> Self {
+    pub fn state_present_account_info(mut self, address: ChainAddress, present: AccountInfo) -> Self {
         self.states.insert(address);
         self.state_present.insert(address, present);
         self
     }
 
     /// Collect storage info of BundleState state
-    pub fn state_storage(mut self, address: Address, storage: HashMap<U256, (U256, U256)>) -> Self {
+    pub fn state_storage(mut self, address: ChainAddress, storage: HashMap<U256, (U256, U256)>) -> Self {
         self.states.insert(address);
         self.state_storage.insert(address, storage);
         self
@@ -109,7 +110,7 @@ impl BundleBuilder {
     ///
     /// `block_number` must respect `revert_range`, or the input
     /// will be ignored during the final build process
-    pub fn revert_address(mut self, block_number: u64, address: Address) -> Self {
+    pub fn revert_address(mut self, block_number: u64, address: ChainAddress) -> Self {
         self.reverts.insert((block_number, address));
         self
     }
@@ -121,7 +122,7 @@ impl BundleBuilder {
     pub fn revert_account_info(
         mut self,
         block_number: u64,
-        address: Address,
+        address: ChainAddress,
         account: Option<Option<AccountInfo>>,
     ) -> Self {
         self.reverts.insert((block_number, address));
@@ -136,7 +137,7 @@ impl BundleBuilder {
     pub fn revert_storage(
         mut self,
         block_number: u64,
-        address: Address,
+        address: ChainAddress,
         storage: Vec<(U256, U256)>,
     ) -> Self {
         self.reverts.insert((block_number, address));
@@ -229,7 +230,7 @@ impl BundleBuilder {
     }
 
     /// Getter for `states` field
-    pub fn get_states(&self) -> &HashSet<Address> {
+    pub fn get_states(&self) -> &HashSet<ChainAddress> {
         &self.states
     }
 }
@@ -260,7 +261,7 @@ impl BundleRetention {
 #[derive(Default, Clone, Debug, PartialEq, Eq)]
 pub struct BundleState {
     /// Account state.
-    pub state: HashMap<Address, BundleAccount>,
+    pub state: HashMap<ChainAddress, BundleAccount>,
     /// All created contracts in this block.
     pub contracts: HashMap<B256, Bytecode>,
     /// Changes to revert.
@@ -284,7 +285,7 @@ impl BundleState {
     pub fn new(
         state: impl IntoIterator<
             Item = (
-                Address,
+                ChainAddress,
                 Option<AccountInfo>,
                 Option<AccountInfo>,
                 HashMap<U256, (U256, U256)>,
@@ -293,7 +294,7 @@ impl BundleState {
         reverts: impl IntoIterator<
             Item = impl IntoIterator<
                 Item = (
-                    Address,
+                    ChainAddress,
                     Option<Option<AccountInfo>>,
                     impl IntoIterator<Item = (U256, U256)>,
                 ),
@@ -366,7 +367,7 @@ impl BundleState {
     }
 
     /// Return reference to the state.
-    pub fn state(&self) -> &HashMap<Address, BundleAccount> {
+    pub fn state(&self) -> &HashMap<ChainAddress, BundleAccount> {
         &self.state
     }
 
@@ -381,7 +382,7 @@ impl BundleState {
     }
 
     /// Get account from state
-    pub fn account(&self, address: &Address) -> Option<&BundleAccount> {
+    pub fn account(&self, address: &ChainAddress) -> Option<&BundleAccount> {
         self.state.get(address)
     }
 
@@ -698,11 +699,13 @@ mod tests {
     use super::*;
     use crate::{db::StorageWithOriginalValues, TransitionAccount};
     use revm_interpreter::primitives::KECCAK_EMPTY;
+    use revm_precompile::Address;
 
     #[test]
     fn transition_states() {
         // dummy data
-        let address = Address::new([0x01; 20]);
+        let chain_id = 0;
+        let address = ChainAddress(chain_id, Address::new([0x01; 20]));
         let acc1 = AccountInfo {
             balance: U256::from(10),
             nonce: 1,
@@ -730,12 +733,12 @@ mod tests {
         );
     }
 
-    const fn account1() -> Address {
-        Address::new([0x60; 20])
+    const fn account1() -> ChainAddress {
+        ChainAddress(0, Address::new([0x60; 20]))
     }
 
-    const fn account2() -> Address {
-        Address::new([0x61; 20])
+    const fn account2() -> ChainAddress {
+        ChainAddress(0, Address::new([0x61; 20]))
     }
 
     fn slot1() -> U256 {

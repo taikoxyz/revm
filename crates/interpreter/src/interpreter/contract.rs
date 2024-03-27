@@ -1,5 +1,7 @@
+use revm_primitives::ChainAddress;
+
 use super::analysis::{to_analysed, BytecodeLocked};
-use crate::primitives::{Address, Bytecode, Bytes, Env, TransactTo, B256, U256};
+use crate::primitives::{Bytecode, Bytes, Env, TransactTo, B256, U256};
 use crate::CallContext;
 
 /// EVM contract information.
@@ -13,9 +15,9 @@ pub struct Contract {
     /// Bytecode hash.
     pub hash: B256,
     /// Contract address
-    pub address: Address,
+    pub address: ChainAddress,
     /// Caller of the EVM.
-    pub caller: Address,
+    pub caller: ChainAddress,
     /// Value send to contract.
     pub value: U256,
 }
@@ -27,8 +29,8 @@ impl Contract {
         input: Bytes,
         bytecode: Bytecode,
         hash: B256,
-        address: Address,
-        caller: Address,
+        address: ChainAddress,
+        caller: ChainAddress,
         value: U256,
     ) -> Self {
         let bytecode = to_analysed(bytecode).try_into().expect("it is analyzed");
@@ -48,7 +50,7 @@ impl Contract {
     pub fn new_env(env: &Env, bytecode: Bytecode, hash: B256) -> Self {
         let contract_address = match env.tx.transact_to {
             TransactTo::Call(caller) => caller,
-            TransactTo::Create(..) => Address::ZERO,
+            TransactTo::Create(..) => ChainAddress::default(),
         };
         Self::new(
             env.tx.data.clone(),

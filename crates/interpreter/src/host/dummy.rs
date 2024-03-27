@@ -4,6 +4,7 @@ use crate::{
     Host, SStoreResult, SelfDestructResult,
 };
 use std::vec::Vec;
+use revm_primitives::ChainAddress;
 
 /// A dummy [Host] implementation.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -44,32 +45,32 @@ impl Host for DummyHost {
     }
 
     #[inline]
-    fn load_account(&mut self, _address: Address) -> Option<(bool, bool)> {
+    fn load_account(&mut self, _address: ChainAddress) -> Option<(bool, bool)> {
         Some((true, true))
     }
 
     #[inline]
-    fn block_hash(&mut self, _number: U256) -> Option<B256> {
+    fn block_hash(&mut self, _chain_id: u64, _number: U256) -> Option<B256> {
         Some(B256::ZERO)
     }
 
     #[inline]
-    fn balance(&mut self, _address: Address) -> Option<(U256, bool)> {
+    fn balance(&mut self, _address: ChainAddress) -> Option<(U256, bool)> {
         Some((U256::ZERO, false))
     }
 
     #[inline]
-    fn code(&mut self, _address: Address) -> Option<(Bytecode, bool)> {
+    fn code(&mut self, _address: ChainAddress) -> Option<(Bytecode, bool)> {
         Some((Bytecode::default(), false))
     }
 
     #[inline]
-    fn code_hash(&mut self, __address: Address) -> Option<(B256, bool)> {
+    fn code_hash(&mut self, __address: ChainAddress) -> Option<(B256, bool)> {
         Some((KECCAK_EMPTY, false))
     }
 
     #[inline]
-    fn sload(&mut self, __address: Address, index: U256) -> Option<(U256, bool)> {
+    fn sload(&mut self, __address: ChainAddress, index: U256) -> Option<(U256, bool)> {
         match self.storage.entry(index) {
             Entry::Occupied(entry) => Some((*entry.get(), false)),
             Entry::Vacant(entry) => {
@@ -80,7 +81,12 @@ impl Host for DummyHost {
     }
 
     #[inline]
-    fn sstore(&mut self, _address: Address, index: U256, value: U256) -> Option<SStoreResult> {
+    fn sstore(
+        &mut self,
+        _address: ChainAddress,
+        index: U256,
+        value: U256,
+    ) -> Option<(U256, U256, U256, bool)> {
         let (present, is_cold) = match self.storage.entry(index) {
             Entry::Occupied(mut entry) => (entry.insert(value), false),
             Entry::Vacant(entry) => {
@@ -98,7 +104,7 @@ impl Host for DummyHost {
     }
 
     #[inline]
-    fn tload(&mut self, _address: Address, index: U256) -> U256 {
+    fn tload(&mut self, _address: ChainAddress, index: U256) -> U256 {
         self.transient_storage
             .get(&index)
             .copied()
@@ -106,7 +112,7 @@ impl Host for DummyHost {
     }
 
     #[inline]
-    fn tstore(&mut self, _address: Address, index: U256, value: U256) {
+    fn tstore(&mut self, _address: ChainAddress, index: U256, value: U256) {
         self.transient_storage.insert(index, value);
     }
 
@@ -116,7 +122,7 @@ impl Host for DummyHost {
     }
 
     #[inline]
-    fn selfdestruct(&mut self, _address: Address, _target: Address) -> Option<SelfDestructResult> {
+    fn selfdestruct(&mut self, _address: ChainAddress, _target: ChainAddress) -> Option<SelfDestructResult> {
         panic!("Selfdestruct is not supported for this host")
     }
 }

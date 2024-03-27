@@ -7,6 +7,7 @@ use core::mem;
 use revm_interpreter::primitives::SpecId;
 use revm_interpreter::SStoreResult;
 use std::vec::Vec;
+use crate::primitives::ChainAddress;
 
 /// JournalState is internal EVM state that is used to contain state and track changes to that state.
 /// It contains journal of changes that happened to state so that they can be reverted.
@@ -33,7 +34,7 @@ pub struct JournaledState {
     ///
     /// Note that this not include newly loaded accounts, account and storage
     /// is considered warm if it is found in the `State`.
-    pub warm_preloaded_addresses: HashSet<Address>,
+    pub warm_preloaded_addresses: HashSet<ChainAddress>,
 }
 
 impl JournaledState {
@@ -48,7 +49,7 @@ impl JournaledState {
     /// # Note
     ///
     ///
-    pub fn new(spec: SpecId, warm_preloaded_addresses: HashSet<Address>) -> JournaledState {
+    pub fn new(spec: SpecId, warm_preloaded_addresses: HashSet<ChainAddress>) -> JournaledState {
         Self {
             state: HashMap::new(),
             transient_storage: TransientStorage::default(),
@@ -76,7 +77,7 @@ impl JournaledState {
     /// This is especially important for state clear where touched empty accounts needs to
     /// be removed from state.
     #[inline]
-    pub fn touch(&mut self, address: &Address) {
+    pub fn touch(&mut self, address: &ChainAddress) {
         if let Some(account) = self.state.get_mut(address) {
             Self::touch_account(self.journal.last_mut().unwrap(), address, account);
         }
@@ -84,7 +85,7 @@ impl JournaledState {
 
     /// Mark account as touched.
     #[inline]
-    fn touch_account(journal: &mut Vec<JournalEntry>, address: &Address, account: &mut Account) {
+    fn touch_account(journal: &mut Vec<JournalEntry>, address: &ChainAddress, account: &mut Account) {
         if !account.is_touched() {
             journal.push(JournalEntry::AccountTouched { address: *address });
             account.mark_touch();
@@ -124,7 +125,7 @@ impl JournaledState {
     ///
     /// Panics if the account has not been loaded and is missing from the state set.
     #[inline]
-    pub fn account(&self, address: Address) -> &Account {
+    pub fn account(&self, address: ChainAddress) -> &Account {
         self.state
             .get(&address)
             .expect("Account expected to be loaded") // Always assume that acc is already loaded
@@ -139,7 +140,7 @@ impl JournaledState {
     /// use it only if you know that acc is warm
     /// Assume account is warm
     #[inline]
-    pub fn set_code(&mut self, address: Address, code: Bytecode) {
+    pub fn set_code(&mut self, address: ChainAddress, code: Bytecode) {
         let account = self.state.get_mut(&address).unwrap();
         Self::touch_account(self.journal.last_mut().unwrap(), &address, account);
 
@@ -153,7 +154,7 @@ impl JournaledState {
     }
 
     #[inline]
-    pub fn inc_nonce(&mut self, address: Address) -> Option<u64> {
+    pub fn inc_nonce(&mut self, address: ChainAddress) -> Option<u64> {
         let account = self.state.get_mut(&address).unwrap();
         // Check if nonce is going to overflow.
         if account.info.nonce == u64::MAX {
@@ -174,8 +175,8 @@ impl JournaledState {
     #[inline]
     pub fn transfer<DB: Database>(
         &mut self,
-        from: &Address,
-        to: &Address,
+        from: &ChainAddress,
+        to: &ChainAddress,
         balance: U256,
         db: &mut DB,
     ) -> Result<Option<InstructionResult>, EVMError<DB::Error>> {
@@ -233,8 +234,8 @@ impl JournaledState {
     #[inline]
     pub fn create_account_checkpoint(
         &mut self,
-        caller: Address,
-        address: Address,
+        caller: ChainAddress,
+        address: ChainAddress,
         balance: U256,
         spec_id: SpecId,
     ) -> Result<JournalCheckpoint, InstructionResult> {
@@ -319,7 +320,7 @@ impl JournaledState {
                     state.remove(&address);
                 }
                 JournalEntry::AccountTouched { address } => {
-                    if is_spurious_dragon_enabled && address == PRECOMPILE3 {
+                    if is_spurious_dragon_enabled && address.1 == PRECOMPILE3 {
                         continue;
                     }
                     // remove touched status
@@ -456,8 +457,8 @@ impl JournaledState {
     #[inline]
     pub fn selfdestruct<DB: Database>(
         &mut self,
-        address: Address,
-        target: Address,
+        address: ChainAddress,
+        target: ChainAddress,
         db: &mut DB,
     ) -> Result<SelfDestructResult, EVMError<DB::Error>> {
         let (is_cold, target_exists) = self.load_account_exist(target, db)?;
@@ -518,7 +519,7 @@ impl JournaledState {
     #[inline]
     pub fn initial_account_load<DB: Database>(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         slots: &[U256],
         db: &mut DB,
     ) -> Result<&mut Account, EVMError<DB::Error>> {
@@ -546,7 +547,7 @@ impl JournaledState {
     #[inline]
     pub fn load_account<DB: Database>(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         db: &mut DB,
     ) -> Result<(&mut Account, bool), EVMError<DB::Error>> {
         Ok(match self.state.entry(address) {
@@ -579,7 +580,7 @@ impl JournaledState {
     #[inline]
     pub fn load_account_exist<DB: Database>(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         db: &mut DB,
     ) -> Result<(bool, bool), EVMError<DB::Error>> {
         let spec = self.spec;
@@ -600,7 +601,7 @@ impl JournaledState {
     #[inline]
     pub fn load_code<DB: Database>(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         db: &mut DB,
     ) -> Result<(&mut Account, bool), EVMError<DB::Error>> {
         let (acc, is_cold) = self.load_account(address, db)?;
@@ -610,7 +611,7 @@ impl JournaledState {
                 acc.info.code = Some(empty);
             } else {
                 let code = db
-                    .code_by_hash(acc.info.code_hash)
+                    .code_by_hash(address.0, acc.info.code_hash)
                     .map_err(EVMError::Database)?;
                 acc.info.code = Some(code);
             }
@@ -626,7 +627,7 @@ impl JournaledState {
     #[inline]
     pub fn sload<DB: Database>(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         key: U256,
         db: &mut DB,
     ) -> Result<(U256, bool), EVMError<DB::Error>> {
@@ -670,7 +671,7 @@ impl JournaledState {
     #[inline]
     pub fn sstore<DB: Database>(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         key: U256,
         new: U256,
         db: &mut DB,
@@ -714,7 +715,7 @@ impl JournaledState {
     ///
     /// EIP-1153: Transient storage opcodes
     #[inline]
-    pub fn tload(&mut self, address: Address, key: U256) -> U256 {
+    pub fn tload(&mut self, address: ChainAddress, key: U256) -> U256 {
         self.transient_storage
             .get(&(address, key))
             .copied()
@@ -728,7 +729,7 @@ impl JournaledState {
     ///
     /// EIP-1153: Transient storage opcodes
     #[inline]
-    pub fn tstore(&mut self, address: Address, key: U256, new: U256) {
+    pub fn tstore(&mut self, address: ChainAddress, key: U256, new: U256) {
         let had_value = if new == U256::ZERO {
             // if new values is zero, remove entry from transient storage.
             // if previous values was some insert it inside journal.
@@ -777,13 +778,13 @@ pub enum JournalEntry {
     /// Used to mark account that is warm inside EVM in regards to EIP-2929 AccessList.
     /// Action: We will add Account to state.
     /// Revert: we will remove account from state.
-    AccountLoaded { address: Address },
+    AccountLoaded { address: ChainAddress },
     /// Mark account to be destroyed and journal balance to be reverted
     /// Action: Mark account and transfer the balance
     /// Revert: Unmark the account and transfer balance back
     AccountDestroyed {
-        address: Address,
-        target: Address,
+        address: ChainAddress,
+        target: ChainAddress,
         was_destroyed: bool, // if account had already been destroyed before this journal entry
         had_balance: U256,
     },
@@ -791,31 +792,31 @@ pub enum JournalEntry {
     /// Only when account is called (to execute contract or transfer balance) only then account is made touched.
     /// Action: Mark account touched
     /// Revert: Unmark account touched
-    AccountTouched { address: Address },
+    AccountTouched { address: ChainAddress },
     /// Transfer balance between two accounts
     /// Action: Transfer balance
     /// Revert: Transfer balance back
     BalanceTransfer {
-        from: Address,
-        to: Address,
+        from: ChainAddress,
+        to: ChainAddress,
         balance: U256,
     },
     /// Increment nonce
     /// Action: Increment nonce by one
     /// Revert: Decrement nonce by one
     NonceChange {
-        address: Address, //geth has nonce value,
+        address: ChainAddress, //geth has nonce value,
     },
     /// Create account:
     /// Actions: Mark account as created
     /// Revert: Unmart account as created and reset nonce to zero.
-    AccountCreated { address: Address },
+    AccountCreated { address: ChainAddress },
     /// It is used to track both storage change and warm load of storage slot. For warm load in regard
     /// to EIP-2929 AccessList had_value will be None
     /// Action: Storage change or warm load
     /// Revert: Revert to previous value or remove slot from storage
     StorageChange {
-        address: Address,
+        address: ChainAddress,
         key: U256,
         had_value: Option<U256>, //if none, storage slot was cold loaded from db and needs to be removed
     },
@@ -823,14 +824,14 @@ pub enum JournalEntry {
     /// Action: Transient storage changed.
     /// Revert: Revert to previous value.
     TransientStorageChange {
-        address: Address,
+        address: ChainAddress,
         key: U256,
         had_value: U256,
     },
     /// Code changed
     /// Action: Account code changed
     /// Revert: Revert to previous bytecode.
-    CodeChange { address: Address },
+    CodeChange { address: ChainAddress },
 }
 
 /// SubRoutine checkpoint that will help us to go back from this

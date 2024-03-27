@@ -10,11 +10,11 @@ use crate::{
     SStoreResult, Transfer, MAX_INITCODE_SIZE,
 };
 use core::cmp::min;
-use revm_primitives::BLOCK_HASH_HISTORY;
+use revm_primitives::{BLOCK_HASH_HISTORY, ChainAddress};
 use std::{boxed::Box, vec::Vec};
 
 pub fn balance<H: Host, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    pop_address!(interpreter, address);
+    pop_chain_address!(interpreter, address);
     let Some((balance, is_cold)) = host.balance(address) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
@@ -45,7 +45,7 @@ pub fn selfbalance<H: Host, SPEC: Spec>(interpreter: &mut Interpreter, host: &mu
 }
 
 pub fn extcodesize<H: Host, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    pop_address!(interpreter, address);
+    pop_chain_address!(interpreter, address);
     let Some((code, is_cold)) = host.code(address) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
@@ -71,7 +71,7 @@ pub fn extcodesize<H: Host, SPEC: Spec>(interpreter: &mut Interpreter, host: &mu
 /// EIP-1052: EXTCODEHASH opcode
 pub fn extcodehash<H: Host, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     check!(interpreter, CONSTANTINOPLE);
-    pop_address!(interpreter, address);
+    pop_chain_address!(interpreter, address);
     let Some((code_hash, is_cold)) = host.code_hash(address) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
@@ -94,7 +94,7 @@ pub fn extcodehash<H: Host, SPEC: Spec>(interpreter: &mut Interpreter, host: &mu
 }
 
 pub fn extcodecopy<H: Host, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    pop_address!(interpreter, address);
+    pop_chain_address!(interpreter, address);
     pop!(interpreter, memory_offset, code_offset, len_u256);
 
     let Some((code, is_cold)) = host.code(address) else {
@@ -128,7 +128,7 @@ pub fn blockhash<H: Host>(interpreter: &mut Interpreter, host: &mut H) {
         let diff = as_usize_saturated!(diff);
         // blockhash should push zero if number is same as current block number.
         if diff <= BLOCK_HASH_HISTORY && diff != 0 {
-            let Some(hash) = host.block_hash(*number) else {
+            let Some(hash) = host.block_hash(interpreter.chain_id, *number) else {
                 interpreter.instruction_result = InstructionResult::FatalExternalError;
                 return;
             };
@@ -229,7 +229,7 @@ pub fn log<const N: usize, H: Host>(interpreter: &mut Interpreter, host: &mut H)
 
 pub fn selfdestruct<H: Host, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     check_staticcall!(interpreter);
-    pop_address!(interpreter, target);
+    pop_chain_address!(interpreter, target);
 
     let Some(res) = host.selfdestruct(interpreter.contract.address, target) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
@@ -377,6 +377,36 @@ pub fn call<H: Host, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
 pub fn call_code<H: Host, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
+
+    let call_options = interpreter.call_options.clone().unwrap_or_else(||
+        CallOptions{
+            chain_id: interpreter.chain_id,
+            sandbox: false,
+            tx_origin: host.env().tx.caller,
+            msg_sender: interpreter.contract.address,
+            block_hash: None,
+            proof: Vec::new(),
+        }
+    );
+    // Consume the values
+    interpreter.call_options = None;
+
+    let to = ChainAddress(call_options.chain_id, to);
+    // Default to the code stored on L2
+    let mut code_address = ChainAddress(host.env().cfg.chain_id, to.1);
+
+    // load account and calculate gas cost.
+    let Some((is_cold, exist)) = host.load_account(to) else {
+        interpreter.instruction_result = InstructionResult::FatalExternalError;
+        return;
+    };
+    let is_new = !exist;
+
+    let l2_code_hash = host.code_hash(code_address);
+    if l2_code_hash.unwrap_or_else(|| (KECCAK_EMPTY, true)).0 == KECCAK_EMPTY {
+        code_address = ChainAddress(host.env().cfg.chain_id, to.1);
+    }
+
     // max gas limit is not possible in real ethereum situation.
     let local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 
@@ -516,6 +546,8 @@ pub fn static_call<H: Host, SPEC: Spec>(interpreter: &mut Interpreter, host: &mu
             },
             is_static: true,
             return_memory_offset,
+            chain_id: call_options.chain_id,
+            is_sandboxed: call_options.sandbox,
         }),
     };
     interpreter.instruction_result = InstructionResult::CallOrCreate;

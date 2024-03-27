@@ -5,7 +5,7 @@ pub use handler_cfg::{CfgEnvWithHandlerCfg, EnvWithHandlerCfg, HandlerCfg};
 use crate::{
     calc_blob_gasprice, Account, Address, Bytes, InvalidHeader, InvalidTransaction, Spec, SpecId,
     B256, GAS_PER_BLOB, KECCAK_EMPTY, MAX_BLOB_NUMBER_PER_BLOCK, MAX_INITCODE_SIZE, U256,
-    VERSIONED_HASH_VERSION_KZG,
+    VERSIONED_HASH_VERSION_KZG, ChainAddress,
 };
 use core::cmp::{min, Ordering};
 use std::boxed::Box;
@@ -299,6 +299,8 @@ pub struct CfgEnv {
     /// By default, it is set to `false`.
     #[cfg(feature = "optional_beneficiary_reward")]
     pub disable_beneficiary_reward: bool,
+    /// Chain ID of the parent chain, `0` for no parent chain
+    pub parent_chain_id: u64,
 }
 
 impl CfgEnv {
@@ -398,7 +400,7 @@ pub struct BlockEnv {
     /// Coinbase or miner or address that created and signed the block.
     ///
     /// This is the receiver address of all the gas spent in the block.
-    pub coinbase: Address,
+    pub coinbase: ChainAddress,
 
     /// The timestamp of the block in seconds since the UNIX epoch.
     pub timestamp: U256,
@@ -471,7 +473,7 @@ impl Default for BlockEnv {
     fn default() -> Self {
         Self {
             number: U256::ZERO,
-            coinbase: Address::ZERO,
+            coinbase: ChainAddress::default(),
             timestamp: U256::from(1),
             gas_limit: U256::MAX,
             basefee: U256::ZERO,
@@ -487,7 +489,7 @@ impl Default for BlockEnv {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TxEnv {
     /// Caller aka Author aka transaction signer.
-    pub caller: Address,
+    pub caller: ChainAddress,
     /// The gas limit of the transaction.
     pub gas_limit: u64,
     /// The gas price of the transaction.
@@ -563,11 +565,11 @@ impl TxEnv {
 impl Default for TxEnv {
     fn default() -> Self {
         Self {
-            caller: Address::ZERO,
+            caller: ChainAddress::default(),
             gas_limit: u64::MAX,
             gas_price: U256::ZERO,
             gas_priority_fee: None,
-            transact_to: TransactTo::Call(Address::ZERO), // will do nothing
+            transact_to: TransactTo::Call(ChainAddress::default()), // will do nothing
             value: U256::ZERO,
             data: Bytes::new(),
             chain_id: None,
@@ -645,7 +647,7 @@ pub struct OptimismFields {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum TransactTo {
     /// Simple call to an address.
-    Call(Address),
+    Call(ChainAddress),
     /// Contract creation.
     Create(CreateScheme),
 }
@@ -653,7 +655,7 @@ pub enum TransactTo {
 impl TransactTo {
     /// Calls the given address.
     #[inline]
-    pub fn call(address: Address) -> Self {
+    pub fn call(address: ChainAddress) -> Self {
         Self::Call(address)
     }
 
@@ -706,6 +708,22 @@ pub enum AnalysisKind {
     /// Perform bytecode analysis.
     #[default]
     Analyse,
+}
+
+#[derive(Clone, Debug)]
+pub struct CallOptions {
+    /// The target chain id
+    pub chain_id: u64,
+    /// If the call needs to persist state changes or not
+    pub sandbox: bool,
+    /// Mocked `tx.origin`
+    pub tx_origin: ChainAddress,
+    /// Mocked `msg.sender`
+    pub msg_sender: ChainAddress,
+    /// The block hash to execute against (None will execute against the latest known blockhash)
+    pub block_hash: Option<B256>,
+    /// The data necessary to execute the call
+    pub proof: Vec<u8>,
 }
 
 #[cfg(test)]

@@ -4,7 +4,7 @@ use ethers_core::types::{Block, BlockId, TxHash, H160 as eH160, H256, U64 as eU6
 use ethers_providers::Middleware;
 use tokio::runtime::{Builder, Handle, RuntimeFlavor};
 
-use crate::primitives::{AccountInfo, Address, Bytecode, B256, KECCAK_EMPTY, U256};
+use crate::primitives::{AccountInfo, Address, Bytecode, ChainAddress, B256, KECCAK_EMPTY, U256};
 use crate::{Database, DatabaseRef};
 
 #[derive(Debug, Clone)]
@@ -69,11 +69,12 @@ impl<M: Middleware> EthersDB<M> {
     }
 }
 
+// TODO: respect chain id and pick the right client
 impl<M: Middleware> DatabaseRef for EthersDB<M> {
     type Error = M::Error;
 
-    fn basic_ref(&self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
-        let add = eH160::from(address.0 .0);
+    fn basic_ref(&self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
+        let add = eH160::from(address.1.0 .0);
 
         let f = async {
             let nonce = self.client.get_transaction_count(add, self.block_number);
@@ -90,20 +91,20 @@ impl<M: Middleware> DatabaseRef for EthersDB<M> {
         Ok(Some(AccountInfo::new(balance, nonce, code_hash, bytecode)))
     }
 
-    fn code_by_hash_ref(&self, _code_hash: B256) -> Result<Bytecode, Self::Error> {
+    fn code_by_hash_ref(&self, _chain_id: u64, _code_hash: B256) -> Result<Bytecode, Self::Error> {
         panic!("Should not be called. Code is already loaded");
         // not needed because we already load code with basic info
     }
 
-    fn storage_ref(&self, address: Address, index: U256) -> Result<U256, Self::Error> {
-        let add = eH160::from(address.0 .0);
+    fn storage_ref(&self, address: ChainAddress, index: U256) -> Result<U256, Self::Error> {
+        let add = eH160::from(address.1.0 .0);
         let index = H256::from(index.to_be_bytes());
         let slot_value: H256 =
             Self::block_on(self.client.get_storage_at(add, index, self.block_number))?;
         Ok(U256::from_be_bytes(slot_value.to_fixed_bytes()))
     }
 
-    fn block_hash_ref(&self, number: U256) -> Result<B256, Self::Error> {
+    fn block_hash_ref(&self, _chain_id: u64, number: U256) -> Result<B256, Self::Error> {
         // saturate usize
         if number > U256::from(u64::MAX) {
             return Ok(KECCAK_EMPTY);
@@ -121,23 +122,23 @@ impl<M: Middleware> Database for EthersDB<M> {
     type Error = M::Error;
 
     #[inline]
-    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
+    fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
         <Self as DatabaseRef>::basic_ref(self, address)
     }
 
     #[inline]
-    fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
-        <Self as DatabaseRef>::code_by_hash_ref(self, code_hash)
+    fn code_by_hash(&mut self, chain_id: u64, code_hash: B256) -> Result<Bytecode, Self::Error> {
+        <Self as DatabaseRef>::code_by_hash_ref(self, chain_id, code_hash)
     }
 
     #[inline]
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: ChainAddress, index: U256) -> Result<U256, Self::Error> {
         <Self as DatabaseRef>::storage_ref(self, address, index)
     }
 
     #[inline]
-    fn block_hash(&mut self, number: U256) -> Result<B256, Self::Error> {
-        <Self as DatabaseRef>::block_hash_ref(self, number)
+    fn block_hash(&mut self, chain_id: u64, number: U256) -> Result<B256, Self::Error> {
+        <Self as DatabaseRef>::block_hash_ref(self, chain_id, number)
     }
 }
 
@@ -154,6 +155,7 @@ mod tests {
         )
         .unwrap();
         let client = Arc::new(client);
+        let chain_id = 0;
 
         let ethersdb = EthersDB::new(
             Arc::clone(&client), // public infura mainnet
@@ -165,7 +167,7 @@ mod tests {
         let address = "0x0d4a11d5EEaaC28EC3F61d100daF4d40471f1852"
             .parse::<eH160>()
             .unwrap();
-        let address = address.as_fixed_bytes().into();
+        let address = ChainAddress(chain_id, address.as_fixed_bytes().into());
 
         let acc_info = ethersdb.basic_ref(address).unwrap().unwrap();
 
