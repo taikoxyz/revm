@@ -8,6 +8,7 @@ use crate::{
 };
 use core::marker::PhantomData;
 use std::boxed::Box;
+use revm_precompile::zk_op::ZkOperation;
 
 /// Evm Builder allows building or modifying EVM.
 /// Note that some of the methods that changes underlying structures
@@ -433,6 +434,13 @@ impl<'a, BuilderStage, EXT, DB: Database> EvmBuilder<'a, BuilderStage, EXT, DB> 
     pub fn reset_handler(mut self) -> Self {
         self.handler = Self::handler(self.handler.cfg());
         self
+    }
+
+    /// Modifiy precompile to the zk operations.
+    pub fn set_zkvm_operations(zk_op: Vec<ZkOperation>) {
+        revm_precompile::zk_op::ZKVM_OPERATIONS
+            .set(Box::new(zk_op))
+            .expect("Failed to set zk operations");
     }
 }
 
