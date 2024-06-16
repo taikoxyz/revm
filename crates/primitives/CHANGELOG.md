@@ -87,7 +87,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - use maximum possible data fee for 4844 balance checks ([#981](https://github.com/bluealloy/revm/pull/981))
-- ~~make revm-primitives no-std with c-kzg feature ([#933](https://github.com/bluealloy/revm/pull/933))~~
+- make revm-primitives no-std with c-kzg feature ([#933](https://github.com/bluealloy/revm/pull/933))
 - *(ci)* Workflow Touchups ([#901](https://github.com/bluealloy/revm/pull/901))
 - *(op)* Base Goerli `op-reth` sync patches ([#824](https://github.com/bluealloy/revm/pull/824))
 - rename `DatabaseRef` trait functions to `*_ref` ([#795](https://github.com/bluealloy/revm/pull/795))
