@@ -60,8 +60,8 @@ impl EnvKzgSettings {
                 static DEFAULT: OnceBox<KZGSettings> = OnceBox::new();
                 DEFAULT.get_or_init(|| {
                     let settings = load_trusted_setup_helper(
-                        include_bytes!("./g1_points.bin"),
-                        include_bytes!("./g2_points.bin"),
+                        &super::trusted_setup_points::G1_POINTS.concat(),
+                        &super::trusted_setup_points::G2_POINTS.concat(),
                     )
                     .unwrap();
                     Box::new(settings)
