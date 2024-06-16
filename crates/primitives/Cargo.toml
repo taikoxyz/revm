@@ -25,8 +25,8 @@ auto_impl = "1.2"
 bitvec = { version = "1", default-features = false, features = ["alloc"] }
 bitflags = { version = "2.5.0", default-features = false }
 
-rust-kzg-zkcrypto = { path = "../../../rust-kzg/zkcrypto",default-features = false, optional = true }
-kzg = { path = "../../../rust-kzg/kzg",default-features = false, optional = true }
+rust-kzg-zkcrypto = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch",  optional = true }
+kzg = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch",  optional = true }
 
 
 once_cell = { version = "1.19", default-features = false, optional = true }

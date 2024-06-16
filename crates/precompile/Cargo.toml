@@ -25,13 +25,13 @@ aurora-engine-modexp = { version = "1.0", default-features = false }
 cfg-if = "1"
 
 # Optional KZG point evaluation precompile
-rust-kzg-zkcrypto = { path = "../../../rust-kzg/zkcrypto",default-features = false, optional = true }
-kzg = { path = "../../../rust-kzg/kzg",default-features = false, optional = true }
+rust-kzg-zkcrypto = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch",  optional = true }
+kzg = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch",default-features = false, optional = true }
 
 
 # ecRecover precompile
 k256 = { version = "0.13.3", default-features = false, features = ["ecdsa"] }
-secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch", default-features = false, features = [
+secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "sp1-patch",  features = [
     "alloc",
     "recovery",
     "rand",

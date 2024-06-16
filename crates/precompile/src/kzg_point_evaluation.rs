@@ -89,14 +89,14 @@ pub fn as_array<const N: usize>(bytes: &[u8]) -> &[u8; N] {
 
 #[inline]
 #[track_caller]
-pub fn as_bytes32(bytes: &[u8]) -> &Bytes32 {
+pub fn as_bytes32(bytes: &[u8]) -> *const Bytes32 {
     // SAFETY: `#[repr(C)] Bytes32([u8; 32])`
     unsafe { &*as_array::<32>(bytes).as_ptr().cast() }
 }
 
 #[inline]
 #[track_caller]
-pub fn as_bytes48(bytes: &[u8]) -> &Bytes48 {
+pub fn as_bytes48(bytes: &[u8]) -> *const Bytes48 {
     // SAFETY: `#[repr(C)] Bytes48([u8; 48])`
     unsafe { &*as_array::<48>(bytes).as_ptr().cast() }
 }
