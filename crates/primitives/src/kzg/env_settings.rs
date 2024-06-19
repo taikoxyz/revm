@@ -57,7 +57,7 @@ impl EnvKzgSettings {
     pub fn get(&self) -> &KZGSettings {
         match self {
             Self::Default => {
-                static DEFAULT: OnceBox<KZGSettings> = OnceBox::new();
+                pub static DEFAULT: OnceBox<KZGSettings> = OnceBox::new();
                 DEFAULT.get_or_init(|| {
                     let settings = load_trusted_setup_helper(
                         &super::trusted_setup_points::G1_POINTS.concat(),
