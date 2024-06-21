@@ -1,7 +1,7 @@
+
 use super::{
-    // trusted_setup_points::{G1_POINTS, G2_POINTS},
-    trusted_setup_points::KzgErrors,
-    KZGSettings,
+    trusted_setup_points::{G1_POINTS, G2_POINTS},
+    trusted_setup_points::KzgErrors, G1Points, G2Points, KZGSettings
 };
 use core::{
     fmt,
@@ -57,14 +57,22 @@ impl EnvKzgSettings {
     pub fn get(&self) -> &KZGSettings {
         match self {
             Self::Default => {
-                pub static DEFAULT: OnceBox<KZGSettings> = OnceBox::new();
+                static DEFAULT: OnceBox<KZGSettings> = OnceBox::new();
                 DEFAULT.get_or_init(|| {
-                    let settings = load_trusted_setup_helper(
-                        &super::trusted_setup_points::G1_POINTS.concat(),
-                        &super::trusted_setup_points::G2_POINTS.concat(),
-                    )
-                    .unwrap();
-                    Box::new(settings)
+                    let mut kzg_settings = MaybeUninit::<KZGSettings>::uninit();
+                    unsafe {
+                        if load_trusted_setup(
+                            kzg_settings.as_mut_ptr(),
+                            G1_POINTS.as_ptr().cast(),
+                            G1_POINTS.len(),
+                            G2_POINTS.as_ptr().cast(),
+                            G2_POINTS.len(),
+                        ) != C_KZG_RET_OK
+                        {
+                            panic!("Failed to load default trusted setup");
+                        }
+                        Box::new(kzg_settings.assume_init())
+                    }
                 })
             }
             Self::Custom(settings) => settings,
@@ -72,25 +80,9 @@ impl EnvKzgSettings {
     }
 }
 
-fn load_trusted_setup_helper(g1_bytes: &[u8], g2_bytes: &[u8]) -> Result<KZGSettings, KzgErrors> {
-    if g1_bytes.len() != FIELD_ELEMENTS_PER_BLOB * BYTES_PER_G1 {
-        return Err(KzgErrors::ParseError);
-    }
-    if g2_bytes.len() != TRUSTED_SETUP_NUM_G2_POINTS * BYTES_PER_G2 {
-        return Err(KzgErrors::ParseError);
-    }
-    let mut kzg_settings = MaybeUninit::<KZGSettings>::uninit();
-    unsafe {
-        if load_trusted_setup(
-            kzg_settings.as_mut_ptr(),
-            g1_bytes.as_ptr().cast(),
-            g1_bytes.len(),
-            g2_bytes.as_ptr().cast(),
-            g2_bytes.len(),
-        ) != C_KZG_RET_OK
-        {
-            return Err(KzgErrors::NotValidFile);
-        }
-        Ok(kzg_settings.assume_init())
-    }
+
+#[test]
+fn test_load_trusted_setup() {
+    let kzg_env = EnvKzgSettings::default();
+    let settings = kzg_env.get();
 }
