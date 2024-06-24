@@ -6,12 +6,11 @@ use crate::{
         register::EvmHandler,
     },
     interpreter::Gas,
-    primitives::{db::Database, spec_to_generic, EVMError, Spec, SpecId, TransactTo, U256},
+    primitives::{db::Database, spec_to_generic, EVMError, Spec, SpecId, U256},
     Context,
 };
 extern crate alloc;
 use alloc::sync::Arc;
-use SpecId::CANCUN;
 
 pub fn taiko_handle_register<DB: Database, EXT>(handler: &mut EvmHandler<'_, EXT, DB>) {
     spec_to_generic!(handler.cfg.spec_id, {
