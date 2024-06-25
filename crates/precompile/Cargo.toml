@@ -46,7 +46,7 @@ secp256k1 = { git = "https://github.com/CeciliaZ030/rust-secp256k1", branch = "s
 ], optional = true }
 
 # BLS12-381 precompiles
-blst = { version = "0.3.11", optional = true }
+blst = { version = "0.3.12", optional = true }
 
 [dev-dependencies]
 criterion = { version = "0.5" }
