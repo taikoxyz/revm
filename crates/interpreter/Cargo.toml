@@ -47,6 +47,7 @@ required-features = ["serde"]
 
 [features]
 default = ["std", "parse"]
+parse = []
 std = ["serde?/std", "revm-primitives/std"]
 hashbrown = ["revm-primitives/hashbrown"]
 serde = ["dep:serde", "revm-primitives/serde"]
