@@ -79,6 +79,8 @@ negate-taiko-default-handler = [
 
 # Enables the KZG point evaluation precompile.
 kzg = ["dep:kzg", "dep:rust-kzg-zkcrypto", "revm-primitives/kzg"]
+#dummy
+c-kzg = []
 
 # Use `secp256k1` as a faster alternative to `k256`.
 # The problem that `secp256k1` has is it fails to build for `wasm` target on Windows and Mac as it is c lib.
