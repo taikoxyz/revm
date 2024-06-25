@@ -2976,7 +2976,6 @@ dependencies = [
  "aurora-engine-modexp",
  "blst",
  "c-kzg 1.0.0",
- "cfg-if",
  "criterion",
  "k256",
  "once_cell",
