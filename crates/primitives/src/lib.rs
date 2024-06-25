@@ -1,9 +1,7 @@
 //! # revm-primitives
 //!
 //! EVM primitive types.
-#![warn(rustdoc::all)]
-#![warn(unreachable_pub, unused_crate_dependencies)]
-#![deny(unused_must_use, rust_2018_idioms)]
+#![cfg_attr(not(test), warn(unused_crate_dependencies))]
 #![cfg_attr(not(feature = "std"), no_std)]
 
 #[cfg(not(feature = "std"))]
@@ -13,7 +11,7 @@ mod bytecode;
 mod constants;
 pub mod db;
 pub mod env;
-#[cfg(feature = "c-kzg")]
+#[cfg(feature = "kzg")]
 pub mod kzg;
 pub mod precompile;
 pub mod result;
@@ -29,10 +27,18 @@ pub use bitvec;
 pub use bytecode::*;
 pub use constants::*;
 pub use env::*;
-pub use std::collections::{hash_map, hash_set, HashMap, HashSet};
 
-#[cfg(feature = "c-kzg")]
-pub use kzg::{EnvKzgSettings, KzgSettings};
+cfg_if::cfg_if! {
+    if #[cfg(all(not(feature = "hashbrown"), feature = "std"))] {
+        pub use std::collections::{hash_map, hash_set, HashMap, HashSet};
+        use hashbrown as _;
+    } else {
+        pub use hashbrown::{hash_map, hash_set, HashMap, HashSet};
+    }
+}
+
+#[cfg(feature = "kzg")]
+pub use kzg::{EnvKzgSettings, KZGSettings};
 pub use precompile::*;
 pub use result::*;
 pub use specification::*;

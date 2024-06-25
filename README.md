@@ -52,7 +52,7 @@ cd revm
 cargo build --release
 ```
 
-**_Note:_** `clang` is required for building revm with `c-kzg` or `secp256k1` feature flags as they depend on `C` libraries. If you don't have it installed, you can install it with `apt install clang`.
+**_Note:_** `clang` is required for building revm with ~~`c-kzg`~~ or `secp256k1` feature flags as they depend on `C` libraries. If you don't have it installed, you can install it with `apt install clang`.
 
 # Running eth tests
 
@@ -114,6 +114,7 @@ cargo run -p revm --features std,serde-json,ethersdb --example generate_block_tr
 * [Zeth](https://github.com/risc0/zeth) is an open-source ZK block prover for Ethereum built on the RISC Zero zkVM.
 * [VERBS](https://github.com/simtopia/verbs) an open-source Ethereum agent-based modelling and simulation library with a Python API.
 * [Hardhat](https://github.com/NomicFoundation/hardhat) is a development environment to compile, deploy, test, and debug your Ethereum software.
+* [Trin](https://github.com/ethereum/trin) is Portal Network client. An execution and consensus layer Ethereum light client written in Rust. Portal Network client's provide complete, provable, and distributed execution archival access.
 * ...
 
 (If you want to add project to the list, ping me or open the PR)

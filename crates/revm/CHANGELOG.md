@@ -6,6 +6,39 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [9.0.0](https://github.com/bluealloy/revm/compare/revm-v8.0.0...revm-v9.0.0) - 2024-05-12
+
+### Added
+- *(precompile)* Prague - EIP-2537 - BLS12-381 curve operations ([#1389](https://github.com/bluealloy/revm/pull/1389))
+- add a hook to execute individual frames ([#1369](https://github.com/bluealloy/revm/pull/1369))
+- *(Handler)* Add ClearHandle ([#1368](https://github.com/bluealloy/revm/pull/1368))
+- Add uniswap V2 WETH-USDC swap example ([#1353](https://github.com/bluealloy/revm/pull/1353))
+- *(interpreter)* add helpers for spending all gas ([#1360](https://github.com/bluealloy/revm/pull/1360))
+- add helper methods to CallInputs ([#1345](https://github.com/bluealloy/revm/pull/1345))
+- *(revm)* make `FrameOrResult` serializable ([#1282](https://github.com/bluealloy/revm/pull/1282))
+- add flag to force hashbrown usage ([#1284](https://github.com/bluealloy/revm/pull/1284))
+- EOF (Ethereum Object Format) ([#1143](https://github.com/bluealloy/revm/pull/1143))
+- *(`db`)* Introduce `alloydb` ([#1257](https://github.com/bluealloy/revm/pull/1257))
+- *(interpreter)* remove SPEC generic from gas calculation functions ([#1243](https://github.com/bluealloy/revm/pull/1243))
+- *(interpreter)* test Host object-safety, allow `dyn Host` in instructions ([#1245](https://github.com/bluealloy/revm/pull/1245))
+
+### Fixed
+- *(eip2935)* Preload blockchash storage address ([#1395](https://github.com/bluealloy/revm/pull/1395))
+- return the correct error in resize_memory ([#1359](https://github.com/bluealloy/revm/pull/1359))
+
+### Other
+- add Trin to used by list ([#1393](https://github.com/bluealloy/revm/pull/1393))
+- refactor lints ([#1386](https://github.com/bluealloy/revm/pull/1386))
+- bump alloy & specify dep rev ([#1380](https://github.com/bluealloy/revm/pull/1380))
+- *(interpreter)* branch less in as_usize_or_fail ([#1374](https://github.com/bluealloy/revm/pull/1374))
+- *(ci)* bump action/deploy ([#1372](https://github.com/bluealloy/revm/pull/1372))
+- shrink OpCodeInfo and add more methods ([#1307](https://github.com/bluealloy/revm/pull/1307))
+- *(deps)* bump anyhow from 1.0.81 to 1.0.82 ([#1293](https://github.com/bluealloy/revm/pull/1293))
+- fix some warnings ([#1305](https://github.com/bluealloy/revm/pull/1305))
+- Update documentation ([#1275](https://github.com/bluealloy/revm/pull/1275))
+- *(interpreter)* use `pop_top!` where possible ([#1267](https://github.com/bluealloy/revm/pull/1267))
+- add and use EvmContext::take_error ([#1264](https://github.com/bluealloy/revm/pull/1264))
+
 ## [8.0.0](https://github.com/bluealloy/revm/compare/revm-v7.2.0...revm-v8.0.0) - 2024-04-02
 
 ### Added
@@ -249,7 +282,7 @@ Summary:
 * Optimism support
 * no_std build
 
-Note: c-kzg can't be build for wasm and is behind "c-kzg" feature flag.
+~~Note: c-kzg can't be build for wasm and is behind "c-kzg" feature flag.~~
 
 Full git log:
 * ea0d8d8 - fix: use u128 for calc data fee result (#757) (46 minutes ago) <Dan Cline>
@@ -392,7 +425,7 @@ date: 04.04.2022
 Main changes can be summarizes in:
 * f91d5f9 - refactor: remove gas blocks (#391) (5 weeks ago) <Bjerg>
     * removal of gas block allowed us to have more compact analysis data. Gas block from beginning didn't have big impact on performance but introduced not intuitive gas calculations that was
-    source of some bugs. 
+    source of some bugs.
 * 08ce847 - feat(Shanghai): All EIPs: push0, warm coinbase, limit/measure initcode (#376) (7 weeks ago) <rakita>
     * revm is Shanghai ready
 * afc3066 - fix(db): preserve existing account state (#414) (4 weeks ago) <Roman Krasiuk>
@@ -467,7 +500,7 @@ date 29.01.2022
 
 This is big release that has core changes that breaks compatibility. In summary:
 *  Project is refactored into `revm-primitives`,`revm-precompile`,`revm-interpreter` and `revm` to have more flexibility and separation of concerns. And include paths in revm reflect that. So try to find include as `revm::primitives` or `revm::interpreter`
-* Parity `primitive-types` was replaced with `ruint` for big numbers and subset of macros are used for native `B160`/`B256` types. 
+* Parity `primitive-types` was replaced with `ruint` for big numbers and subset of macros are used for native `B160`/`B256` types.
 * Interpreter instructions are unified and now all of them have same signature.
 * web3 db was replaces with ethers alternative.
 * revmjs lib was removed from crates.
@@ -529,7 +562,7 @@ Very small release. Exposes one field and added prevrandao to remove footgun of 
 # v2.2.0
 date: 12.11.2022
 
-Small release that contains consensus bug fix. Additionally added few small feature flags needed for hardhat, opcode utility function and removal of web3db block number check. 
+Small release that contains consensus bug fix. Additionally added few small feature flags needed for hardhat, opcode utility function and removal of web3db block number check.
 
 * dc3414a - Added OEF spec for tests. Skip HighGasPrice (4 minutes ago) <rakita>
 * f462f9d - Bugfix: if returndatacopy is len 0 return after initial cost (#259) (4 minutes ago) <gd>
@@ -663,7 +696,7 @@ There is bug introduced in last release with gas blcok optimization, it will cra
 
 Changes:
 * Bug fix for unknown OpCode
-* Omit edgecase high nonce test. tracer gas fix 
+* Omit edgecase high nonce test. tracer gas fix
 * Some internal cleanup
 
 # v1.0.0
@@ -671,7 +704,7 @@ date: 18.12.2021
 
 It feel's like that the lib is in the state that is okay to promote it to the v1 version. Other that that, a lot of optimizations are done and the inspector trait was rewritten.
 
-Changes: 
+Changes:
 *  web3 db
 *  precalculated gas blocks. Optimization
 *  PC opcode as pointer. Optimization
@@ -686,7 +719,7 @@ date: 17.11.2021
 
 A lot of optimization on machine(Interpreter) part, it is now at least 3x faster. On interface side, Error enum was renamed to Return and it is simplified. Additionally if needed gas measuring can be removed with rust feature.
 
-Changes: 
+Changes:
 * push instruction optimized.
 * mload/mstore and memory optimized
 * Gas calculation optimized

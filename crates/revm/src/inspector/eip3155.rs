@@ -1,12 +1,12 @@
 use crate::{
     inspectors::GasInspector,
     interpreter::{
-        opcode, CallInputs, CallOutcome, CreateInputs, CreateOutcome, Interpreter,
-        InterpreterResult,
+        CallInputs, CallOutcome, CreateInputs, CreateOutcome, Interpreter, InterpreterResult,
     },
     primitives::{db::Database, hex, HashMap, B256, U256},
     EvmContext, Inspector,
 };
+use revm_interpreter::OpCode;
 use serde::Serialize;
 use std::io::Write;
 
@@ -176,7 +176,6 @@ impl TracerEip3155 {
                     context.inner.env().tx.gas_limit - self.gas_inspector.gas_remaining(),
                 ),
                 pass: result.is_ok(),
-
                 time: None,
                 fork: Some(spec_name.to_string()),
             };
@@ -192,7 +191,7 @@ impl<DB: Database> Inspector<DB> for TracerEip3155 {
 
     fn step(&mut self, interp: &mut Interpreter, context: &mut EvmContext<DB>) {
         self.gas_inspector.step(interp, context);
-        self.stack = interp.stack.data().clone();
+        self.stack.clone_from(interp.stack.data());
         self.memory = if self.include_memory {
             Some(hex::encode_prefixed(interp.shared_memory.context_memory()))
         } else {
@@ -223,7 +222,7 @@ impl<DB: Database> Inspector<DB> for TracerEip3155 {
             refund: hex_number(self.refunded as u64),
             mem_size: self.mem_size.to_string(),
 
-            op_name: opcode::OPCODE_JUMPMAP[self.opcode as usize],
+            op_name: OpCode::new(self.opcode).map(|i| i.as_str()),
             error: if !interp.instruction_result.is_ok() {
                 Some(format!("{:?}", interp.instruction_result))
             } else {

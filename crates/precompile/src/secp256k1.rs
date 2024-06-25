@@ -12,7 +12,7 @@ mod secp256k1_zk {
     use crate::Error;
     use revm_primitives::{alloy_primitives::B512, B256};
 
-    pub fn ecrecover(sig: &B512, recid: u8, msg: &B256) -> Result<B256, Error> {
+    pub(crate) fn ecrecover(sig: &B512, recid: u8, msg: &B256) -> Result<B256, Error> {
         #[cfg(feature = "sp1-cycle-tracker")]
         println!("cycle-tracker-start: ecrecover");
         let res = if zk_op::contains_operation(&ZkOperation::Secp256k1) {
@@ -36,7 +36,7 @@ mod secp256k1 {
     use k256::ecdsa::{Error, RecoveryId, Signature, VerifyingKey};
     use revm_primitives::{alloy_primitives::B512, keccak256, B256};
 
-    pub fn ecrecover(sig: &B512, mut recid: u8, msg: &B256) -> Result<B256, Error> {
+    pub(crate) fn ecrecover(sig: &B512, mut recid: u8, msg: &B256) -> Result<B256, Error> {
         // parse signature
         let mut sig = Signature::from_slice(sig.as_slice())?;
 
@@ -74,7 +74,7 @@ mod secp256k1 {
     // Silence the unused crate dependency warning.
     use k256 as _;
 
-    pub fn ecrecover(sig: &B512, recid: u8, msg: &B256) -> Result<B256, secp256k1::Error> {
+    pub(crate) fn ecrecover(sig: &B512, recid: u8, msg: &B256) -> Result<B256, secp256k1::Error> {
         let recid = RecoveryId::from_i32(recid as i32).expect("recovery ID is valid");
         let sig = RecoverableSignature::from_compact(sig.as_slice(), recid)?;
 
