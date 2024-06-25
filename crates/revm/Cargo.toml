@@ -136,7 +136,7 @@ optional_beneficiary_reward = ["revm-interpreter/optional_beneficiary_reward"]
 secp256k1 = ["revm-precompile/secp256k1"]
 kzg = ["revm-precompile/kzg"]
 #dummy
-c-kzg = []
+c-kzg = ["revm-precompile/c-kzg"]
 blst = ["revm-precompile/blst"]
 sp1-cycle-tracker = ["revm-precompile/sp1-cycle-tracker"]
 

@@ -98,3 +98,5 @@ rand = ["alloy-primitives/rand"]
 
 # See comments in `revm-precompile`
 kzg = ["dep:kzg", "dep:rust-kzg-zkcrypto", "dep:once_cell", "dep:derive_more"]
+#dummy
+c-kzg = []
