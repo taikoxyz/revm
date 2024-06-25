@@ -25,7 +25,7 @@ aurora-engine-modexp = { version = "1.0", default-features = false }
 cfg-if = "1"
 
 # Optional KZG point evaluation precompile
-rust-kzg-zkcrypto = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch",  optional = true }
+rust-kzg-zkcrypto = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch", default-features = false, optional = true }
 kzg = { git = "https://github.com/CeciliaZ030/rust-kzg.git", branch = "sp1-patch",default-features = false, optional = true }
 
 
