@@ -124,6 +124,7 @@ pub fn new_g1_point(px: Fq, py: Fq) -> Result<G1, Error> {
 pub fn run_add(input: &[u8], gas_cost: u64, gas_limit: u64) -> PrecompileResult {
     #[cfg(feature = "sp1-cycle-tracker")]
     println!("cycle-tracker-start: bn-add");
+
     if gas_cost > gas_limit {
         return Err(Error::OutOfGas);
     }
@@ -148,6 +149,7 @@ pub fn run_add(input: &[u8], gas_cost: u64, gas_limit: u64) -> PrecompileResult 
 
         output
     };
+
     #[cfg(feature = "sp1-cycle-tracker")]
     println!("cycle-tracker-end: bn-add");
 
@@ -157,6 +159,7 @@ pub fn run_add(input: &[u8], gas_cost: u64, gas_limit: u64) -> PrecompileResult 
 pub fn run_mul(input: &[u8], gas_cost: u64, gas_limit: u64) -> PrecompileResult {
     #[cfg(feature = "sp1-cycle-tracker")]
     println!("cycle-tracker-start: bn-mul");
+
     if gas_cost > gas_limit {
         return Err(Error::OutOfGas);
     }
@@ -180,8 +183,10 @@ pub fn run_mul(input: &[u8], gas_cost: u64, gas_limit: u64) -> PrecompileResult 
             mul.x().to_big_endian(&mut output[..32]).unwrap();
             mul.y().to_big_endian(&mut output[32..]).unwrap();
         }
+
         output
     };
+
     #[cfg(feature = "sp1-cycle-tracker")]
     println!("cycle-tracker-end: bn-mul");
 
