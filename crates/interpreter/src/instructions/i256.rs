@@ -134,14 +134,6 @@ mod tests {
     use super::*;
     use crate::primitives::uint;
     use core::num::Wrapping;
-    use revm_primitives::uint;
-
-    const MAX_POSITIVE_VALUE: U256 = U256::from_limbs([
-        0xffffffffffffffff,
-        0xffffffffffffffff,
-        0xffffffffffffffff,
-        0x7fffffffffffffff,
-    ]);
 
     #[test]
     fn div_i256() {

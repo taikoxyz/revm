@@ -1,7 +1,5 @@
 Because this is workspace with multi libraries, tags will be simplified, and with this document you can match version of project with git tag.
 
-<<<<<<< HEAD
-=======
 # v36 tag
 date: 12.05.2024
 
@@ -19,7 +17,6 @@ revm-primitives: 3.1.1 -> 4.0.0 (⚠️ API breaking changes)
 revm-precompile: 6.0.0 -> 7.0.0 (⚠️ API breaking changes)
 revm-test: 0.1.0
 
->>>>>>> v36
 # v35 tag
 date: 02.04.2024
 
@@ -262,7 +259,7 @@ date: 20.1.2022
 
 # v3 tag
 
-* revm: v1.0.0 
+* revm: v1.0.0
 * revme: v0.1.0
 
 # v2 tag
