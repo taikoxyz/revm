@@ -47,12 +47,12 @@ required-features = ["serde"]
 
 [features]
 default = ["std", "parse"]
-parse = []
 std = ["serde?/std", "revm-primitives/std"]
 hashbrown = ["revm-primitives/hashbrown"]
 serde = ["dep:serde", "revm-primitives/serde"]
 arbitrary = ["std", "revm-primitives/arbitrary"]
 asm-keccak = ["revm-primitives/asm-keccak"]
+parse = ["dep:paste", "dep:phf"]
 
 taiko = ["revm-primitives/taiko"]
 # taiko default handler enabled taiko handler register by default in EvmBuilder.
