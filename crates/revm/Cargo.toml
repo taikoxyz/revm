@@ -70,7 +70,7 @@ alloy-provider = { git = "https://github.com/alloy-rs/alloy.git", rev = "44b8a6d
 alloy-transport-http = { git = "https://github.com/alloy-rs/alloy.git", rev = "44b8a6d" }
 
 [features]
-default = ["std", "kzg", "secp256k1"]
+default = ["std", "kzg", "secp256k1", "blst"]
 std = [
     "serde?/std",
     "serde_json?/std",
