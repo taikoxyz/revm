@@ -1,41 +1,17 @@
 mod call_helpers;
 
-pub use call_helpers::{
-    calc_call_gas, get_memory_input_and_out_ranges, resize_memory_and_return_range,
-};
+pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges, resize_memory};
 use revm_primitives::{keccak256, BerlinSpec};
 
 use crate::{
-    analysis::validate_eof,
-    gas::{self, cost_per_word, BASE, EOF_CREATE_GAS, KECCAK256WORD},
-    instructions::utility::read_u16,
+    gas::{self, cost_per_word, EOF_CREATE_GAS, KECCAK256WORD},
     interpreter::Interpreter,
-    primitives::{Address, Bytes, Eof, Spec, SpecId::*, B256, U256},
-    CallInputs, CallScheme, CallValue, CreateInputs, CreateScheme, EOFCreateInput, Host,
+    primitives::{Address, Bytes, Eof, Spec, SpecId::*, U256},
+    CallInputs, CallScheme, CallValue, CreateInputs, CreateScheme, EOFCreateInputs, Host,
     InstructionResult, InterpreterAction, InterpreterResult, LoadAccountResult, MAX_INITCODE_SIZE,
 };
-use core::{cmp::max, ops::Range};
+use core::cmp::max;
 use std::boxed::Box;
-
-/// Resize memory and return memory range if successful.
-/// Return `None` if there is not enough gas. And if `len`
-/// is zero return `Some(usize::MAX..usize::MAX)`.
-pub fn resize_memory(
-    interpreter: &mut Interpreter,
-    offset: U256,
-    len: U256,
-) -> Option<Range<usize>> {
-    let len = as_usize_or_fail_ret!(interpreter, len, None);
-    if len != 0 {
-        let offset = as_usize_or_fail_ret!(interpreter, offset, None);
-        resize_memory!(interpreter, offset, len, None);
-        // range is checked in resize_memory! macro and it is bounded by usize.
-        Some(offset..offset + len)
-    } else {
-        //unrealistic value so we are sure it is not used
-        Some(usize::MAX..usize::MAX)
-    }
-}
 
 /// EOF Create instruction
 pub fn eofcreate<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &mut H) {
@@ -54,8 +30,18 @@ pub fn eofcreate<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &mut H)
         .expect("EOF is checked");
 
     // resize memory and get return range.
-    let Some(return_range) = resize_memory(interpreter, data_offset, data_size) else {
+    let Some(input_range) = resize_memory(interpreter, data_offset, data_size) else {
         return;
+    };
+
+    let input = if !input_range.is_empty() {
+        interpreter
+            .shared_memory
+            .slice_range(input_range)
+            .to_vec()
+            .into()
+    } else {
+        Bytes::new()
     };
 
     let eof = Eof::decode(sub_container.clone()).expect("Subcontainer is verified");
@@ -73,106 +59,32 @@ pub fn eofcreate<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &mut H)
 
     let created_address = interpreter
         .contract
-        .caller
+        .target_address
         .create2(salt.to_be_bytes(), keccak256(sub_container));
 
+    let gas_reduce = max(interpreter.gas.remaining() / 64, 5000);
+    let gas_limit = interpreter.gas().remaining().saturating_sub(gas_reduce);
+    gas!(interpreter, gas_limit);
+
     // Send container for execution container is preverified.
+    interpreter.instruction_result = InstructionResult::CallOrCreate;
     interpreter.next_action = InterpreterAction::EOFCreate {
-        inputs: Box::new(EOFCreateInput::new(
+        inputs: Box::new(EOFCreateInputs::new(
             interpreter.contract.target_address,
             created_address,
             value,
             eof,
-            interpreter.gas().remaining(),
-            return_range,
+            gas_limit,
+            input,
         )),
     };
 
     interpreter.instruction_pointer = unsafe { interpreter.instruction_pointer.offset(1) };
 }
 
-pub fn txcreate<H: Host + ?Sized>(interpreter: &mut Interpreter, host: &mut H) {
-    require_eof!(interpreter);
-    gas!(interpreter, EOF_CREATE_GAS);
-    pop!(
-        interpreter,
-        tx_initcode_hash,
-        value,
-        salt,
-        data_offset,
-        data_size
-    );
-    let tx_initcode_hash = B256::from(tx_initcode_hash);
-
-    // resize memory and get return range.
-    let Some(return_range) = resize_memory(interpreter, data_offset, data_size) else {
-        return;
-    };
-
-    // fetch initcode, if not found push ZERO.
-    let Some(initcode) = host
-        .env()
-        .tx
-        .eof_initcodes_hashed
-        .get(&tx_initcode_hash)
-        .cloned()
-    else {
-        push!(interpreter, U256::ZERO);
-        return;
-    };
-
-    // deduct gas for validation
-    gas_or_fail!(interpreter, cost_per_word(initcode.len() as u64, BASE));
-
-    // deduct gas for hash. TODO check order of actions.
-    gas_or_fail!(
-        interpreter,
-        cost_per_word(initcode.len() as u64, KECCAK256WORD)
-    );
-
-    let Ok(eof) = Eof::decode(initcode.clone()) else {
-        push!(interpreter, U256::ZERO);
-        return;
-    };
-
-    // Data section should be full, push zero to stack and return if not.
-    if !eof.body.is_data_filled {
-        push!(interpreter, U256::ZERO);
-        return;
-    }
-
-    // Validate initcode
-    if validate_eof(&eof).is_err() {
-        push!(interpreter, U256::ZERO);
-        return;
-    }
-
-    // Create new address. Gas for it is already deducted.
-    let created_address = interpreter
-        .contract
-        .caller
-        .create2(salt.to_be_bytes(), tx_initcode_hash);
-
-    let gas_limit = interpreter.gas().remaining();
-    // spend all gas. It will be reimbursed after frame returns.
-    gas!(interpreter, gas_limit);
-
-    interpreter.next_action = InterpreterAction::EOFCreate {
-        inputs: Box::new(EOFCreateInput::new(
-            interpreter.contract.target_address,
-            created_address,
-            value,
-            eof,
-            gas_limit,
-            return_range,
-        )),
-    };
-    interpreter.instruction_result = InstructionResult::CallOrCreate;
-}
-
 pub fn return_contract<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &mut H) {
     require_init_eof!(interpreter);
-    let deploy_container_index = unsafe { read_u16(interpreter.instruction_pointer) };
+    let deploy_container_index = unsafe { *interpreter.instruction_pointer };
     pop!(interpreter, aux_data_offset, aux_data_size);
     let aux_data_size = as_usize_or_fail!(interpreter, aux_data_size);
     // important: offset must be ignored if len is zeros
@@ -227,8 +139,11 @@ pub fn return_contract<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &
 pub fn extcall_input(interpreter: &mut Interpreter) -> Option<Bytes> {
     pop_ret!(interpreter, input_offset, input_size, None);
 
-    let return_memory_offset =
-        resize_memory_and_return_range(interpreter, input_offset, input_size)?;
+    let return_memory_offset = resize_memory(interpreter, input_offset, input_size)?;
+
+    if return_memory_offset.is_empty() {
+        return Some(Bytes::new());
+    }
 
     Some(Bytes::copy_from_slice(
         interpreter
@@ -247,10 +162,6 @@ pub fn extcall_gas_calc<H: Host + ?Sized>(
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return None;
     };
-
-    if load_result.is_cold {
-        gas!(interpreter, gas::COLD_ACCOUNT_ACCESS_COST, None);
-    }
 
     // TODO(EOF) is_empty should only be checked on delegatecall
     let call_cost = gas::call_cost(
@@ -273,8 +184,6 @@ pub fn extcall_gas_calc<H: Host + ?Sized>(
         return None;
     }
 
-    // TODO check remaining gas more then N
-
     gas!(interpreter, gas_limit, None);
     Some(gas_limit)
 }
@@ -282,6 +191,8 @@ pub fn extcall_gas_calc<H: Host + ?Sized>(
 pub fn extcall<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     require_eof!(interpreter);
     pop_address!(interpreter, target_address);
+
+    // TODO check if target is left paddded with zeroes.
 
     // input call
     let Some(input) = extcall_input(interpreter) else {
@@ -314,9 +225,11 @@ pub fn extcall<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host
     interpreter.instruction_result = InstructionResult::CallOrCreate;
 }
 
-pub fn extdcall<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+pub fn extdelegatecall<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     require_eof!(interpreter);
     pop_address!(interpreter, target_address);
+
+    // TODO check if target is left paddded with zeroes.
 
     // input call
     let Some(input) = extcall_input(interpreter) else {
@@ -347,9 +260,11 @@ pub fn extdcall<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, hos
     interpreter.instruction_result = InstructionResult::CallOrCreate;
 }
 
-pub fn extscall<H: Host + ?Sized>(interpreter: &mut Interpreter, host: &mut H) {
+pub fn extstaticcall<H: Host + ?Sized>(interpreter: &mut Interpreter, host: &mut H) {
     require_eof!(interpreter);
     pop_address!(interpreter, target_address);
+
+    // TODO check if target is left paddded with zeroes.
 
     // input call
     let Some(input) = extcall_input(interpreter) else {
@@ -370,7 +285,7 @@ pub fn extscall<H: Host + ?Sized>(interpreter: &mut Interpreter, host: &mut H) {
             bytecode_address: target_address,
             value: CallValue::Transfer(U256::ZERO),
             scheme: CallScheme::Call,
-            is_static: interpreter.is_static,
+            is_static: true,
             is_eof: true,
             return_memory_offset: 0..0,
         }),
@@ -469,7 +384,7 @@ pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
     };
-    let Some(mut gas_limit) = calc_call_gas::<H, SPEC>(
+    let Some(mut gas_limit) = calc_call_gas::<SPEC>(
         interpreter,
         is_cold,
         has_transfer,
@@ -520,7 +435,7 @@ pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, ho
         return;
     };
 
-    let Some(mut gas_limit) = calc_call_gas::<H, SPEC>(
+    let Some(mut gas_limit) = calc_call_gas::<SPEC>(
         interpreter,
         is_cold,
         value != U256::ZERO,
@@ -571,7 +486,7 @@ pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter
         return;
     };
     let Some(gas_limit) =
-        calc_call_gas::<H, SPEC>(interpreter, is_cold, false, false, local_gas_limit)
+        calc_call_gas::<SPEC>(interpreter, is_cold, false, false, local_gas_limit)
     else {
         return;
     };
@@ -613,7 +528,7 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
     };
 
     let Some(gas_limit) =
-        calc_call_gas::<H, SPEC>(interpreter, is_cold, false, false, local_gas_limit)
+        calc_call_gas::<SPEC>(interpreter, is_cold, false, false, local_gas_limit)
     else {
         return;
     };

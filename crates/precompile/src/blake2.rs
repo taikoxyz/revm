@@ -1,6 +1,6 @@
 use crate::zk_op::{self, ZkOperation};
 use crate::{Error, Precompile, PrecompileResult, PrecompileWithAddress};
-use revm_primitives::Bytes;
+use revm_primitives::{Bytes, PrecompileOutput};
 
 const F_ROUND: u64 = 1;
 const INPUT_LENGTH: usize = 213;
@@ -18,20 +18,20 @@ pub fn run(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let input = &input[..];
 
     if input.len() != INPUT_LENGTH {
-        return Err(Error::Blake2WrongLength);
+        return Err(Error::Blake2WrongLength.into());
     }
 
     let f = match input[212] {
         1 => true,
         0 => false,
-        _ => return Err(Error::Blake2WrongFinalIndicatorFlag),
+        _ => return Err(Error::Blake2WrongFinalIndicatorFlag.into()),
     };
 
     // rounds 4 bytes
     let rounds = u32::from_be_bytes(input[..4].try_into().unwrap()) as usize;
     let gas_used = rounds as u64 * F_ROUND;
     if gas_used > gas_limit {
-        return Err(Error::OutOfGas);
+        return Err(Error::OutOfGas.into());
     }
 
     let out = if zk_op::contains_operation(&ZkOperation::Blake2) {
@@ -67,7 +67,7 @@ pub fn run(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     #[cfg(feature = "sp1-cycle-tracker")]
     println!("cycle-tracker-end: blake2");
 
-    Ok((gas_used, out.into()))
+    Ok(PrecompileOutput::new(gas_used, out.into()))
 }
 
 pub mod algo {

@@ -57,10 +57,15 @@ pub enum SpecId {
     ARROW_GLACIER = 13,
     GRAY_GLACIER = 14,
     MERGE = 15,
-    SHANGHAI = 16,
-    KATLA = 17,
-    CANCUN = 18,
-    PRAGUE = 22,
+    BEDROCK = 16,
+    REGOLITH = 17,
+    SHANGHAI = 18,
+    CANYON = 19,
+    CANCUN = 20,
+    ECOTONE = 21,
+    FJORD = 22,
+    PRAGUE = 23,
+    KATLA = 24,
     #[default]
     LATEST = u8::MAX,
 }
@@ -105,6 +110,16 @@ impl From<&str> for SpecId {
             "Prague" => Self::PRAGUE,
             #[cfg(feature = "taiko")]
             "Katla" => Self::KATLA,
+            #[cfg(feature = "optimism")]
+            "Bedrock" => SpecId::BEDROCK,
+            #[cfg(feature = "optimism")]
+            "Regolith" => SpecId::REGOLITH,
+            #[cfg(feature = "optimism")]
+            "Canyon" => SpecId::CANYON,
+            #[cfg(feature = "optimism")]
+            "Ecotone" => SpecId::ECOTONE,
+            #[cfg(feature = "optimism")]
+            "Fjord" => SpecId::FJORD,
             _ => Self::LATEST,
         }
     }
@@ -134,6 +149,16 @@ impl From<SpecId> for &'static str {
             SpecId::PRAGUE => "Prague",
             #[cfg(feature = "taiko")]
             SpecId::KATLA => "Katla",
+            #[cfg(feature = "optimism")]
+            SpecId::BEDROCK => "Bedrock",
+            #[cfg(feature = "optimism")]
+            SpecId::REGOLITH => "Regolith",
+            #[cfg(feature = "optimism")]
+            SpecId::CANYON => "Canyon",
+            #[cfg(feature = "optimism")]
+            SpecId::ECOTONE => "Ecotone",
+            #[cfg(feature = "optimism")]
+            SpecId::FJORD => "Fjord",
             SpecId::LATEST => "Latest",
         }
     }
@@ -186,11 +211,89 @@ spec!(LATEST, LatestSpec);
 // Taiko Hardforks
 #[cfg(feature = "taiko")]
 spec!(KATLA, KatlaSpec);
+// Optimism Hardforks
+#[cfg(feature = "optimism")]
+spec!(BEDROCK, BedrockSpec);
+#[cfg(feature = "optimism")]
+spec!(REGOLITH, RegolithSpec);
+#[cfg(feature = "optimism")]
+spec!(CANYON, CanyonSpec);
+#[cfg(feature = "optimism")]
+spec!(ECOTONE, EcotoneSpec);
+#[cfg(feature = "optimism")]
+spec!(FJORD, FjordSpec);
 
+#[cfg(not(feature = "optimism"))]
 #[macro_export]
 macro_rules! spec_to_generic {
     ($spec_id:expr, $e:expr) => {{
-        // We are transitioning from var to generic spec.
+        match $spec_id {
+            $crate::SpecId::FRONTIER | SpecId::FRONTIER_THAWING => {
+                use $crate::FrontierSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::HOMESTEAD | SpecId::DAO_FORK => {
+                use $crate::HomesteadSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::TANGERINE => {
+                use $crate::TangerineSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::SPURIOUS_DRAGON => {
+                use $crate::SpuriousDragonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BYZANTIUM => {
+                use $crate::ByzantiumSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::PETERSBURG | $crate::SpecId::CONSTANTINOPLE => {
+                use $crate::PetersburgSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::ISTANBUL | $crate::SpecId::MUIR_GLACIER => {
+                use $crate::IstanbulSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BERLIN => {
+                use $crate::BerlinSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::LONDON
+            | $crate::SpecId::ARROW_GLACIER
+            | $crate::SpecId::GRAY_GLACIER => {
+                use $crate::LondonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::MERGE => {
+                use $crate::MergeSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::SHANGHAI => {
+                use $crate::ShanghaiSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::CANCUN => {
+                use $crate::CancunSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::LATEST => {
+                use $crate::LatestSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::PRAGUE => {
+                use $crate::PragueSpec as SPEC;
+                $e
+            }
+        }
+    }};
+}
+
+#[cfg(feature = "optimism")]
+#[macro_export]
+macro_rules! spec_to_generic {
+    ($spec_id:expr, $e:expr) => {{
         match $spec_id {
             $crate::SpecId::FRONTIER | SpecId::FRONTIER_THAWING => {
                 use $crate::FrontierSpec as SPEC;
@@ -253,6 +356,25 @@ macro_rules! spec_to_generic {
             #[cfg(feature = "taiko")]
             $crate::SpecId::KATLA => {
                 use $crate::KatlaSpec as SPEC;
+            }
+            $crate::SpecId::BEDROCK => {
+                use $crate::BedrockSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::REGOLITH => {
+                use $crate::RegolithSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::CANYON => {
+                use $crate::CanyonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::ECOTONE => {
+                use $crate::EcotoneSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::FJORD => {
+                use $crate::FjordSpec as SPEC;
                 $e
             }
         }
@@ -285,6 +407,10 @@ mod tests {
         spec_to_generic!(MERGE, assert_eq!(SPEC::SPEC_ID, MERGE));
         spec_to_generic!(SHANGHAI, assert_eq!(SPEC::SPEC_ID, SHANGHAI));
         spec_to_generic!(CANCUN, assert_eq!(SPEC::SPEC_ID, CANCUN));
+        #[cfg(feature = "optimism")]
+        spec_to_generic!(ECOTONE, assert_eq!(SPEC::SPEC_ID, ECOTONE));
+        #[cfg(feature = "optimism")]
+        spec_to_generic!(FJORD, assert_eq!(SPEC::SPEC_ID, FJORD));
         spec_to_generic!(PRAGUE, assert_eq!(SPEC::SPEC_ID, PRAGUE));
         spec_to_generic!(LATEST, assert_eq!(SPEC::SPEC_ID, LATEST));
         #[cfg(feature = "taiko")]
@@ -304,5 +430,31 @@ mod taiko_tests {
         assert!(!SpecId::enabled(SpecId::KATLA, SpecId::CANCUN));
         assert!(!SpecId::enabled(SpecId::KATLA, SpecId::LATEST));
         assert!(SpecId::enabled(SpecId::KATLA, SpecId::KATLA));
+    }
+
+    #[test]
+    fn test_fjord_post_merge_hardforks() {
+        assert!(FjordSpec::enabled(SpecId::MERGE));
+        assert!(FjordSpec::enabled(SpecId::SHANGHAI));
+        assert!(FjordSpec::enabled(SpecId::CANCUN));
+        assert!(!FjordSpec::enabled(SpecId::LATEST));
+        assert!(FjordSpec::enabled(SpecId::BEDROCK));
+        assert!(FjordSpec::enabled(SpecId::REGOLITH));
+        assert!(FjordSpec::enabled(SpecId::CANYON));
+        assert!(FjordSpec::enabled(SpecId::ECOTONE));
+        assert!(FjordSpec::enabled(SpecId::FJORD));
+    }
+
+    #[test]
+    fn test_fjord_post_merge_hardforks_spec_id() {
+        assert!(SpecId::enabled(SpecId::FJORD, SpecId::MERGE));
+        assert!(SpecId::enabled(SpecId::FJORD, SpecId::SHANGHAI));
+        assert!(SpecId::enabled(SpecId::FJORD, SpecId::CANCUN));
+        assert!(!SpecId::enabled(SpecId::FJORD, SpecId::LATEST));
+        assert!(SpecId::enabled(SpecId::FJORD, SpecId::BEDROCK));
+        assert!(SpecId::enabled(SpecId::FJORD, SpecId::REGOLITH));
+        assert!(SpecId::enabled(SpecId::FJORD, SpecId::CANYON));
+        assert!(SpecId::enabled(SpecId::FJORD, SpecId::ECOTONE));
+        assert!(SpecId::enabled(SpecId::FJORD, SpecId::FJORD));
     }
 }
