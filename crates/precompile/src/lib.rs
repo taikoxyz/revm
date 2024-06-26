@@ -14,7 +14,7 @@ pub mod bls12_381;
 pub mod bn128;
 pub mod hash;
 pub mod identity;
-#[cfg(feature = "kzg")]
+#[cfg(feature = "c-kzg")]
 pub mod kzg_point_evaluation;
 pub mod modexp;
 pub mod secp256k1;
@@ -143,7 +143,7 @@ impl Precompiles {
             let precompiles = Self::berlin().clone();
 
             // Don't include KZG point evaluation precompile in no_std builds.
-            #[cfg(feature = "kzg")]
+            #[cfg(feature = "c-kzg")]
             let precompiles = {
                 let mut precompiles = precompiles;
                 precompiles.extend([

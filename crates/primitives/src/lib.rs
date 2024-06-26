@@ -11,7 +11,7 @@ mod bytecode;
 mod constants;
 pub mod db;
 pub mod env;
-#[cfg(feature = "kzg")]
+#[cfg(feature = "c-kzg")]
 pub mod kzg;
 pub mod precompile;
 pub mod result;
@@ -37,7 +37,7 @@ cfg_if::cfg_if! {
     }
 }
 
-#[cfg(feature = "kzg")]
+#[cfg(feature = "c-kzg")]
 pub use kzg::{EnvKzgSettings, KZGSettings};
 pub use precompile::*;
 pub use result::*;

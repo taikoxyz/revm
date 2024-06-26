@@ -53,7 +53,7 @@ criterion = { version = "0.5" }
 rand = { version = "0.8", features = ["std"] }
 
 [features]
-default = ["std", "kzg", "secp256k1", "blst"]
+default = ["std", "c-kzg", "secp256k1", "blst"]
 std = [
     "revm-primitives/std",
     "k256/std",
@@ -78,9 +78,8 @@ negate-taiko-default-handler = [
 # These libraries may not work on all no_std platforms as they depend on C.
 
 # Enables the KZG point evaluation precompile.
-kzg = ["dep:kzg", "dep:rust-kzg-zkcrypto", "revm-primitives/kzg"]
-#dummy
-c-kzg = []
+c-kzg = ["dep:kzg", "dep:rust-kzg-zkcrypto", "revm-primitives/c-kzg"]
+
 
 # Use `secp256k1` as a faster alternative to `k256`.
 # The problem that `secp256k1` has is it fails to build for `wasm` target on Windows and Mac as it is c lib.

@@ -52,7 +52,7 @@ serde = { version = "1.0", default-features = false, features = [
 hex = { version = "0.4", default-features = false }
 
 [features]
-default = ["std", "kzg"]
+default = ["std", "c-kzg"]
 std = [
     "serde?/std",
     "alloy-primitives/std",
@@ -97,6 +97,4 @@ optional_beneficiary_reward = []
 rand = ["alloy-primitives/rand"]
 
 # See comments in `revm-precompile`
-kzg = ["dep:kzg", "dep:rust-kzg-zkcrypto", "dep:once_cell", "dep:derive_more"]
-#dummy
-c-kzg = []
+c-kzg = ["dep:kzg", "dep:rust-kzg-zkcrypto", "dep:once_cell", "dep:derive_more"]
