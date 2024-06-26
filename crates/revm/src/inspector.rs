@@ -1,5 +1,5 @@
 use crate::{
-    interpreter::{CallInputs, CreateInputs, EOFCreateInput, EOFCreateOutcome, Interpreter},
+    interpreter::{CallInputs, CreateInputs, EOFCreateInputs, EOFCreateOutcome, Interpreter},
     primitives::{db::Database, Address, Log, U256},
     EvmContext,
 };
@@ -15,7 +15,7 @@ mod noop;
 
 // Exports.
 
-pub use handler_register::{inspector_handle_register, inspector_instruction, GetInspector};
+pub use handler_register::{inspector_handle_register, GetInspector};
 use revm_interpreter::{CallOutcome, CreateOutcome};
 
 /// [Inspector] implementations.
@@ -135,20 +135,24 @@ pub trait Inspector<DB: Database> {
         outcome
     }
 
+    /// Called when EOF creating is called.
+    ///
+    /// This can happen from create TX or from EOFCREATE opcode.
     fn eofcreate(
         &mut self,
         context: &mut EvmContext<DB>,
-        inputs: &mut EOFCreateInput,
+        inputs: &mut EOFCreateInputs,
     ) -> Option<EOFCreateOutcome> {
         let _ = context;
         let _ = inputs;
         None
     }
 
+    /// Called when eof creating has ended.
     fn eofcreate_end(
         &mut self,
         context: &mut EvmContext<DB>,
-        inputs: &EOFCreateInput,
+        inputs: &EOFCreateInputs,
         outcome: EOFCreateOutcome,
     ) -> EOFCreateOutcome {
         let _ = context;
