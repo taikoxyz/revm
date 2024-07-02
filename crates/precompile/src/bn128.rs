@@ -217,49 +217,43 @@ pub fn run_pair(
             .unwrap()
             .bn128_run_pairing(input)
             .unwrap()
+    } else if input.is_empty() {
+        true
     } else {
-        let success = if input.is_empty() {
-            true
-        } else {
-            let elements = input.len() / PAIR_ELEMENT_LEN;
+        let elements = input.len() / PAIR_ELEMENT_LEN;
 
-            let mut mul = Gt::one();
-            for idx in 0..elements {
-                let read_fq_at = |n: usize| {
-                    debug_assert!(n < PAIR_ELEMENT_LEN / 32);
-                    let start = idx * PAIR_ELEMENT_LEN + n * 32;
-                    // SAFETY: We're reading `6 * 32 == PAIR_ELEMENT_LEN` bytes from `input[idx..]`
-                    // per iteration. This is guaranteed to be in-bounds.
-                    let slice = unsafe { input.get_unchecked(start..start + 32) };
-                    Fq::from_slice(slice).map_err(|_| Error::Bn128FieldPointNotAMember)
-                };
-                let ax = read_fq_at(0)?;
-                let ay = read_fq_at(1)?;
-                let bay = read_fq_at(2)?;
-                let bax = read_fq_at(3)?;
-                let bby = read_fq_at(4)?;
-                let bbx = read_fq_at(5)?;
+        let mut mul = Gt::one();
+        for idx in 0..elements {
+            let read_fq_at = |n: usize| {
+                debug_assert!(n < PAIR_ELEMENT_LEN / 32);
+                let start = idx * PAIR_ELEMENT_LEN + n * 32;
+                // SAFETY: We're reading `6 * 32 == PAIR_ELEMENT_LEN` bytes from `input[idx..]`
+                // per iteration. This is guaranteed to be in-bounds.
+                let slice = unsafe { input.get_unchecked(start..start + 32) };
+                Fq::from_slice(slice).map_err(|_| Error::Bn128FieldPointNotAMember)
+            };
+            let ax = read_fq_at(0)?;
+            let ay = read_fq_at(1)?;
+            let bay = read_fq_at(2)?;
+            let bax = read_fq_at(3)?;
+            let bby = read_fq_at(4)?;
+            let bbx = read_fq_at(5)?;
 
-                let a = new_g1_point(ax, ay)?;
-                let b = {
-                    let ba = Fq2::new(bax, bay);
-                    let bb = Fq2::new(bbx, bby);
-                    if ba.is_zero() && bb.is_zero() {
-                        G2::zero()
-                    } else {
-                        G2::from(
-                            AffineG2::new(ba, bb).map_err(|_| Error::Bn128AffineGFailedToCreate)?,
-                        )
-                    }
-                };
+            let a = new_g1_point(ax, ay)?;
+            let b = {
+                let ba = Fq2::new(bax, bay);
+                let bb = Fq2::new(bbx, bby);
+                if ba.is_zero() && bb.is_zero() {
+                    G2::zero()
+                } else {
+                    G2::from(AffineG2::new(ba, bb).map_err(|_| Error::Bn128AffineGFailedToCreate)?)
+                }
+            };
 
-                mul = mul * bn::pairing(a, b);
-            }
+            mul = mul * bn::pairing(a, b);
+        }
 
-            mul == Gt::one()
-        };
-
-        success
+        mul == Gt::one()
     };
     #[cfg(feature = "sp1-cycle-tracker")]
     println!("cycle-tracker-end: bn-pair");

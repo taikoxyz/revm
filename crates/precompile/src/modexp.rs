@@ -120,8 +120,7 @@ where
             .modexp_run(base, exponent, modulus)
             .unwrap()
     } else {
-        let output = modexp(base, exponent, modulus);
-        output
+        modexp(base, exponent, modulus)
     };
     #[cfg(feature = "sp1-cycle-tracker")]
     println!("cycle-tracker-end: modexp");
