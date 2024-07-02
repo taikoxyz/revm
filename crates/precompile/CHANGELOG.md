@@ -125,8 +125,8 @@ Full git log:
 date 28.09.2023
 
  Summary:
- * Cancun EIP-4844 precompile. It is behind `c-kzg` that is enabled by default
-    the reason is that c-kzg fails to build on wasm and some docker images.
+ * Cancun EIP-4844 precompile. It is behind `kzg` that is enabled by default
+    ~~the reason is that c-kzg fails to build on wasm and some docker images.~~
  * no_std support
  * small fixes to return out of gas for modepx and pairing precompiles.
 

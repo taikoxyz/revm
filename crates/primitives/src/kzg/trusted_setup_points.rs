@@ -2,33 +2,35 @@ use core::fmt;
 use derive_more::{AsMut, AsRef, Deref, DerefMut};
 use std::boxed::Box;
 
-pub use c_kzg::{BYTES_PER_G1_POINT, BYTES_PER_G2_POINT};
+pub use kzg::eip_4844::{
+    BYTES_PER_G1, BYTES_PER_G2, FIELD_ELEMENTS_PER_BLOB, TRUSTED_SETUP_NUM_G2_POINTS,
+};
 
 /// Number of G1 Points.
-pub const NUM_G1_POINTS: usize = 4096;
+pub const NUM_G1_POINTS: usize = FIELD_ELEMENTS_PER_BLOB;
 
 /// Number of G2 Points.
-pub const NUM_G2_POINTS: usize = 65;
+pub const NUM_G2_POINTS: usize = TRUSTED_SETUP_NUM_G2_POINTS;
 
 /// A newtype over list of G1 point from kzg trusted setup.
 #[derive(Debug, Clone, PartialEq, AsRef, AsMut, Deref, DerefMut)]
 #[repr(transparent)]
-pub struct G1Points(pub [[u8; BYTES_PER_G1_POINT]; NUM_G1_POINTS]);
+pub struct G1Points(pub [[u8; BYTES_PER_G1]; NUM_G1_POINTS]);
 
 impl Default for G1Points {
     fn default() -> Self {
-        Self([[0; BYTES_PER_G1_POINT]; NUM_G1_POINTS])
+        Self([[0; BYTES_PER_G1]; NUM_G1_POINTS])
     }
 }
 
 /// A newtype over list of G2 point from kzg trusted setup.
 #[derive(Debug, Clone, Eq, PartialEq, AsRef, AsMut, Deref, DerefMut)]
 #[repr(transparent)]
-pub struct G2Points(pub [[u8; BYTES_PER_G2_POINT]; NUM_G2_POINTS]);
+pub struct G2Points(pub [[u8; BYTES_PER_G2]; NUM_G2_POINTS]);
 
 impl Default for G2Points {
     fn default() -> Self {
-        Self([[0; BYTES_PER_G2_POINT]; NUM_G2_POINTS])
+        Self([[0; BYTES_PER_G2]; NUM_G2_POINTS])
     }
 }
 
@@ -49,7 +51,7 @@ pub const G2_POINTS: &G2Points = {
 /// Parses the contents of a KZG trusted setup file into a list of G1 and G2 points.
 ///
 /// These can then be used to create a KZG settings object with
-/// [`KzgSettings::load_trusted_setup`](c_kzg::KzgSettings::load_trusted_setup).
+/// [`KzgSettings::load_trusted_setup`](KZGSettings::load_trusted_setup).
 pub fn parse_kzg_trusted_setup(
     trusted_setup: &str,
 ) -> Result<(Box<G1Points>, Box<G2Points>), KzgErrors> {
