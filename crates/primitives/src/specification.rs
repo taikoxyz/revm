@@ -29,6 +29,7 @@ pub enum SpecId {
     SHANGHAI = 16,        // Shanghai               17034870 (Timestamp: 1681338455)
     CANCUN = 17,          // Cancun                 19426587 (Timestamp: 1710338135)
     PRAGUE = 18,          // Praque                 TBD
+    PRAGUE_EOF = 19,      // Praque+EOF             TBD
     #[default]
     LATEST = u8::MAX,
 }
@@ -60,7 +61,8 @@ pub enum SpecId {
     SHANGHAI = 16,
     KATLA = 17,
     CANCUN = 18,
-    PRAGUE = 22,
+    PRAGUE = 19,
+    PRAGUE_EOF = 20,
     #[default]
     LATEST = u8::MAX,
 }
@@ -103,6 +105,7 @@ impl From<&str> for SpecId {
             "Shanghai" => Self::SHANGHAI,
             "Cancun" => Self::CANCUN,
             "Prague" => Self::PRAGUE,
+            "PragueEOF" => Self::PRAGUE_EOF,
             #[cfg(feature = "taiko")]
             "Katla" => Self::KATLA,
             _ => Self::LATEST,
@@ -132,6 +135,7 @@ impl From<SpecId> for &'static str {
             SpecId::SHANGHAI => "Shanghai",
             SpecId::CANCUN => "Cancun",
             SpecId::PRAGUE => "Prague",
+            SpecId::PRAGUE_EOF => "PragueEOF",
             #[cfg(feature = "taiko")]
             SpecId::KATLA => "Katla",
             SpecId::LATEST => "Latest",
@@ -180,6 +184,7 @@ spec!(MERGE, MergeSpec);
 spec!(SHANGHAI, ShanghaiSpec);
 spec!(CANCUN, CancunSpec);
 spec!(PRAGUE, PragueSpec);
+spec!(PRAGUE_EOF, PragueEofSpec);
 
 spec!(LATEST, LatestSpec);
 
@@ -187,10 +192,10 @@ spec!(LATEST, LatestSpec);
 #[cfg(feature = "taiko")]
 spec!(KATLA, KatlaSpec);
 
+#[cfg(not(feature = "taiko"))]
 #[macro_export]
 macro_rules! spec_to_generic {
     ($spec_id:expr, $e:expr) => {{
-        // We are transitioning from var to generic spec.
         match $spec_id {
             $crate::SpecId::FRONTIER | SpecId::FRONTIER_THAWING => {
                 use $crate::FrontierSpec as SPEC;
@@ -250,7 +255,81 @@ macro_rules! spec_to_generic {
                 use $crate::PragueSpec as SPEC;
                 $e
             }
-            #[cfg(feature = "taiko")]
+            $crate::SpecId::PRAGUE_EOF => {
+                use $crate::PragueEofSpec as SPEC;
+                $e
+            }
+        }
+    }};
+}
+
+#[cfg(feature = "taiko")]
+#[macro_export]
+macro_rules! spec_to_generic {
+    ($spec_id:expr, $e:expr) => {{
+        match $spec_id {
+            $crate::SpecId::FRONTIER | SpecId::FRONTIER_THAWING => {
+                use $crate::FrontierSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::HOMESTEAD | SpecId::DAO_FORK => {
+                use $crate::HomesteadSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::TANGERINE => {
+                use $crate::TangerineSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::SPURIOUS_DRAGON => {
+                use $crate::SpuriousDragonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BYZANTIUM => {
+                use $crate::ByzantiumSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::PETERSBURG | $crate::SpecId::CONSTANTINOPLE => {
+                use $crate::PetersburgSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::ISTANBUL | $crate::SpecId::MUIR_GLACIER => {
+                use $crate::IstanbulSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::BERLIN => {
+                use $crate::BerlinSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::LONDON
+            | $crate::SpecId::ARROW_GLACIER
+            | $crate::SpecId::GRAY_GLACIER => {
+                use $crate::LondonSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::MERGE => {
+                use $crate::MergeSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::SHANGHAI => {
+                use $crate::ShanghaiSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::CANCUN => {
+                use $crate::CancunSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::LATEST => {
+                use $crate::LatestSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::PRAGUE => {
+                use $crate::PragueSpec as SPEC;
+                $e
+            }
+            $crate::SpecId::PRAGUE_EOF => {
+                use $crate::PragueEofSpec as SPEC;
+                $e
+            }
             $crate::SpecId::KATLA => {
                 use $crate::KatlaSpec as SPEC;
                 $e
@@ -286,6 +365,7 @@ mod tests {
         spec_to_generic!(SHANGHAI, assert_eq!(SPEC::SPEC_ID, SHANGHAI));
         spec_to_generic!(CANCUN, assert_eq!(SPEC::SPEC_ID, CANCUN));
         spec_to_generic!(PRAGUE, assert_eq!(SPEC::SPEC_ID, PRAGUE));
+        spec_to_generic!(PRAGUE_EOF, assert_eq!(SPEC::SPEC_ID, PRAGUE_EOF));
         spec_to_generic!(LATEST, assert_eq!(SPEC::SPEC_ID, LATEST));
         #[cfg(feature = "taiko")]
         spec_to_generic!(KATLA, assert_eq!(SPEC::SPEC_ID, KATLA));
