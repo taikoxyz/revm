@@ -226,7 +226,7 @@ date: 20.1.2022
 
 # v0.3.0
 
-* switch stacks H256 with U256 
+* switch stacks H256 with U256
 * Error type is changed to `Return` in revm so it is in precompiles.
 # v0.2.0
 

@@ -472,7 +472,7 @@ date: 04.04.2022
 Main changes can be summarizes in:
 * f91d5f9 - refactor: remove gas blocks (#391) (5 weeks ago) <Bjerg>
     * removal of gas block allowed us to have more compact analysis data. Gas block from beginning didn't have big impact on performance but introduced not intuitive gas calculations that was
-    source of some bugs. 
+    source of some bugs.
 * 08ce847 - feat(Shanghai): All EIPs: push0, warm coinbase, limit/measure initcode (#376) (7 weeks ago) <rakita>
     * revm is Shanghai ready
 * afc3066 - fix(db): preserve existing account state (#414) (4 weeks ago) <Roman Krasiuk>
@@ -547,7 +547,7 @@ date 29.01.2022
 
 This is big release that has core changes that breaks compatibility. In summary:
 *  Project is refactored into `revm-primitives`,`revm-precompile`,`revm-interpreter` and `revm` to have more flexibility and separation of concerns. And include paths in revm reflect that. So try to find include as `revm::primitives` or `revm::interpreter`
-* Parity `primitive-types` was replaced with `ruint` for big numbers and subset of macros are used for native `B160`/`B256` types. 
+* Parity `primitive-types` was replaced with `ruint` for big numbers and subset of macros are used for native `B160`/`B256` types.
 * Interpreter instructions are unified and now all of them have same signature.
 * web3 db was replaces with ethers alternative.
 * revmjs lib was removed from crates.
@@ -609,7 +609,7 @@ Very small release. Exposes one field and added prevrandao to remove footgun of 
 # v2.2.0
 date: 12.11.2022
 
-Small release that contains consensus bug fix. Additionally added few small feature flags needed for hardhat, opcode utility function and removal of web3db block number check. 
+Small release that contains consensus bug fix. Additionally added few small feature flags needed for hardhat, opcode utility function and removal of web3db block number check.
 
 * dc3414a - Added OEF spec for tests. Skip HighGasPrice (4 minutes ago) <rakita>
 * f462f9d - Bugfix: if returndatacopy is len 0 return after initial cost (#259) (4 minutes ago) <gd>
@@ -743,7 +743,7 @@ There is bug introduced in last release with gas blcok optimization, it will cra
 
 Changes:
 * Bug fix for unknown OpCode
-* Omit edgecase high nonce test. tracer gas fix 
+* Omit edgecase high nonce test. tracer gas fix
 * Some internal cleanup
 
 # v1.0.0
@@ -751,7 +751,7 @@ date: 18.12.2021
 
 It feel's like that the lib is in the state that is okay to promote it to the v1 version. Other that that, a lot of optimizations are done and the inspector trait was rewritten.
 
-Changes: 
+Changes:
 *  web3 db
 *  precalculated gas blocks. Optimization
 *  PC opcode as pointer. Optimization
@@ -766,7 +766,7 @@ date: 17.11.2021
 
 A lot of optimization on machine(Interpreter) part, it is now at least 3x faster. On interface side, Error enum was renamed to Return and it is simplified. Additionally if needed gas measuring can be removed with rust feature.
 
-Changes: 
+Changes:
 * push instruction optimized.
 * mload/mstore and memory optimized
 * Gas calculation optimized
