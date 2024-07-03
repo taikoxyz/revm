@@ -75,6 +75,7 @@ arbitrary = ["std", "alloy-primitives/arbitrary", "bitflags/arbitrary"]
 asm-keccak = ["alloy-primitives/asm-keccak"]
 portable = ["c-kzg?/portable"]
 
+optimism = []
 taiko = []
 # taiko default handler enabled taiko handler register by default in EvmBuilder.
 taiko-default-handler = ["taiko"]

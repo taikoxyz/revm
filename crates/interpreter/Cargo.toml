@@ -55,15 +55,11 @@ asm-keccak = ["revm-primitives/asm-keccak"]
 portable = ["revm-primitives/portable"]
 parse = ["dep:paste", "dep:phf"]
 
+optimism = []
 taiko = ["revm-primitives/taiko"]
 # taiko default handler enabled taiko handler register by default in EvmBuilder.
-taiko-default-handler = [
-    "taiko",
-    "revm-primitives/taiko-default-handler",
-]
-negate-taiko-default-handler = [
-    "revm-primitives/negate-taiko-default-handler",
-]
+taiko-default-handler = ["taiko", "revm-primitives/taiko-default-handler"]
+negate-taiko-default-handler = ["revm-primitives/negate-taiko-default-handler"]
 
 dev = [
     "memory_limit",
