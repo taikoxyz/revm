@@ -6,7 +6,10 @@ use crate::{
         register::EvmHandler,
     },
     interpreter::Gas,
-    primitives::{db::Database, spec_to_generic, EVMError, Spec, SpecId, U256},
+    primitives::{
+        db::Database, spec_to_generic, taiko_protocol_spec_to_generic, EVMError, Spec, SpecId,
+        TaikoProtocolSpec, TaikoProtocolSpecId, U256
+    },
     Context,
 };
 extern crate alloc;
@@ -16,7 +19,10 @@ pub fn taiko_handle_register<DB: Database, EXT>(handler: &mut EvmHandler<'_, EXT
     spec_to_generic!(handler.cfg.spec_id, {
         handler.pre_execution.deduct_caller = Arc::new(deduct_caller::<SPEC, EXT, DB>);
         handler.post_execution.reimburse_caller = Arc::new(reimburse_caller::<SPEC, EXT, DB>);
-        handler.post_execution.reward_beneficiary = Arc::new(reward_beneficiary::<SPEC, EXT, DB>);
+        taiko_protocol_spec_to_generic!(handler.cfg.taiko_protocol_spec_id, {
+            handler.post_execution.reward_beneficiary =
+                Arc::new(reward_beneficiary::<SPEC, TAIKOSPEC, EXT, DB>);
+        });
     });
 }
 
@@ -33,7 +39,7 @@ pub fn reimburse_caller<SPEC: Spec, EXT, DB: Database>(
 
 /// Reward beneficiary with gas fee.
 #[inline]
-pub fn reward_beneficiary<SPEC: Spec, EXT, DB: Database>(
+pub fn reward_beneficiary<SPEC: Spec, TAIKOSPEC: TaikoProtocolSpec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     gas: &Gas,
 ) -> Result<(), EVMError<DB::Error>> {
@@ -43,6 +49,17 @@ pub fn reward_beneficiary<SPEC: Spec, EXT, DB: Database>(
 
     mainnet::reward_beneficiary::<SPEC, EXT, DB>(context, gas)?;
 
+    if TAIKOSPEC::enabled(TaikoProtocolSpecId::ONTAKE) {
+        reward_beneficiary_ontake::<SPEC, EXT, DB>(context, gas)
+    } else {
+        reward_beneficiary_hekla::<SPEC, EXT, DB>(context, gas)
+    }
+}
+
+fn reward_beneficiary_hekla<SPEC: Spec, EXT, DB: Database>(
+    context: &mut Context<EXT, DB>,
+    gas: &Gas,
+) -> Result<(), EVMError<DB::Error>> {
     let treasury = context.evm.env.tx.taiko.treasury;
     let basefee = context.evm.env.block.basefee;
 
@@ -57,6 +74,13 @@ pub fn reward_beneficiary<SPEC: Spec, EXT, DB: Database>(
         .balance
         .saturating_add(basefee * U256::from(gas.spent() - gas.refunded() as u64));
     Ok(())
+}
+
+fn reward_beneficiary_ontake<SPEC: Spec, EXT, DB: Database>(
+    _context: &mut Context<EXT, DB>,
+    _gas: &Gas,
+) -> Result<(), EVMError<DB::Error>> {
+    todo!();
 }
 
 /// Deduct max balance from caller

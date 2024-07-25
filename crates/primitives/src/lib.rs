@@ -17,6 +17,10 @@ pub mod kzg;
 pub mod precompile;
 pub mod result;
 pub mod specification;
+#[cfg(feature = "taiko")]
+pub mod taiko_specification;
+#[cfg(feature = "taiko")]
+pub use taiko_specification::*;
 pub mod state;
 pub mod utilities;
 

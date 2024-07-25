@@ -1,6 +1,8 @@
 use super::{BlockEnv, CfgEnv, Env, SpecId, TxEnv};
 use core::ops::{Deref, DerefMut};
 use std::boxed::Box;
+#[cfg(feature = "taiko")]
+use crate::taiko_specification::TaikoProtocolSpecId;
 
 /// Handler configuration fields. It is used to configure the handler.
 /// It contains specification id and the taiko related field if
@@ -12,6 +14,8 @@ pub struct HandlerCfg {
     /// taiko related field, it will append the taiko handle register to the EVM.
     #[cfg(feature = "taiko")]
     pub is_taiko: bool,
+    #[cfg(feature = "taiko")]
+    pub taiko_protocol_spec_id: TaikoProtocolSpecId,
 }
 
 impl Default for HandlerCfg {
@@ -35,13 +39,15 @@ impl HandlerCfg {
             spec_id,
             #[cfg(feature = "taiko")]
             is_taiko,
+            #[cfg(feature = "taiko")]
+            taiko_protocol_spec_id: TaikoProtocolSpecId::TAIKOLATEST,
         }
     }
 
     /// Creates new `HandlerCfg` instance with the taiko feature.
     #[cfg(feature = "taiko")]
     pub fn new_with_taiko(spec_id: SpecId, is_taiko: bool) -> Self {
-        Self { spec_id, is_taiko }
+        Self { spec_id, is_taiko, taiko_protocol_spec_id: TaikoProtocolSpecId::TAIKOLATEST }
     }
 
     /// Returns `true` if the taiko feature is enabled and flag is set to `true`.
