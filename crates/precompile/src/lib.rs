@@ -284,7 +284,7 @@ impl PrecompileSpecId {
             PRAGUE | PRAGUE_EOF => Self::PRAGUE,
             LATEST => Self::LATEST,
             #[cfg(feature = "taiko")]
-            KATLA => Self::BERLIN,
+            KATLA | HEKLA | ONTAKE => Self::BERLIN,
         }
     }
 }

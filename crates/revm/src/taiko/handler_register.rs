@@ -43,6 +43,17 @@ pub fn reward_beneficiary<SPEC: Spec, EXT, DB: Database>(
 
     mainnet::reward_beneficiary::<SPEC, EXT, DB>(context, gas)?;
 
+    if SPEC::enabled(SpecId::ONTAKE) {
+        reward_beneficiary_ontake::<SPEC, EXT, DB>(context, gas)
+    } else {
+        reward_beneficiary_hekla::<SPEC, EXT, DB>(context, gas)
+    }
+}
+
+fn reward_beneficiary_hekla<SPEC: Spec, EXT, DB: Database>(
+    context: &mut Context<EXT, DB>,
+    gas: &Gas,
+) -> Result<(), EVMError<DB::Error>> {
     let treasury = context.evm.env.tx.taiko.treasury;
     let basefee = context.evm.env.block.basefee;
 
@@ -57,6 +68,13 @@ pub fn reward_beneficiary<SPEC: Spec, EXT, DB: Database>(
         .balance
         .saturating_add(basefee * U256::from(gas.spent() - gas.refunded() as u64));
     Ok(())
+}
+
+fn reward_beneficiary_ontake<SPEC: Spec, EXT, DB: Database>(
+    _context: &mut Context<EXT, DB>,
+    _gas: &Gas,
+) -> Result<(), EVMError<DB::Error>> {
+    todo!();
 }
 
 /// Deduct max balance from caller
