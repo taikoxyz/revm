@@ -163,6 +163,7 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
     }
 
     fn log(&mut self, log: Log) {
+        // Brecht log
         self.evm.journaled_state.log(log);
     }
 

@@ -223,6 +223,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         Ok(initial_gas_spend)
     }
 
+    /// Brecht - full transact
     /// Transact transaction
     ///
     /// This function will validate the transaction.
@@ -322,6 +323,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         ContextWithHandlerCfg::new(self.context, self.handler.cfg)
     }
 
+    /// Brecht - main transaction start
     /// Transact pre-verified transaction.
     fn transact_preverified_inner(&mut self, initial_gas_spend: u64) -> EVMResult<DB::Error> {
         let ctx = &mut self.context;

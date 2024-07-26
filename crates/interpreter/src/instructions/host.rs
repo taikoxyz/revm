@@ -229,6 +229,8 @@ pub fn log<const N: usize, H: Host + ?Sized>(interpreter: &mut Interpreter, host
         data: LogData::new(topics, data).expect("LogData should have <=4 topics"),
     };
 
+    // Brecht log creation
+
     host.log(log);
 }
 

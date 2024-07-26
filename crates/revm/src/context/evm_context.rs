@@ -6,7 +6,7 @@ use crate::{
     interpreter::{
         return_ok, CallInputs, Contract, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
-    primitives::{Address, Bytes, EVMError, Env, HashSet, U256},
+    primitives::{address, Address, Bytes, EVMError, Env, HashSet, U256},
     ContextPrecompiles, FrameOrResult, CALL_STACK_LIMIT,
 };
 use core::{
@@ -193,6 +193,13 @@ impl<DB: Database> EvmContext<DB> {
             }
             _ => {}
         };
+
+        println!("Brecht");
+
+        //if inputs.target_address == address!("06a9Ab27c7e2255df1815E6CC0168d7755Feb19a") {
+        if inputs.caller == address!("0000777735367b36bC9B61C50022d9D0700dB4Ec") {
+            println!("input: {:?}", inputs.input);
+        }
 
         if let Some(result) = self.call_precompile(inputs.bytecode_address, &inputs.input, gas) {
             if matches!(result.result, return_ok!()) {

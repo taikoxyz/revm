@@ -65,6 +65,7 @@ pub trait Inspector<DB: Database> {
         let _ = context;
     }
 
+    /// Brecht log callback
     /// Called when a log is emitted.
     #[inline]
     fn log(&mut self, context: &mut EvmContext<DB>, log: &Log) {
@@ -72,6 +73,7 @@ pub trait Inspector<DB: Database> {
         let _ = log;
     }
 
+    /// Brecht call callback
     /// Called whenever a call to a contract is about to start.
     ///
     /// InstructionResulting anything other than [crate::interpreter::InstructionResult::Continue] overrides the result of the call.
