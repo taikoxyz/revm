@@ -70,11 +70,47 @@ fn reward_beneficiary_hekla<SPEC: Spec, EXT, DB: Database>(
     Ok(())
 }
 
+/*
+https://github.com/taikoxyz/taiko-geth/blob/60551be44eb3080be9d0ba0c6cf01c6e2a47caf5/core/state_transition.go#L475-L482
+Ontake upgrade:
+        totalFee := new(big.Int).Mul(st.evm.Context.BaseFee, new(big.Int).SetUint64(st.gasUsed()))
+        feeCoinbase := new(big.Int).Div(
+mask-pp marked this conversation as resolved.
+            new(big.Int).Mul(totalFee, new(big.Int).SetUint64(uint64(st.msg.BasefeeSharingPctg))),
+            new(big.Int).SetUint64(100),
+        )
+        feeTreasury := new(big.Int).Sub(totalFee, feeCoinbase)
+        st.state.AddBalance(st.getTreasuryAddress(), uint256.MustFromBig(feeTreasury))
+        st.state.AddBalance(st.evm.Context.Coinbase, uint256.MustFromBig(feeCoinbase))
+    */
 fn reward_beneficiary_ontake<SPEC: Spec, EXT, DB: Database>(
-    _context: &mut Context<EXT, DB>,
-    _gas: &Gas,
+    context: &mut Context<EXT, DB>,
+    gas: &Gas,
 ) -> Result<(), EVMError<DB::Error>> {
-    todo!();
+    let basefee_ratio = context.evm.env.tx.taiko.basefee_ratio;
+    let treasury = context.evm.env.tx.taiko.treasury;
+    let basefee = context.evm.env.block.basefee;
+
+    let (treasury_account, _) = context
+        .evm
+        .inner
+        .journaled_state
+        .load_account(treasury, &mut context.evm.inner.db)?;
+    treasury_account.mark_touch();
+    let total_fee = basefee * U256::from(gas.spent() - gas.refunded() as u64);
+    let fee_coinbase = total_fee * U256::from(basefee_ratio) / U256::from(100);
+    let fee_treasury = total_fee - fee_coinbase;
+    treasury_account.info.balance = treasury_account.info.balance.saturating_add(fee_treasury);
+
+    let beneficiary = context.evm.env.block.coinbase;
+    let (coinbase_account, _) = context
+        .evm
+        .inner
+        .journaled_state
+        .load_account(beneficiary, &mut context.evm.inner.db)?;
+    coinbase_account.mark_touch();
+    coinbase_account.info.balance = coinbase_account.info.balance.saturating_add(fee_coinbase);
+    Ok(())
 }
 
 /// Deduct max balance from caller

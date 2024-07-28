@@ -635,6 +635,7 @@ impl BlobExcessGasAndPrice {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TaikoFields {
     pub treasury: Address,
+    pub basefee_ratio: u8,
     pub is_anchor: bool,
 }
 
