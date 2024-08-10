@@ -72,17 +72,16 @@ fn reward_beneficiary_hekla<SPEC: Spec, EXT, DB: Database>(
 
 /*
 https://github.com/taikoxyz/taiko-geth/blob/60551be44eb3080be9d0ba0c6cf01c6e2a47caf5/core/state_transition.go#L475-L482
-Ontake upgrade:
-        totalFee := new(big.Int).Mul(st.evm.Context.BaseFee, new(big.Int).SetUint64(st.gasUsed()))
-        feeCoinbase := new(big.Int).Div(
-mask-pp marked this conversation as resolved.
-            new(big.Int).Mul(totalFee, new(big.Int).SetUint64(uint64(st.msg.BasefeeSharingPctg))),
-            new(big.Int).SetUint64(100),
-        )
-        feeTreasury := new(big.Int).Sub(totalFee, feeCoinbase)
-        st.state.AddBalance(st.getTreasuryAddress(), uint256.MustFromBig(feeTreasury))
-        st.state.AddBalance(st.evm.Context.Coinbase, uint256.MustFromBig(feeCoinbase))
-    */
+Ontake upgrade for basefee sharing:
+    totalFee := new(big.Int).Mul(st.evm.Context.BaseFee, new(big.Int).SetUint64(st.gasUsed()))
+    feeCoinbase := new(big.Int).Div(
+        new(big.Int).Mul(totalFee, new(big.Int).SetUint64(uint64(st.msg.BasefeeSharingPctg))),
+        new(big.Int).SetUint64(100),
+    )
+    feeTreasury := new(big.Int).Sub(totalFee, feeCoinbase)
+    st.state.AddBalance(st.getTreasuryAddress(), uint256.MustFromBig(feeTreasury))
+    st.state.AddBalance(st.evm.Context.Coinbase, uint256.MustFromBig(feeCoinbase))
+*/
 fn reward_beneficiary_ontake<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     gas: &Gas,
