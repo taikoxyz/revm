@@ -59,7 +59,9 @@ pub enum SpecId {
     MERGE = 15,
     SHANGHAI = 16,
     KATLA = 17,
-    CANCUN = 18,
+    HEKLA = 18,
+    ONTAKE = 19,
+    CANCUN = 20,
     PRAGUE = 22,
     #[default]
     LATEST = u8::MAX,
@@ -105,6 +107,10 @@ impl From<&str> for SpecId {
             "Prague" => Self::PRAGUE,
             #[cfg(feature = "taiko")]
             "Katla" => Self::KATLA,
+            #[cfg(feature = "taiko")]
+            "Hekla" => Self::HEKLA,
+            #[cfg(feature = "taiko")]
+            "Ontake" => Self::ONTAKE,
             _ => Self::LATEST,
         }
     }
@@ -134,6 +140,10 @@ impl From<SpecId> for &'static str {
             SpecId::PRAGUE => "Prague",
             #[cfg(feature = "taiko")]
             SpecId::KATLA => "Katla",
+            #[cfg(feature = "taiko")]
+            SpecId::HEKLA => "Hekla",
+            #[cfg(feature = "taiko")]
+            SpecId::ONTAKE => "Ontake",
             SpecId::LATEST => "Latest",
         }
     }
@@ -186,6 +196,10 @@ spec!(LATEST, LatestSpec);
 // Taiko Hardforks
 #[cfg(feature = "taiko")]
 spec!(KATLA, KatlaSpec);
+#[cfg(feature = "taiko")]
+spec!(HEKLA, HeklaSpec);
+#[cfg(feature = "taiko")]
+spec!(ONTAKE, OntakeSpec);
 
 #[macro_export]
 macro_rules! spec_to_generic {
@@ -255,6 +269,16 @@ macro_rules! spec_to_generic {
                 use $crate::KatlaSpec as SPEC;
                 $e
             }
+            #[cfg(feature = "taiko")]
+            $crate::SpecId::HEKLA => {
+                use $crate::HeklaSpec as SPEC;
+                $e
+            }
+            #[cfg(feature = "taiko")]
+            $crate::SpecId::ONTAKE => {
+                use $crate::OntakeSpec as SPEC;
+                $e
+            }
         }
     }};
 }
@@ -289,6 +313,10 @@ mod tests {
         spec_to_generic!(LATEST, assert_eq!(SPEC::SPEC_ID, LATEST));
         #[cfg(feature = "taiko")]
         spec_to_generic!(KATLA, assert_eq!(SPEC::SPEC_ID, KATLA));
+        #[cfg(feature = "taiko")]
+        spec_to_generic!(HEKLA, assert_eq!(SPEC::SPEC_ID, HEKLA));
+        #[cfg(feature = "taiko")]
+        spec_to_generic!(ONTAKE, assert_eq!(SPEC::SPEC_ID, ONTAKE));
     }
 }
 
