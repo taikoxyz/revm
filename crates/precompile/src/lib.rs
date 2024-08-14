@@ -135,7 +135,7 @@ impl Precompiles {
 
     /// Returns precompiles for Cancun spec.
     ///
-    /// If the `c-kzg` feature is not enabled KZG Point Evaluation precompile will not be included,
+    /// If the `kzg` feature is not enabled KZG Point Evaluation precompile will not be included,
     /// effectively making this the same as Berlin.
     pub fn cancun() -> &'static Self {
         static INSTANCE: OnceBox<Precompiles> = OnceBox::new();
