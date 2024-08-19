@@ -30,8 +30,8 @@ pub struct InnerEvmContext<DB: Database> {
     /// Error that happened during execution.
     pub error: Result<(), EVMError<DB::Error>>,
     /// Used as temporary value holder to store L1 block info.
-    #[cfg(feature = "optimism")]
-    pub l1_block_info: Option<crate::optimism::L1BlockInfo>,
+    #[cfg(feature = "taiko")]
+    pub l1_block_info: Option<crate::taiko::L1BlockInfo>,
 }
 
 impl<DB: Database + Clone> Clone for InnerEvmContext<DB>
@@ -44,7 +44,7 @@ where
             journaled_state: self.journaled_state.clone(),
             db: self.db.clone(),
             error: self.error.clone(),
-            #[cfg(feature = "optimism")]
+            #[cfg(feature = "taiko")]
             l1_block_info: self.l1_block_info.clone(),
         }
     }
@@ -57,7 +57,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             journaled_state: JournaledState::new(SpecId::LATEST, HashSet::new()),
             db,
             error: Ok(()),
-            #[cfg(feature = "optimism")]
+            #[cfg(feature = "taiko")]
             l1_block_info: None,
         }
     }
@@ -70,7 +70,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             journaled_state: JournaledState::new(SpecId::LATEST, HashSet::new()),
             db,
             error: Ok(()),
-            #[cfg(feature = "optimism")]
+            #[cfg(feature = "taiko")]
             l1_block_info: None,
         }
     }
@@ -85,7 +85,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             journaled_state: self.journaled_state,
             db,
             error: Ok(()),
-            #[cfg(feature = "optimism")]
+            #[cfg(feature = "taiko")]
             l1_block_info: self.l1_block_info,
         }
     }
