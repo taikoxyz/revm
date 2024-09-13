@@ -6,6 +6,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [11.1.0](https://github.com/taikoxyz/revm/compare/revm-precompile-v11.0.1...revm-precompile-v11.1.0) - 2024-09-13
+
+### Added
+
+- introducing EvmWiring, a chain-specific configuration ([#1672](https://github.com/taikoxyz/revm/pull/1672))
+
+### Other
+
+- make clippy happy ([#1755](https://github.com/taikoxyz/revm/pull/1755))
+
 ## [11.0.1](https://github.com/bluealloy/revm/compare/revm-precompile-v11.0.0...revm-precompile-v11.0.1) - 2024-08-30
 
 ### Other
