@@ -5,7 +5,7 @@ pub use handler_cfg::{CfgEnvWithHandlerCfg, EnvWithHandlerCfg, HandlerCfg};
 use crate::{
     calc_blob_gasprice, AccessListItem, Account, Address, AuthorizationList, Bytes, InvalidHeader,
     InvalidTransaction, Spec, SpecId, B256, GAS_PER_BLOB, MAX_BLOB_NUMBER_PER_BLOCK, MAX_CODE_SIZE,
-    MAX_INITCODE_SIZE, U256, VERSIONED_HASH_VERSION_KZG,
+    MAX_INITCODE_SIZE, U256, VERSIONED_HASH_VERSION_KZG, ChainAddress,
 };
 use alloy_primitives::TxKind;
 use core::cmp::{min, Ordering};
@@ -335,6 +335,8 @@ pub struct CfgEnv {
     /// By default, it is set to `false`.
     #[cfg(feature = "optional_beneficiary_reward")]
     pub disable_beneficiary_reward: bool,
+    /// Chain ID of the parent chain, `0` for no parent chain
+    pub parent_chain_id: u64,
 }
 
 impl CfgEnv {
@@ -414,6 +416,7 @@ impl Default for CfgEnv {
     fn default() -> Self {
         Self {
             chain_id: 1,
+            parent_chain_id: 1,
             perf_analyse_created_bytecodes: AnalysisKind::default(),
             limit_contract_code_size: None,
             #[cfg(any(feature = "c-kzg", feature = "kzg-rs"))]
@@ -445,7 +448,7 @@ pub struct BlockEnv {
     /// Coinbase or miner or address that created and signed the block.
     ///
     /// This is the receiver address of all the gas spent in the block.
-    pub coinbase: Address,
+    pub coinbase: ChainAddress,
 
     /// The timestamp of the block in seconds since the UNIX epoch.
     pub timestamp: U256,
@@ -518,7 +521,7 @@ impl Default for BlockEnv {
     fn default() -> Self {
         Self {
             number: U256::ZERO,
-            coinbase: Address::ZERO,
+            coinbase: ChainAddress::default(),
             timestamp: U256::from(1),
             gas_limit: U256::MAX,
             basefee: U256::ZERO,
@@ -534,13 +537,13 @@ impl Default for BlockEnv {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TxEnv {
     /// Caller aka Author aka transaction signer.
-    pub caller: Address,
+    pub caller: ChainAddress,
     /// The gas limit of the transaction.
     pub gas_limit: u64,
     /// The gas price of the transaction.
     pub gas_price: U256,
     /// The destination of the transaction.
-    pub transact_to: TxKind,
+    pub transact_to: TransactTo,
     /// The value sent to `transact_to`.
     pub value: U256,
     /// The data of the transaction.
@@ -627,11 +630,12 @@ impl TxEnv {
 impl Default for TxEnv {
     fn default() -> Self {
         Self {
-            caller: Address::ZERO,
+            caller: ChainAddress::default(),
             gas_limit: u64::MAX,
             gas_price: U256::ZERO,
             gas_priority_fee: None,
-            transact_to: TxKind::Call(Address::ZERO), // will do nothing
+            // TODO: Brecht
+            transact_to: TransactTo::Call(ChainAddress(0, Address::ZERO)), // will do nothing
             value: U256::ZERO,
             data: Bytes::new(),
             chain_id: None,
@@ -705,8 +709,165 @@ pub struct OptimismFields {
     pub enveloped_tx: Option<Bytes>,
 }
 
+// TODO: Brecht
 /// Transaction destination
-pub type TransactTo = TxKind;
+//pub type TransactTo = TxKind;
+
+
+#[cfg(feature = "rlp")]
+use alloy_rlp::{Buf, BufMut, Decodable, Encodable, EMPTY_STRING_CODE};
+
+/// The `to` field of a transaction. Either a target address, or empty for a
+/// contract creation.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "arbitrary", derive(derive_arbitrary::Arbitrary, proptest_derive::Arbitrary))]
+pub enum TransactTo {
+    /// A transaction that creates a contract.
+    #[default]
+    Create,
+    /// A transaction that calls a contract or transfer.
+    Call(ChainAddress),
+}
+
+impl From<Option<ChainAddress>> for TransactTo {
+    /// Creates a `TransactTo::Call` with the `Some` address, `None` otherwise.
+    #[inline]
+    fn from(value: Option<ChainAddress>) -> Self {
+        match value {
+            None => Self::Create,
+            Some(addr) => Self::Call(addr),
+        }
+    }
+}
+
+impl From<ChainAddress> for TransactTo {
+    /// Creates a `TxKind::Call` with the given address.
+    #[inline]
+    fn from(value: ChainAddress) -> Self {
+        Self::Call(value)
+    }
+}
+
+impl TransactTo {
+    /// Returns the address of the contract that will be called or will receive the transfer.
+    pub const fn to(&self) -> Option<&ChainAddress> {
+        match self {
+            Self::Create => None,
+            Self::Call(to) => Some(to),
+        }
+    }
+
+    /// Returns true if the transaction is a contract creation.
+    #[inline]
+    pub const fn is_create(&self) -> bool {
+        matches!(self, Self::Create)
+    }
+
+    /// Returns true if the transaction is a contract call.
+    #[inline]
+    pub const fn is_call(&self) -> bool {
+        matches!(self, Self::Call(_))
+    }
+
+    /// Calculates a heuristic for the in-memory size of this object.
+    #[inline]
+    pub const fn size(&self) -> usize {
+        core::mem::size_of::<Self>()
+    }
+}
+
+#[cfg(feature = "rlp")]
+impl Encodable for TxKind {
+    fn encode(&self, out: &mut dyn BufMut) {
+        match self {
+            Self::Call(to) => to.encode(out),
+            Self::Create => out.put_u8(EMPTY_STRING_CODE),
+        }
+    }
+
+    fn length(&self) -> usize {
+        match self {
+            Self::Call(to) => to.length(),
+            Self::Create => 1, // EMPTY_STRING_CODE is a single byte
+        }
+    }
+}
+
+#[cfg(feature = "rlp")]
+impl Decodable for TxKind {
+    fn decode(buf: &mut &[u8]) -> alloy_rlp::Result<Self> {
+        if let Some(&first) = buf.first() {
+            if first == EMPTY_STRING_CODE {
+                buf.advance(1);
+                Ok(Self::Create)
+            } else {
+                let addr = <Address as Decodable>::decode(buf)?;
+                Ok(Self::Call(addr))
+            }
+        } else {
+            Err(alloy_rlp::Error::InputTooShort)
+        }
+    }
+}
+
+#[cfg(feature = "serde")]
+impl serde::Serialize for TransactTo {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        self.to().serialize(serializer)
+    }
+}
+
+#[cfg(feature = "serde")]
+impl<'de> serde::Deserialize<'de> for TransactTo {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        Ok(Option::<ChainAddress>::deserialize(deserializer)?.into())
+    }
+}
+
+
+/*
+/// Transaction destination.
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum TransactTo {
+    /// Simple call to an address.
+    Call(ChainAddress),
+    /// Contract creation.
+    Create(CreateScheme),
+}
+
+impl TransactTo {
+    /// Calls the given address.
+    #[inline]
+    pub fn call(address: ChainAddress) -> Self {
+        Self::Call(address)
+    }
+
+    /// Creates a contract.
+    #[inline]
+    pub fn create() -> Self {
+        Self::Create(CreateScheme::Create)
+    }
+
+    /// Creates a contract with the given salt using `CREATE2`.
+    #[inline]
+    pub fn create2(salt: U256) -> Self {
+        Self::Create(CreateScheme::Create2 { salt })
+    }
+
+    /// Returns `true` if the transaction is `Call`.
+    #[inline]
+    pub fn is_call(&self) -> bool {
+        matches!(self, Self::Call(_))
+    }
+
+    /// Returns `true` if the transaction is `Create` or `Create2`.
+    #[inline]
+    pub fn is_create(&self) -> bool {
+        matches!(self, Self::Create(_))
+    }
+}
+*/
 
 /// Create scheme.
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
@@ -730,6 +891,22 @@ pub enum AnalysisKind {
     /// Perform bytecode analysis.
     #[default]
     Analyse,
+}
+
+#[derive(Clone, Debug)]
+pub struct CallOptions {
+    /// The target chain id
+    pub chain_id: u64,
+    /// If the call needs to persist state changes or not
+    pub sandbox: bool,
+    /// Mocked `tx.origin`
+    pub tx_origin: ChainAddress,
+    /// Mocked `msg.sender`
+    pub msg_sender: ChainAddress,
+    /// The block hash to execute against (None will execute against the latest known blockhash)
+    pub block_hash: Option<B256>,
+    /// The data necessary to execute the call
+    pub proof: Vec<u8>,
 }
 
 #[cfg(test)]

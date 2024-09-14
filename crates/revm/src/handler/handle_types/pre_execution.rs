@@ -1,5 +1,5 @@
 // Includes.
-use super::{GenericContextHandle, GenericContextHandleRet};
+use super::{GenericContextHandle, GenericContextHandleRet, GenericContextHandleChain};
 use crate::{
     handler::mainnet,
     primitives::{db::Database, EVMError, Spec},
@@ -13,7 +13,7 @@ pub type LoadPrecompilesHandle<'a, DB> = Arc<dyn Fn() -> ContextPrecompiles<DB> 
 /// Load access list accounts and beneficiary.
 /// There is no need to load Caller as it is assumed that
 /// it will be loaded in DeductCallerHandle.
-pub type LoadAccountsHandle<'a, EXT, DB> = GenericContextHandle<'a, EXT, DB>;
+pub type LoadAccountsHandle<'a, EXT, DB> = GenericContextHandleChain<'a, EXT, DB>;
 
 /// Deduct the caller to its limit.
 pub type DeductCallerHandle<'a, EXT, DB> = GenericContextHandle<'a, EXT, DB>;
@@ -52,8 +52,8 @@ impl<'a, EXT, DB: Database> PreExecutionHandler<'a, EXT, DB> {
     }
 
     /// Main load
-    pub fn load_accounts(&self, context: &mut Context<EXT, DB>) -> Result<(), EVMError<DB::Error>> {
-        (self.load_accounts)(context)
+    pub fn load_accounts(&self, context: &mut Context<EXT, DB>, chain_id: u64) -> Result<(), EVMError<DB::Error>> {
+        (self.load_accounts)(context, chain_id)
     }
 
     /// Apply EIP-7702 auth list and return gas refund on account that were already present.

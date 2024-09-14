@@ -89,7 +89,7 @@ mod tests {
     use crate::{
         inspectors::GasInspector,
         interpreter::{CallInputs, CreateInputs, Interpreter},
-        primitives::Log,
+        primitives::{Log, ChainAddress},
         Database, EvmContext, Inspector,
     };
 
@@ -188,8 +188,8 @@ mod tests {
             .with_external_context(StackInspector::default())
             .modify_tx_env(|tx| {
                 tx.clear();
-                tx.caller = address!("1000000000000000000000000000000000000000");
-                tx.transact_to = TxKind::Call(address!("0000000000000000000000000000000000000000"));
+                tx.caller = ChainAddress(0, address!("1000000000000000000000000000000000000000"));
+                tx.transact_to = TxKind::Call(ChainAddress(0, address!("0000000000000000000000000000000000000000")));
                 tx.gas_limit = 21100;
             })
             .append_handler_register(inspector_handle_register)

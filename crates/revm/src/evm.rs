@@ -6,8 +6,8 @@ use crate::{
         CallInputs, CreateInputs, EOFCreateInputs, Host, InterpreterAction, SharedMemory,
     },
     primitives::{
-        specification::SpecId, BlockEnv, CfgEnv, EVMError, EVMResult, EnvWithHandlerCfg,
-        ExecutionResult, HandlerCfg, ResultAndState, TxEnv, TxKind, EOF_MAGIC_BYTES,
+        specification::SpecId, BlockEnv, CfgEnv, ChainAddress, EVMError, EVMResult, EnvWithHandlerCfg,
+        ExecutionResult, HandlerCfg, ResultAndState, TransactTo, TxEnv, TxKind, EOF_MAGIC_BYTES,
     },
     Context, ContextWithHandlerCfg, Frame, FrameOrResult, FrameResult,
 };
@@ -329,11 +329,11 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         let pre_exec = self.handler.pre_execution();
 
         // load access list and beneficiary if needed.
-        pre_exec.load_accounts(ctx)?;
+        pre_exec.load_accounts(ctx, ctx.evm.env.cfg.chain_id)?;
 
         // load precompiles
         let precompiles = pre_exec.load_precompiles();
-        ctx.evm.set_precompiles(precompiles);
+        ctx.evm.set_precompiles(ctx.evm.env.cfg.chain_id, precompiles);
 
         // deduce caller balance with its limit.
         pre_exec.deduct_caller(ctx)?;
@@ -346,11 +346,11 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         let exec = self.handler.execution();
         // call inner handling of call/create
         let first_frame_or_result = match ctx.evm.env.tx.transact_to {
-            TxKind::Call(_) => exec.call(
+            TransactTo::Call(_) => exec.call(
                 ctx,
                 CallInputs::new_boxed(&ctx.evm.env.tx, gas_limit).unwrap(),
             )?,
-            TxKind::Create => {
+            TransactTo::Create => {
                 // if first byte of data is magic 0xEF00, then it is EOFCreate.
                 if spec_id.is_enabled_in(SpecId::PRAGUE_EOF)
                     && ctx.env().tx.data.starts_with(&EOF_MAGIC_BYTES)

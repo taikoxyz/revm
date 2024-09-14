@@ -5,7 +5,7 @@ use crate::{
         return_ok, return_revert, CallInputs, CreateInputs, CreateOutcome, Gas, InstructionResult,
         SharedMemory,
     },
-    primitives::{EVMError, Spec},
+    primitives::{ChainAddress, EVMError, Spec},
     CallFrame, Context, CreateFrame, Frame, FrameOrResult, FrameResult,
 };
 use core::mem;
@@ -118,7 +118,7 @@ pub fn create_return<SPEC: Spec, EXT, DB: Database>(
 ) -> Result<CreateOutcome, EVMError<DB::Error>> {
     context.evm.create_return::<SPEC>(
         &mut interpreter_result,
-        frame.created_address,
+        ChainAddress(frame.frame_data.interpreter.chain_id, frame.created_address),
         frame.frame_data.checkpoint,
     );
     Ok(CreateOutcome::new(
@@ -158,7 +158,7 @@ pub fn eofcreate_return<SPEC: Spec, EXT, DB: Database>(
 ) -> Result<CreateOutcome, EVMError<DB::Error>> {
     context.evm.eofcreate_return::<SPEC>(
         &mut interpreter_result,
-        frame.created_address,
+        ChainAddress(frame.frame_data.interpreter.chain_id, frame.created_address),
         frame.frame_data.checkpoint,
     );
     Ok(CreateOutcome::new(

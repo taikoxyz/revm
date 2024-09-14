@@ -8,7 +8,7 @@ use revm_interpreter::OpCode;
 use crate::{
     inspectors::GasInspector,
     interpreter::{CallInputs, CreateInputs, Interpreter},
-    primitives::{Address, U256},
+    primitives::{Address, ChainAddress, U256},
     Database, EvmContext, Inspector,
 };
 
@@ -103,7 +103,7 @@ impl<DB: Database> Inspector<DB> for CustomPrintTracer {
         None
     }
 
-    fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {
+    fn selfdestruct(&mut self, contract: ChainAddress, target: ChainAddress, value: U256) {
         println!(
             "SELFDESTRUCT: contract: {:?}, refund target: {:?}, value {:?}",
             contract, target, value
@@ -116,13 +116,14 @@ mod test {
     use crate::{
         inspector_handle_register,
         inspectors::CustomPrintTracer,
-        primitives::{address, bytes, SpecId},
+        primitives::{address, bytes, SpecId, ChainAddress},
         Evm, InMemoryDB,
     };
 
     #[test]
     fn gas_calculation_underflow() {
-        let callee = address!("5fdcca53617f4d2b9134b29090c87d01058e27e9");
+        let chain_id = 0;
+        let callee = ChainAddress(chain_id, address!("5fdcca53617f4d2b9134b29090c87d01058e27e9"));
 
         // https://github.com/bluealloy/revm/issues/277
         // checks this use case
@@ -139,7 +140,7 @@ mod test {
                 db.insert_account_info(callee, info);
             })
             .modify_tx_env(|tx| {
-                tx.caller = address!("5fdcca53617f4d2b9134b29090c87d01058e27e0");
+                tx.caller = ChainAddress(chain_id, address!("5fdcca53617f4d2b9134b29090c87d01058e27e0"));
                 tx.transact_to = crate::primitives::TxKind::Call(callee);
                 tx.data = crate::primitives::Bytes::new();
                 tx.value = crate::primitives::U256::ZERO;

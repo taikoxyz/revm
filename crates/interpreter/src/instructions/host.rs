@@ -8,7 +8,7 @@ use core::cmp::min;
 use std::vec::Vec;
 
 pub fn balance<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    pop_address!(interpreter, address);
+    pop_chain_address!(interpreter, address);
     let Some(balance) = host.balance(address) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
@@ -41,7 +41,7 @@ pub fn selfbalance<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
 }
 
 pub fn extcodesize<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    pop_address!(interpreter, address);
+    pop_chain_address!(interpreter, address);
     let Some(code) = host.code(address) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
@@ -61,7 +61,7 @@ pub fn extcodesize<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
 /// EIP-1052: EXTCODEHASH opcode
 pub fn extcodehash<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     check!(interpreter, CONSTANTINOPLE);
-    pop_address!(interpreter, address);
+    pop_chain_address!(interpreter, address);
     let Some(code_hash) = host.code_hash(address) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
@@ -78,7 +78,7 @@ pub fn extcodehash<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
 }
 
 pub fn extcodecopy<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    pop_address!(interpreter, address);
+    pop_chain_address!(interpreter, address);
     pop!(interpreter, memory_offset, code_offset, len_u256);
 
     let Some(code) = host.code(address) else {
@@ -110,7 +110,7 @@ pub fn blockhash<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, ho
     pop_top!(interpreter, number);
 
     let number_u64 = as_u64_saturated!(number);
-    let Some(hash) = host.block_hash(number_u64) else {
+    let Some(hash) = host.block_hash(interpreter.chain_id, number_u64) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
     };
@@ -199,7 +199,7 @@ pub fn log<const N: usize, H: Host + ?Sized>(interpreter: &mut Interpreter, host
     }
 
     let log = Log {
-        address: interpreter.contract.target_address,
+        address: interpreter.contract.target_address.1, // Brecht
         data: LogData::new(topics, data).expect("LogData should have <=4 topics"),
     };
 
@@ -208,7 +208,7 @@ pub fn log<const N: usize, H: Host + ?Sized>(interpreter: &mut Interpreter, host
 
 pub fn selfdestruct<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
     require_non_staticcall!(interpreter);
-    pop_address!(interpreter, target);
+    pop_chain_address!(interpreter, target);
 
     let Some(res) = host.selfdestruct(interpreter.contract.target_address, target) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;

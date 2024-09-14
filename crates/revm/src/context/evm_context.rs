@@ -9,7 +9,7 @@ use crate::{
         EOFCreateKind, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
     primitives::{
-        keccak256, Address, Bytecode, Bytes, CreateScheme, EVMError, Env, Eof,
+        keccak256, Address, Bytecode, Bytes, ChainAddress, CreateScheme, EVMError, Env, Eof,
         SpecId::{self, *},
         B256, EOF_MAGIC_BYTES,
     },
@@ -99,11 +99,11 @@ impl<DB: Database> EvmContext<DB> {
 
     /// Sets precompiles
     #[inline]
-    pub fn set_precompiles(&mut self, precompiles: ContextPrecompiles<DB>) {
+    pub fn set_precompiles(&mut self, chain_id: u64, precompiles: ContextPrecompiles<DB>) {
         // set warm loaded addresses.
         self.journaled_state
             .warm_preloaded_addresses
-            .extend(precompiles.addresses_set());
+            .extend(precompiles.addresses_set().iter().map(|precompile| ChainAddress(chain_id, precompile.clone())));
         self.precompiles = precompiles;
     }
 
@@ -111,13 +111,13 @@ impl<DB: Database> EvmContext<DB> {
     #[inline]
     fn call_precompile(
         &mut self,
-        address: &Address,
+        address: &ChainAddress,
         input_data: &Bytes,
         gas: Gas,
     ) -> Result<Option<InterpreterResult>, EVMError<DB::Error>> {
         let Some(outcome) =
             self.precompiles
-                .call(address, input_data, gas.limit(), &mut self.inner)
+                .call(&address.1, input_data, gas.limit(), &mut self.inner)
         else {
             return Ok(None);
         };
@@ -240,7 +240,7 @@ impl<DB: Database> EvmContext<DB> {
                 bytecode = self
                     .inner
                     .journaled_state
-                    .load_code(eip7702_bytecode.delegated_address, &mut self.inner.db)?
+                    .load_code(ChainAddress(inputs.bytecode_address.0, eip7702_bytecode.delegated_address), &mut self.inner.db)?
                     .info
                     .code
                     .clone()
@@ -253,7 +253,7 @@ impl<DB: Database> EvmContext<DB> {
             Ok(FrameOrResult::new_call_frame(
                 inputs.return_memory_offset.clone(),
                 checkpoint,
-                Interpreter::new(contract, gas.limit(), inputs.is_static),
+                Interpreter::new(contract, gas.limit(), inputs.is_static, inputs.target_address.0, false),
             ))
         }
     }
@@ -265,6 +265,8 @@ impl<DB: Database> EvmContext<DB> {
         spec_id: SpecId,
         inputs: &CreateInputs,
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
+        let chain_id = inputs.caller.0;
+
         let return_error = |e| {
             Ok(FrameOrResult::new_create_result(
                 InterpreterResult {
@@ -305,10 +307,11 @@ impl<DB: Database> EvmContext<DB> {
         // Create address
         let mut init_code_hash = B256::ZERO;
         let created_address = match inputs.scheme {
-            CreateScheme::Create => inputs.caller.create(old_nonce),
+            // TODO: Brecht
+            CreateScheme::Create => inputs.caller.1.create(old_nonce),
             CreateScheme::Create2 { salt } => {
                 init_code_hash = keccak256(&inputs.init_code);
-                inputs.caller.create2(salt.to_be_bytes(), init_code_hash)
+                inputs.caller.1.create2(salt.to_be_bytes(), init_code_hash)
             }
         };
 
@@ -316,6 +319,9 @@ impl<DB: Database> EvmContext<DB> {
         if self.precompiles.contains(&created_address) {
             return return_error(InstructionResult::CreateCollision);
         }
+
+        // TODO: Brecht
+        let created_address = ChainAddress(chain_id, created_address);
 
         // warm load account.
         self.load_account(created_address)?;
@@ -346,9 +352,9 @@ impl<DB: Database> EvmContext<DB> {
         );
 
         Ok(FrameOrResult::new_create_frame(
-            created_address,
+            created_address.1,
             checkpoint,
-            Interpreter::new(contract, inputs.gas_limit, false),
+            Interpreter::new(contract, inputs.gas_limit, false, chain_id, false),
         ))
     }
 
@@ -369,6 +375,8 @@ impl<DB: Database> EvmContext<DB> {
                 None,
             ))
         };
+
+        let chain_id = inputs.caller.0;
 
         let (input, initcode, created_address) = match &inputs.kind {
             EOFCreateKind::Opcode {
@@ -396,7 +404,7 @@ impl<DB: Database> EvmContext<DB> {
                     .env
                     .tx
                     .nonce
-                    .map(|nonce| self.env.tx.caller.create(nonce));
+                    .map(|nonce| ChainAddress(chain_id, self.env.tx.caller.1.create(nonce))); // TODO: Brecht
 
                 (input, eof, nonce)
             }
@@ -422,10 +430,10 @@ impl<DB: Database> EvmContext<DB> {
         };
         let old_nonce = nonce - 1;
 
-        let created_address = created_address.unwrap_or_else(|| inputs.caller.create(old_nonce));
+        let created_address = created_address.unwrap_or_else(|| ChainAddress(chain_id, inputs.caller.1.create(old_nonce)));
 
         // created address is not allowed to be a precompile.
-        if self.precompiles.contains(&created_address) {
+        if self.precompiles.contains(&created_address.1) {
             return return_error(InstructionResult::CreateCollision);
         }
 
@@ -456,12 +464,12 @@ impl<DB: Database> EvmContext<DB> {
             inputs.value,
         );
 
-        let mut interpreter = Interpreter::new(contract, inputs.gas_limit, false);
+        let mut interpreter = Interpreter::new(contract, inputs.gas_limit, false, chain_id, false);
         // EOF init will enable RETURNCONTRACT opcode.
         interpreter.set_is_eof_init();
 
         Ok(FrameOrResult::new_eofcreate_frame(
-            created_address,
+            created_address.1,
             checkpoint,
             interpreter,
         ))
