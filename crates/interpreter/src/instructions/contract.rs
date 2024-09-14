@@ -627,7 +627,7 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
 
     CallTargets {
         target_address: if delegate || code { interpreter.contract.target_address } else { to },
-        caller: if code { interpreter.contract.caller } else { interpreter.contract.target_address },
+        caller: if delegate { interpreter.contract.caller } else { interpreter.contract.target_address },
         bytecode_address: to,
     }
 }

@@ -406,6 +406,7 @@ mod tests {
 
     #[test]
     fn sanity_eip7702_tx() {
+        let chain_id = 1;
         let delegate = address!("0000000000000000000000000000000000000000");
         let caller = address!("0000000000000000000000000000000000000001");
         let auth = address!("0000000000000000000000000000000000000100");
@@ -428,14 +429,14 @@ mod tests {
                     )]
                     .into(),
                 );
-                tx.caller = caller;
-                tx.transact_to = TxKind::Call(auth);
+                tx.caller = ChainAddress(chain_id, caller);
+                tx.transact_to = TransactTo::Call(ChainAddress(chain_id, auth));
             })
             .build();
 
         let ok = evm.transact().unwrap();
 
-        let auth_acc = ok.state.get(&auth).unwrap();
+        let auth_acc = ok.state.get(&ChainAddress(chain_id, auth)).unwrap();
         assert_eq!(auth_acc.info.code, Some(Bytecode::new_eip7702(delegate)));
         assert_eq!(auth_acc.info.nonce, 1);
         assert_eq!(

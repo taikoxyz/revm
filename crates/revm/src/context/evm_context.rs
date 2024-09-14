@@ -488,15 +488,16 @@ pub(crate) mod test_utils {
     };
 
     /// Mock caller address.
-    pub const MOCK_CALLER: Address = address!("0000000000000000000000000000000000000000");
+    pub const MOCK_CALLER: ChainAddress = ChainAddress(1, address!("0000000000000000000000000000000000000000"));
 
     /// Creates `CallInputs` that calls a provided contract address from the mock caller.
     pub fn create_mock_call_inputs(to: Address) -> CallInputs {
+        let chain_id = 1;
         CallInputs {
             input: Bytes::new(),
             gas_limit: 0,
-            bytecode_address: to,
-            target_address: to,
+            bytecode_address: ChainAddress(chain_id, to),
+            target_address: ChainAddress(chain_id, to),
             caller: MOCK_CALLER,
             value: CallValue::Transfer(U256::ZERO),
             scheme: revm_interpreter::CallScheme::Call,
@@ -611,7 +612,7 @@ mod tests {
             result.interpreter_result().result,
             InstructionResult::OutOfFunds
         );
-        let checkpointed = vec![vec![JournalEntry::AccountWarmed { address: contract }]];
+        let checkpointed = vec![vec![JournalEntry::AccountWarmed { address: call_inputs.bytecode_address }]];
         assert_eq!(evm_context.journaled_state.journal, checkpointed);
         assert_eq!(evm_context.journaled_state.depth, 0);
     }
@@ -633,13 +634,14 @@ mod tests {
 
     #[test]
     fn test_make_call_frame_succeeds() {
+        let chain_id = 1;
         let env = Env::default();
         let mut cdb = CacheDB::new(EmptyDB::default());
         let bal = U256::from(3_000_000_000_u128);
         let by = Bytecode::new_raw(Bytes::from(vec![0x60, 0x00, 0x60, 0x00]));
         let contract = address!("dead10000000000000000000000000000001dead");
         cdb.insert_account_info(
-            contract,
+            ChainAddress(chain_id, contract),
             crate::primitives::AccountInfo {
                 nonce: 0,
                 balance: bal,

@@ -12,7 +12,7 @@ use std::{
     collections::{btree_map, BTreeMap},
     vec::Vec,
 };
-use crate::primitives::ChainAddress;
+use crate::primitives::{Address, ChainAddress};
 
 /// Database boxed with a lifetime and Send.
 pub type DBBox<'a, E> = Box<dyn Database<Error = E> + Send + 'a>;
