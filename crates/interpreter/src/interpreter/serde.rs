@@ -95,6 +95,9 @@ impl<'de> Deserialize<'de> for Interpreter {
         let instruction_pointer = unsafe { bytecode.as_ptr().add(program_counter) };
 
         Ok(Interpreter {
+            chain_id: 1,
+            is_sandboxed: false,
+            call_options: None,
             instruction_pointer,
             gas,
             contract,

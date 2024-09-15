@@ -3,7 +3,7 @@ use hash_db::Hasher;
 use plain_hasher::PlainHasher;
 use revm::{
     db::PlainAccount,
-    primitives::{keccak256, Address, Log, B256, U256},
+    primitives::{keccak256, Address, ChainAddress, Log, B256, U256},
 };
 use triehash::sec_trie_root;
 
@@ -14,11 +14,11 @@ pub fn log_rlp_hash(logs: &[Log]) -> B256 {
 }
 
 pub fn state_merkle_trie_root<'a>(
-    accounts: impl IntoIterator<Item = (Address, &'a PlainAccount)>,
+    accounts: impl IntoIterator<Item = (ChainAddress, &'a PlainAccount)>,
 ) -> B256 {
     trie_root(accounts.into_iter().map(|(address, acc)| {
         (
-            address,
+            address.1,
             alloy_rlp::encode_fixed_size(&TrieAccount::new(acc)),
         )
     }))
