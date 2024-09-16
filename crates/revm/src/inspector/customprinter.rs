@@ -122,7 +122,7 @@ mod test {
 
     #[test]
     fn gas_calculation_underflow() {
-        let chain_id = 0;
+        let chain_id = 1;
         let callee = ChainAddress(chain_id, address!("5fdcca53617f4d2b9134b29090c87d01058e27e9"));
 
         // https://github.com/bluealloy/revm/issues/277

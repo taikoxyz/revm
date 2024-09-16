@@ -840,7 +840,7 @@ mod tests {
     #[test]
     fn transition_states() {
         // dummy data
-        let chain_id = 0;
+        let chain_id = 1;
         let address = ChainAddress(chain_id, Address::new([0x01; 20]));
         let acc1 = AccountInfo {
             balance: U256::from(10),
@@ -870,11 +870,11 @@ mod tests {
     }
 
     const fn account1() -> ChainAddress {
-        ChainAddress(0, Address::new([0x60; 20]))
+        ChainAddress(1, Address::new([0x60; 20]))
     }
 
     const fn account2() -> ChainAddress {
-        ChainAddress(0, Address::new([0x61; 20]))
+        ChainAddress(1, Address::new([0x61; 20]))
     }
 
     fn slot1() -> U256 {

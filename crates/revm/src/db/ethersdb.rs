@@ -191,7 +191,7 @@ mod tests {
         )
         .unwrap();
         let client = Arc::new(client);
-        let chain_id = 0;
+        let chain_id = 1;
 
         let ethersdb = EthersDB::new(
             Arc::clone(&client), // public infura mainnet

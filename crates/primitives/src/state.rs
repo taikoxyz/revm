@@ -19,7 +19,7 @@ pub type EvmStorage = HashMap<U256, EvmStorageSlot>;
 
 impl Default for ChainAddress {
     fn default() -> Self {
-        ChainAddress(0, Address::default())
+        ChainAddress(1, Address::default())
     }
 }
 

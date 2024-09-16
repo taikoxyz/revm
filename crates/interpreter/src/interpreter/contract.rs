@@ -58,7 +58,7 @@ impl Contract {
     pub fn new_env(env: &Env, bytecode: Bytecode, hash: Option<B256>) -> Self {
         let contract_address = match env.tx.transact_to {
             TransactTo::Call(caller) => caller,
-            TransactTo::Create => ChainAddress(0, Address::ZERO),
+            TransactTo::Create => ChainAddress(1, Address::ZERO),
         };
         let bytecode_address = match env.tx.transact_to {
             TransactTo::Call(caller) => Some(caller),

@@ -70,7 +70,7 @@ pub struct Interpreter {
 
 impl Default for Interpreter {
     fn default() -> Self {
-        Self::new(Contract::default(), u64::MAX, false, 0, false)
+        Self::new(Contract::default(), u64::MAX, false, 1, false)
     }
 }
 

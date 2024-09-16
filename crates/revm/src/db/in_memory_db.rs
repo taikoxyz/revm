@@ -415,7 +415,7 @@ mod tests {
 
     #[test]
     fn test_insert_account_storage() {
-        let chain_id = 0;
+        let chain_id = 1;
         let account = ChainAddress(chain_id, Address::with_last_byte(42));
         let nonce = 42;
         let mut init_state = CacheDB::new(EmptyDB::default());
@@ -439,7 +439,7 @@ mod tests {
 
     #[test]
     fn test_replace_account_storage() {
-        let chain_id = 0;
+        let chain_id = 1;
         let account = ChainAddress(chain_id, Address::with_last_byte(42));
         let nonce = 42;
         let mut init_state = CacheDB::new(EmptyDB::default());

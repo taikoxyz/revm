@@ -312,7 +312,7 @@ mod tests {
 
     #[test]
     fn block_hash_cache() {
-        let chain_id = 0;
+        let chain_id = 1;
         let mut state = State::builder().build();
         state.block_hash(chain_id, 1u64).unwrap();
         state.block_hash(chain_id, 2u64).unwrap();
@@ -343,7 +343,7 @@ mod tests {
     /// state of the account before the block.
     #[test]
     fn reverts_preserve_old_values() {
-        let chain_id = 0;
+        let chain_id = 1;
         let mut state = State::builder().with_bundle_update().build();
 
         let (slot1, slot2, slot3) = (U256::from(1), U256::from(2), U256::from(3));
@@ -568,7 +568,7 @@ mod tests {
     /// block and reverted to their previous state do not appear in the reverts.
     #[test]
     fn bundle_scoped_reverts_collapse() {
-        let chain_id = 0;
+        let chain_id = 1;
         let mut state = State::builder().with_bundle_update().build();
 
         // Non-existing account.
@@ -693,7 +693,7 @@ mod tests {
     /// Checks that the behavior of selfdestruct within the block is correct.
     #[test]
     fn selfdestruct_state_and_reverts() {
-        let chain_id = 0;
+        let chain_id = 1;
         let mut state = State::builder().with_bundle_update().build();
 
         // Existing account.

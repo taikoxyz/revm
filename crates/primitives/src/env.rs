@@ -635,7 +635,7 @@ impl Default for TxEnv {
             gas_price: U256::ZERO,
             gas_priority_fee: None,
             // TODO: Brecht
-            transact_to: TransactTo::Call(ChainAddress(0, Address::ZERO)), // will do nothing
+            transact_to: TransactTo::Call(ChainAddress(1, Address::ZERO)), // will do nothing
             value: U256::ZERO,
             data: Bytes::new(),
             chain_id: None,
