@@ -2,7 +2,7 @@ use revm_primitives::{Address, Bytes, CallOptions, ChainAddress, Env, Precompile
 use crate::{Error, Precompile, PrecompileResult, PrecompileWithAddress, CtxPrecompileFn};
 
 pub const XCALLOPTIONS: PrecompileWithAddress = PrecompileWithAddress(
-    crate::u64_to_address(1000),
+    crate::u64_to_address(1234),
     Precompile::Ctx(xcalloptions_run as CtxPrecompileFn),
 );
 
