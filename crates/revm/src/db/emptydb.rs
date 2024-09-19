@@ -1,6 +1,6 @@
 use core::{convert::Infallible, fmt, marker::PhantomData};
 use revm_interpreter::primitives::{
-    db::{Database, DatabaseRef},
+    db::{SyncDatabase, SyncDatabaseRef},
     keccak256, AccountInfo, ChainAddress, Bytecode, B256, U256,
 };
 use std::string::ToString;
@@ -53,31 +53,31 @@ impl<E> EmptyDBTyped<E> {
     }
 }
 
-impl<E> Database for EmptyDBTyped<E> {
+impl<E> SyncDatabase for EmptyDBTyped<E> {
     type Error = E;
 
     #[inline]
     fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
-        <Self as DatabaseRef>::basic_ref(self, address)
+        <Self as SyncDatabaseRef>::basic_ref(self, address)
     }
 
     #[inline]
     fn code_by_hash(&mut self, chain_id: u64, code_hash: B256) -> Result<Bytecode, Self::Error> {
-        <Self as DatabaseRef>::code_by_hash_ref(self, chain_id, code_hash)
+        <Self as SyncDatabaseRef>::code_by_hash_ref(self, chain_id, code_hash)
     }
 
     #[inline]
     fn storage(&mut self, address: ChainAddress, index: U256) -> Result<U256, Self::Error> {
-        <Self as DatabaseRef>::storage_ref(self, address, index)
+        <Self as SyncDatabaseRef>::storage_ref(self, address, index)
     }
 
     #[inline]
     fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error> {
-        <Self as DatabaseRef>::block_hash_ref(self, chain_id, number)
+        <Self as SyncDatabaseRef>::block_hash_ref(self, chain_id, number)
     }
 }
 
-impl<E> DatabaseRef for EmptyDBTyped<E> {
+impl<E> SyncDatabaseRef for EmptyDBTyped<E> {
     type Error = E;
 
     #[inline]

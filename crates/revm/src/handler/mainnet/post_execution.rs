@@ -1,14 +1,14 @@
 use crate::{
     interpreter::{Gas, SuccessOrHalt},
     primitives::{
-        db::Database, EVMError, ExecutionResult, ResultAndState, Spec, SpecId, SpecId::LONDON, U256,
+        db::SyncDatabase, EVMError, ExecutionResult, ResultAndState, Spec, SpecId, SpecId::LONDON, U256,
     },
     Context, FrameResult,
 };
 
 /// Mainnet end handle does not change the output.
 #[inline]
-pub fn end<EXT, DB: Database>(
+pub fn end<EXT, DB: SyncDatabase>(
     _context: &mut Context<EXT, DB>,
     evm_output: Result<ResultAndState, EVMError<DB::Error>>,
 ) -> Result<ResultAndState, EVMError<DB::Error>> {
@@ -17,7 +17,7 @@ pub fn end<EXT, DB: Database>(
 
 /// Clear handle clears error and journal state.
 #[inline]
-pub fn clear<EXT, DB: Database>(context: &mut Context<EXT, DB>) {
+pub fn clear<EXT, DB: SyncDatabase>(context: &mut Context<EXT, DB>) {
     // clear error and journaled state.
     let _ = context.evm.take_error();
     context.evm.inner.journaled_state.clear();
@@ -25,7 +25,7 @@ pub fn clear<EXT, DB: Database>(context: &mut Context<EXT, DB>) {
 
 /// Reward beneficiary with gas fee.
 #[inline]
-pub fn reward_beneficiary<SPEC: Spec, EXT, DB: Database>(
+pub fn reward_beneficiary<SPEC: Spec, EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     gas: &Gas,
 ) -> Result<(), EVMError<DB::Error>> {
@@ -56,7 +56,7 @@ pub fn reward_beneficiary<SPEC: Spec, EXT, DB: Database>(
     Ok(())
 }
 
-pub fn refund<SPEC: Spec, EXT, DB: Database>(
+pub fn refund<SPEC: Spec, EXT, DB: SyncDatabase>(
     _context: &mut Context<EXT, DB>,
     gas: &mut Gas,
     eip7702_refund: i64,
@@ -70,7 +70,7 @@ pub fn refund<SPEC: Spec, EXT, DB: Database>(
 }
 
 #[inline]
-pub fn reimburse_caller<SPEC: Spec, EXT, DB: Database>(
+pub fn reimburse_caller<SPEC: Spec, EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     gas: &Gas,
 ) -> Result<(), EVMError<DB::Error>> {
@@ -94,7 +94,7 @@ pub fn reimburse_caller<SPEC: Spec, EXT, DB: Database>(
 
 /// Main return handle, returns the output of the transaction.
 #[inline]
-pub fn output<EXT, DB: Database>(
+pub fn output<EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     result: FrameResult,
 ) -> Result<ResultAndState, EVMError<DB::Error>> {

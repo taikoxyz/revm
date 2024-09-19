@@ -1,5 +1,5 @@
 use crate::{
-    db::Database,
+    db::SyncDatabase,
     frame::EOFCreateFrame,
     interpreter::{
         return_ok, return_revert, CallInputs, CreateInputs, CreateOutcome, Gas, InstructionResult,
@@ -17,7 +17,7 @@ use std::boxed::Box;
 
 /// Execute frame
 #[inline]
-pub fn execute_frame<SPEC: Spec, EXT, DB: Database>(
+pub fn execute_frame<SPEC: Spec, EXT, DB: SyncDatabase>(
     frame: &mut Frame,
     shared_memory: &mut SharedMemory,
     instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
@@ -37,7 +37,7 @@ pub fn execute_frame<SPEC: Spec, EXT, DB: Database>(
 
 /// Handle output of the transaction
 #[inline]
-pub fn last_frame_return<SPEC: Spec, EXT, DB: Database>(
+pub fn last_frame_return<SPEC: Spec, EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     frame_result: &mut FrameResult,
 ) -> Result<(), EVMError<DB::Error>> {
@@ -64,7 +64,7 @@ pub fn last_frame_return<SPEC: Spec, EXT, DB: Database>(
 
 /// Handle frame sub call.
 #[inline]
-pub fn call<SPEC: Spec, EXT, DB: Database>(
+pub fn call<SPEC: Spec, EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     inputs: Box<CallInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
@@ -72,7 +72,7 @@ pub fn call<SPEC: Spec, EXT, DB: Database>(
 }
 
 #[inline]
-pub fn call_return<EXT, DB: Database>(
+pub fn call_return<EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     frame: Box<CallFrame>,
     interpreter_result: InterpreterResult,
@@ -87,7 +87,7 @@ pub fn call_return<EXT, DB: Database>(
 }
 
 #[inline]
-pub fn insert_call_outcome<EXT, DB: Database>(
+pub fn insert_call_outcome<EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     frame: &mut Frame,
     shared_memory: &mut SharedMemory,
@@ -103,7 +103,7 @@ pub fn insert_call_outcome<EXT, DB: Database>(
 
 /// Handle frame sub create.
 #[inline]
-pub fn create<SPEC: Spec, EXT, DB: Database>(
+pub fn create<SPEC: Spec, EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     inputs: Box<CreateInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
@@ -111,7 +111,7 @@ pub fn create<SPEC: Spec, EXT, DB: Database>(
 }
 
 #[inline]
-pub fn create_return<SPEC: Spec, EXT, DB: Database>(
+pub fn create_return<SPEC: Spec, EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     frame: Box<CreateFrame>,
     mut interpreter_result: InterpreterResult,
@@ -128,7 +128,7 @@ pub fn create_return<SPEC: Spec, EXT, DB: Database>(
 }
 
 #[inline]
-pub fn insert_create_outcome<EXT, DB: Database>(
+pub fn insert_create_outcome<EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     frame: &mut Frame,
     outcome: CreateOutcome,
@@ -143,7 +143,7 @@ pub fn insert_create_outcome<EXT, DB: Database>(
 
 /// Handle frame sub create.
 #[inline]
-pub fn eofcreate<SPEC: Spec, EXT, DB: Database>(
+pub fn eofcreate<SPEC: Spec, EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     inputs: Box<EOFCreateInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
@@ -151,7 +151,7 @@ pub fn eofcreate<SPEC: Spec, EXT, DB: Database>(
 }
 
 #[inline]
-pub fn eofcreate_return<SPEC: Spec, EXT, DB: Database>(
+pub fn eofcreate_return<SPEC: Spec, EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     frame: Box<EOFCreateFrame>,
     mut interpreter_result: InterpreterResult,
@@ -168,7 +168,7 @@ pub fn eofcreate_return<SPEC: Spec, EXT, DB: Database>(
 }
 
 #[inline]
-pub fn insert_eofcreate_outcome<EXT, DB: Database>(
+pub fn insert_eofcreate_outcome<EXT, DB: SyncDatabase>(
     context: &mut Context<EXT, DB>,
     frame: &mut Frame,
     outcome: CreateOutcome,

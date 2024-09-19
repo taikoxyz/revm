@@ -5,7 +5,7 @@ use ethers_providers::Middleware;
 use tokio::runtime::{Handle, Runtime};
 
 use crate::primitives::{AccountInfo, Address, Bytecode, ChainAddress, B256, U256};
-use crate::{Database, DatabaseRef};
+use crate::{SyncDatabase, SyncDatabaseRef};
 
 use super::utils::HandleOrRuntime;
 
@@ -110,7 +110,7 @@ impl<M: Middleware> EthersDB<M> {
 }
 
 // TODO: respect chain id and pick the right client
-impl<M: Middleware> DatabaseRef for EthersDB<M> {
+impl<M: Middleware> SyncDatabaseRef for EthersDB<M> {
     type Error = M::Error;
 
     fn basic_ref(&self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
@@ -153,27 +153,27 @@ impl<M: Middleware> DatabaseRef for EthersDB<M> {
     }
 }
 
-impl<M: Middleware> Database for EthersDB<M> {
+impl<M: Middleware> SyncDatabase for EthersDB<M> {
     type Error = M::Error;
 
     #[inline]
     fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
-        <Self as DatabaseRef>::basic_ref(self, address)
+        <Self as SyncDatabaseRef>::basic_ref(self, address)
     }
 
     #[inline]
     fn code_by_hash(&mut self, chain_id: u64, code_hash: B256) -> Result<Bytecode, Self::Error> {
-        <Self as DatabaseRef>::code_by_hash_ref(self, chain_id, code_hash)
+        <Self as SyncDatabaseRef>::code_by_hash_ref(self, chain_id, code_hash)
     }
 
     #[inline]
     fn storage(&mut self, address: ChainAddress, index: U256) -> Result<U256, Self::Error> {
-        <Self as DatabaseRef>::storage_ref(self, address, index)
+        <Self as SyncDatabaseRef>::storage_ref(self, address, index)
     }
 
     #[inline]
     fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error> {
-        <Self as DatabaseRef>::block_hash_ref(self, chain_id, number)
+        <Self as SyncDatabaseRef>::block_hash_ref(self, chain_id, number)
     }
 }
 

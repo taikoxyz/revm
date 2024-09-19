@@ -1,9 +1,9 @@
-use super::{DatabaseCommit, DatabaseRef, EmptyDB};
+use super::{DatabaseCommit, SyncDatabaseRef, EmptyDB};
 use crate::primitives::{
     hash_map::Entry, Account, AccountInfo, Address, ChainAddress, Bytecode, HashMap, Log, B256, KECCAK_EMPTY,
     U256,
 };
-use crate::Database;
+use crate::SyncDatabase;
 use core::convert::Infallible;
 use std::vec::Vec;
 
@@ -83,7 +83,7 @@ impl<ExtDB> CacheDB<ExtDB> {
     }
 }
 
-impl<ExtDB: DatabaseRef> CacheDB<ExtDB> {
+impl<ExtDB: SyncDatabaseRef> CacheDB<ExtDB> {
     /// Returns the account for the given address.
     ///
     /// If the account was not found in the cache, it will be loaded from the underlying database.
@@ -165,7 +165,7 @@ impl<ExtDB> DatabaseCommit for CacheDB<ExtDB> {
     }
 }
 
-impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
+impl<ExtDB: SyncDatabaseRef> SyncDatabase for CacheDB<ExtDB> {
     type Error = ExtDB::Error;
 
     fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
@@ -246,7 +246,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
     }
 }
 
-impl<ExtDB: DatabaseRef> DatabaseRef for CacheDB<ExtDB> {
+impl<ExtDB: SyncDatabaseRef> SyncDatabaseRef for CacheDB<ExtDB> {
     type Error = ExtDB::Error;
 
     fn basic_ref(&self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
@@ -369,7 +369,7 @@ impl BenchmarkDB {
     }
 }
 
-impl Database for BenchmarkDB {
+impl SyncDatabase for BenchmarkDB {
     type Error = Infallible;
     /// Get basic account information.
     fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
@@ -411,7 +411,7 @@ impl Database for BenchmarkDB {
 #[cfg(test)]
 mod tests {
     use super::{CacheDB, EmptyDB};
-    use crate::primitives::{db::Database, AccountInfo, Address, ChainAddress, U256};
+    use crate::primitives::{db::SyncDatabase, AccountInfo, Address, ChainAddress, U256};
 
     #[test]
     fn test_insert_account_storage() {

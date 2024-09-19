@@ -1,7 +1,7 @@
 use super::{cache::CacheState, state::DBBox, BundleState, State, TransitionState};
 use crate::db::EmptyDB;
 use revm_interpreter::primitives::{
-    db::{Database, DatabaseRef, WrapDatabaseRef},
+    db::{SyncDatabase, SyncDatabaseRef, WrapDatabaseRef},
     B256,
 };
 use std::collections::BTreeMap;
@@ -40,13 +40,13 @@ impl StateBuilder<EmptyDB> {
     }
 }
 
-impl<DB: Database + Default> Default for StateBuilder<DB> {
+impl<DB: SyncDatabase + Default> Default for StateBuilder<DB> {
     fn default() -> Self {
         Self::new_with_database(DB::default())
     }
 }
 
-impl<DB: Database> StateBuilder<DB> {
+impl<DB: SyncDatabase> StateBuilder<DB> {
     /// Create a new builder with the given database.
     pub fn new_with_database(database: DB) -> Self {
         Self {
@@ -61,7 +61,7 @@ impl<DB: Database> StateBuilder<DB> {
     }
 
     /// Set the database.
-    pub fn with_database<ODB: Database>(self, database: ODB) -> StateBuilder<ODB> {
+    pub fn with_database<ODB: SyncDatabase>(self, database: ODB) -> StateBuilder<ODB> {
         // cast to the different database,
         // Note that we return different type depending of the database NewDBError.
         StateBuilder {
@@ -76,7 +76,7 @@ impl<DB: Database> StateBuilder<DB> {
     }
 
     /// Takes [DatabaseRef] and wraps it with [WrapDatabaseRef].
-    pub fn with_database_ref<ODB: DatabaseRef>(
+    pub fn with_database_ref<ODB: SyncDatabaseRef>(
         self,
         database: ODB,
     ) -> StateBuilder<WrapDatabaseRef<ODB>> {

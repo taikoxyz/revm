@@ -6,7 +6,7 @@ pub use block_hash::{BlockHash, BlockHashRef};
 pub use state::{State, StateRef};
 
 use crate::{
-    db::{Database, DatabaseRef},
+    db::{SyncDatabase, SyncDatabaseRef},
     Account, AccountInfo, Address, ChainAddress, Bytecode, HashMap, B256, U256,
 };
 
@@ -24,7 +24,7 @@ pub enum DatabaseComponentError<SE, BHE> {
     BlockHash(BHE),
 }
 
-impl<S: State, BH: BlockHash> Database for DatabaseComponents<S, BH> {
+impl<S: State, BH: BlockHash> SyncDatabase for DatabaseComponents<S, BH> {
     type Error = DatabaseComponentError<S::Error, BH::Error>;
 
     fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
@@ -50,7 +50,7 @@ impl<S: State, BH: BlockHash> Database for DatabaseComponents<S, BH> {
     }
 }
 
-impl<S: StateRef, BH: BlockHashRef> DatabaseRef for DatabaseComponents<S, BH> {
+impl<S: StateRef, BH: BlockHashRef> SyncDatabaseRef for DatabaseComponents<S, BH> {
     type Error = DatabaseComponentError<S::Error, BH::Error>;
 
     fn basic_ref(&self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {

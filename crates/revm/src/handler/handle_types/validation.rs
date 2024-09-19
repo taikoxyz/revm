@@ -1,25 +1,25 @@
 use crate::{
     handler::mainnet,
-    primitives::{db::Database, EVMError, Env, Spec},
+    primitives::{db::SyncDatabase, EVMError, Env, Spec},
     Context,
 };
 use std::sync::Arc;
 
 /// Handle that validates env.
 pub type ValidateEnvHandle<'a, DB> =
-    Arc<dyn Fn(&Env) -> Result<(), EVMError<<DB as Database>::Error>> + 'a>;
+    Arc<dyn Fn(&Env) -> Result<(), EVMError<<DB as SyncDatabase>::Error>> + 'a>;
 
 /// Handle that validates transaction environment against the state.
 /// Second parametar is initial gas.
 pub type ValidateTxEnvAgainstState<'a, EXT, DB> =
-    Arc<dyn Fn(&mut Context<EXT, DB>) -> Result<(), EVMError<<DB as Database>::Error>> + 'a>;
+    Arc<dyn Fn(&mut Context<EXT, DB>) -> Result<(), EVMError<<DB as SyncDatabase>::Error>> + 'a>;
 
 /// Initial gas calculation handle
 pub type ValidateInitialTxGasHandle<'a, DB> =
-    Arc<dyn Fn(&Env) -> Result<u64, EVMError<<DB as Database>::Error>> + 'a>;
+    Arc<dyn Fn(&Env) -> Result<u64, EVMError<<DB as SyncDatabase>::Error>> + 'a>;
 
 /// Handles related to validation.
-pub struct ValidationHandler<'a, EXT, DB: Database> {
+pub struct ValidationHandler<'a, EXT, DB: SyncDatabase> {
     /// Validate and calculate initial transaction gas.
     pub initial_tx_gas: ValidateInitialTxGasHandle<'a, DB>,
     /// Validate transactions against state data.
@@ -28,7 +28,7 @@ pub struct ValidationHandler<'a, EXT, DB: Database> {
     pub env: ValidateEnvHandle<'a, DB>,
 }
 
-impl<'a, EXT: 'a, DB: Database + 'a> ValidationHandler<'a, EXT, DB> {
+impl<'a, EXT: 'a, DB: SyncDatabase + 'a> ValidationHandler<'a, EXT, DB> {
     /// Create new ValidationHandles
     pub fn new<SPEC: Spec + 'a>() -> Self {
         Self {
@@ -39,7 +39,7 @@ impl<'a, EXT: 'a, DB: Database + 'a> ValidationHandler<'a, EXT, DB> {
     }
 }
 
-impl<'a, EXT, DB: Database> ValidationHandler<'a, EXT, DB> {
+impl<'a, EXT, DB: SyncDatabase> ValidationHandler<'a, EXT, DB> {
     /// Validate env.
     pub fn env(&self, env: &Env) -> Result<(), EVMError<DB::Error>> {
         (self.env)(env)

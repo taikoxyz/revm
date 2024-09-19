@@ -3,7 +3,7 @@ use crate::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, Interpreter, InterpreterResult,
     },
-    primitives::{db::Database, hex, HashMap, B256, U256},
+    primitives::{db::SyncDatabase, hex, HashMap, B256, U256},
     EvmContext, Inspector,
 };
 use revm_interpreter::OpCode;
@@ -162,7 +162,7 @@ impl TracerEip3155 {
         self.output.flush()
     }
 
-    fn print_summary<DB: Database>(
+    fn print_summary<DB: SyncDatabase>(
         &mut self,
         result: &InterpreterResult,
         context: &mut EvmContext<DB>,
@@ -184,7 +184,7 @@ impl TracerEip3155 {
     }
 }
 
-impl<DB: Database> Inspector<DB> for TracerEip3155 {
+impl<DB: SyncDatabase> Inspector<DB> for TracerEip3155 {
     fn initialize_interp(&mut self, interp: &mut Interpreter, context: &mut EvmContext<DB>) {
         self.gas_inspector.initialize_interp(interp, context);
     }

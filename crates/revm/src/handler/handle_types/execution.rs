@@ -2,7 +2,7 @@ use crate::{
     frame::EOFCreateFrame,
     handler::mainnet,
     interpreter::{CallInputs, CreateInputs, SharedMemory},
-    primitives::{db::Database, EVMError, Spec},
+    primitives::{db::SyncDatabase, EVMError, Spec},
     CallFrame, Context, CreateFrame, Frame, FrameOrResult, FrameResult,
 };
 use revm_interpreter::{
@@ -13,7 +13,7 @@ use std::{boxed::Box, sync::Arc};
 
 /// Handles first frame return handle.
 pub type LastFrameReturnHandle<'a, EXT, DB> = Arc<
-    dyn Fn(&mut Context<EXT, DB>, &mut FrameResult) -> Result<(), EVMError<<DB as Database>::Error>>
+    dyn Fn(&mut Context<EXT, DB>, &mut FrameResult) -> Result<(), EVMError<<DB as SyncDatabase>::Error>>
         + 'a,
 >;
 
@@ -24,7 +24,7 @@ pub type ExecuteFrameHandle<'a, EXT, DB> = Arc<
             &mut SharedMemory,
             &InstructionTables<'_, Context<EXT, DB>>,
             &mut Context<EXT, DB>,
-        ) -> Result<InterpreterAction, EVMError<<DB as Database>::Error>>
+        ) -> Result<InterpreterAction, EVMError<<DB as SyncDatabase>::Error>>
         + 'a,
 >;
 
@@ -33,7 +33,7 @@ pub type FrameCallHandle<'a, EXT, DB> = Arc<
     dyn Fn(
             &mut Context<EXT, DB>,
             Box<CallInputs>,
-        ) -> Result<FrameOrResult, EVMError<<DB as Database>::Error>>
+        ) -> Result<FrameOrResult, EVMError<<DB as SyncDatabase>::Error>>
         + 'a,
 >;
 
@@ -43,7 +43,7 @@ pub type FrameCallReturnHandle<'a, EXT, DB> = Arc<
             &mut Context<EXT, DB>,
             Box<CallFrame>,
             InterpreterResult,
-        ) -> Result<CallOutcome, EVMError<<DB as Database>::Error>>
+        ) -> Result<CallOutcome, EVMError<<DB as SyncDatabase>::Error>>
         + 'a,
 >;
 
@@ -54,7 +54,7 @@ pub type InsertCallOutcomeHandle<'a, EXT, DB> = Arc<
             &mut Frame,
             &mut SharedMemory,
             CallOutcome,
-        ) -> Result<(), EVMError<<DB as Database>::Error>>
+        ) -> Result<(), EVMError<<DB as SyncDatabase>::Error>>
         + 'a,
 >;
 
@@ -63,7 +63,7 @@ pub type FrameCreateHandle<'a, EXT, DB> = Arc<
     dyn Fn(
             &mut Context<EXT, DB>,
             Box<CreateInputs>,
-        ) -> Result<FrameOrResult, EVMError<<DB as Database>::Error>>
+        ) -> Result<FrameOrResult, EVMError<<DB as SyncDatabase>::Error>>
         + 'a,
 >;
 
@@ -73,7 +73,7 @@ pub type FrameCreateReturnHandle<'a, EXT, DB> = Arc<
             &mut Context<EXT, DB>,
             Box<CreateFrame>,
             InterpreterResult,
-        ) -> Result<CreateOutcome, EVMError<<DB as Database>::Error>>
+        ) -> Result<CreateOutcome, EVMError<<DB as SyncDatabase>::Error>>
         + 'a,
 >;
 
@@ -83,7 +83,7 @@ pub type InsertCreateOutcomeHandle<'a, EXT, DB> = Arc<
             &mut Context<EXT, DB>,
             &mut Frame,
             CreateOutcome,
-        ) -> Result<(), EVMError<<DB as Database>::Error>>
+        ) -> Result<(), EVMError<<DB as SyncDatabase>::Error>>
         + 'a,
 >;
 
@@ -92,7 +92,7 @@ pub type FrameEOFCreateHandle<'a, EXT, DB> = Arc<
     dyn Fn(
             &mut Context<EXT, DB>,
             Box<EOFCreateInputs>,
-        ) -> Result<FrameOrResult, EVMError<<DB as Database>::Error>>
+        ) -> Result<FrameOrResult, EVMError<<DB as SyncDatabase>::Error>>
         + 'a,
 >;
 
@@ -102,7 +102,7 @@ pub type FrameEOFCreateReturnHandle<'a, EXT, DB> = Arc<
             &mut Context<EXT, DB>,
             Box<EOFCreateFrame>,
             InterpreterResult,
-        ) -> Result<CreateOutcome, EVMError<<DB as Database>::Error>>
+        ) -> Result<CreateOutcome, EVMError<<DB as SyncDatabase>::Error>>
         + 'a,
 >;
 
@@ -112,12 +112,12 @@ pub type InsertEOFCreateOutcomeHandle<'a, EXT, DB> = Arc<
             &mut Context<EXT, DB>,
             &mut Frame,
             CreateOutcome,
-        ) -> Result<(), EVMError<<DB as Database>::Error>>
+        ) -> Result<(), EVMError<<DB as SyncDatabase>::Error>>
         + 'a,
 >;
 
 /// Handles related to stack frames.
-pub struct ExecutionHandler<'a, EXT, DB: Database> {
+pub struct ExecutionHandler<'a, EXT, DB: SyncDatabase> {
     /// Handles last frame return, modified gas for refund and
     /// sets tx gas limit.
     pub last_frame_return: LastFrameReturnHandle<'a, EXT, DB>,
@@ -143,7 +143,7 @@ pub struct ExecutionHandler<'a, EXT, DB: Database> {
     pub insert_eofcreate_outcome: InsertEOFCreateOutcomeHandle<'a, EXT, DB>,
 }
 
-impl<'a, EXT: 'a, DB: Database + 'a> ExecutionHandler<'a, EXT, DB> {
+impl<'a, EXT: 'a, DB: SyncDatabase + 'a> ExecutionHandler<'a, EXT, DB> {
     /// Creates mainnet ExecutionHandler.
     pub fn new<SPEC: Spec + 'a>() -> Self {
         Self {
@@ -162,7 +162,7 @@ impl<'a, EXT: 'a, DB: Database + 'a> ExecutionHandler<'a, EXT, DB> {
     }
 }
 
-impl<'a, EXT, DB: Database> ExecutionHandler<'a, EXT, DB> {
+impl<'a, EXT, DB: SyncDatabase> ExecutionHandler<'a, EXT, DB> {
     /// Executes single frame.
     #[inline]
     pub fn execute_frame(

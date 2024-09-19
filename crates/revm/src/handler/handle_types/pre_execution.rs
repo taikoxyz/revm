@@ -2,7 +2,7 @@
 use super::{GenericContextHandle, GenericContextHandleRet, GenericContextHandleChain};
 use crate::{
     handler::mainnet,
-    primitives::{db::Database, EVMError, Spec},
+    primitives::{db::SyncDatabase, EVMError, Spec},
     Context, ContextPrecompiles,
 };
 use std::sync::Arc;
@@ -22,7 +22,7 @@ pub type DeductCallerHandle<'a, EXT, DB> = GenericContextHandle<'a, EXT, DB>;
 pub type ApplyEIP7702AuthListHandle<'a, EXT, DB> = GenericContextHandleRet<'a, EXT, DB, u64>;
 
 /// Handles related to pre execution before the stack loop is started.
-pub struct PreExecutionHandler<'a, EXT, DB: Database> {
+pub struct PreExecutionHandler<'a, EXT, DB: SyncDatabase> {
     /// Load precompiles
     pub load_precompiles: LoadPrecompilesHandle<'a, DB>,
     /// Main load handle
@@ -33,7 +33,7 @@ pub struct PreExecutionHandler<'a, EXT, DB: Database> {
     pub apply_eip7702_auth_list: ApplyEIP7702AuthListHandle<'a, EXT, DB>,
 }
 
-impl<'a, EXT: 'a, DB: Database + 'a> PreExecutionHandler<'a, EXT, DB> {
+impl<'a, EXT: 'a, DB: SyncDatabase + 'a> PreExecutionHandler<'a, EXT, DB> {
     /// Creates mainnet MainHandles.
     pub fn new<SPEC: Spec + 'a>() -> Self {
         Self {
@@ -45,7 +45,7 @@ impl<'a, EXT: 'a, DB: Database + 'a> PreExecutionHandler<'a, EXT, DB> {
     }
 }
 
-impl<'a, EXT, DB: Database> PreExecutionHandler<'a, EXT, DB> {
+impl<'a, EXT, DB: SyncDatabase> PreExecutionHandler<'a, EXT, DB> {
     /// Deduct caller to its limit.
     pub fn deduct_caller(&self, context: &mut Context<EXT, DB>) -> Result<(), EVMError<DB::Error>> {
         (self.deduct_caller)(context)

@@ -1,5 +1,5 @@
 use crate::{
-    db::Database,
+    db::SyncDatabase,
     interpreter::{
         analysis::to_analysed, gas, return_ok, AccountLoad, Eip7702CodeLoad, InstructionResult,
         InterpreterResult, SStoreResult, SelfDestructResult, StateLoad,
@@ -17,7 +17,7 @@ use std::{boxed::Box, sync::Arc};
 
 /// EVM contexts contains data that EVM needs for execution.
 #[derive(Debug)]
-pub struct InnerEvmContext<DB: Database> {
+pub struct InnerEvmContext<DB: SyncDatabase> {
     /// EVM Environment contains all the information about config, block and transaction that
     /// evm needs.
     pub env: Box<Env>,
@@ -32,7 +32,7 @@ pub struct InnerEvmContext<DB: Database> {
     pub l1_block_info: Option<crate::optimism::L1BlockInfo>,
 }
 
-impl<DB: Database + Clone> Clone for InnerEvmContext<DB>
+impl<DB: SyncDatabase + Clone> Clone for InnerEvmContext<DB>
 where
     DB::Error: Clone,
 {
@@ -48,7 +48,7 @@ where
     }
 }
 
-impl<DB: Database> InnerEvmContext<DB> {
+impl<DB: SyncDatabase> InnerEvmContext<DB> {
     pub fn new(db: DB) -> Self {
         Self {
             env: Box::default(),
@@ -77,7 +77,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     ///
     /// Note that this will ignore the previous `error` if set.
     #[inline]
-    pub fn with_db<ODB: Database>(self, db: ODB) -> InnerEvmContext<ODB> {
+    pub fn with_db<ODB: SyncDatabase>(self, db: ODB) -> InnerEvmContext<ODB> {
         InnerEvmContext {
             env: self.env,
             journaled_state: self.journaled_state,
