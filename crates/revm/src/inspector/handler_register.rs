@@ -1,5 +1,5 @@
 use crate::{
-    db::SyncDatabase,
+    db::SyncDatabase as Database,
     handler::register::EvmHandler,
     interpreter::{opcode, InstructionResult, Interpreter},
     primitives::EVMError,
@@ -10,12 +10,12 @@ use revm_interpreter::opcode::DynInstruction;
 use std::{rc::Rc, sync::Arc, vec::Vec};
 
 /// Provides access to an `Inspector` instance.
-pub trait GetInspector<DB: SyncDatabase> {
+pub trait GetInspector<DB: Database> {
     /// Returns the associated `Inspector`.
     fn get_inspector(&mut self) -> &mut impl Inspector<DB>;
 }
 
-impl<DB: SyncDatabase, INSP: Inspector<DB>> GetInspector<DB> for INSP {
+impl<DB: Database, INSP: Inspector<DB>> GetInspector<DB> for INSP {
     #[inline]
     fn get_inspector(&mut self) -> &mut impl Inspector<DB> {
         self
@@ -34,7 +34,7 @@ impl<DB: SyncDatabase, INSP: Inspector<DB>> GetInspector<DB> for INSP {
 /// A few instructions handlers are wrapped twice once for `step` and `step_end`
 /// and in case of Logs and Selfdestruct wrapper is wrapped again for the
 /// `log` and `selfdestruct` calls.
-pub fn inspector_handle_register<DB: SyncDatabase, EXT: GetInspector<DB>>(
+pub fn inspector_handle_register<DB: Database, EXT: GetInspector<DB>>(
     handler: &mut EvmHandler<'_, EXT, DB>,
 ) {
     let table = &mut handler.instruction_table;
@@ -223,7 +223,7 @@ fn inspector_instruction<INSP, DB>(
     host: &mut Context<INSP, DB>,
 ) where
     INSP: GetInspector<DB>,
-    DB: SyncDatabase,
+    DB: Database,
 {
     // SAFETY: as the PC was already incremented we need to subtract 1 to preserve the
     // old Inspector behavior.
@@ -267,7 +267,7 @@ mod tests {
         call_end: bool,
     }
 
-    impl<DB: SyncDatabase> Inspector<DB> for StackInspector {
+    impl<DB: Database> Inspector<DB> for StackInspector {
         fn initialize_interp(&mut self, _interp: &mut Interpreter, _context: &mut EvmContext<DB>) {
             if self.initialize_interp_called {
                 unreachable!("initialize_interp should not be called twice")

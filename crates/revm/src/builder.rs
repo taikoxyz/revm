@@ -1,5 +1,5 @@
 use crate::{
-    db::{SyncDatabase, SyncDatabaseRef, EmptyDB, WrapDatabaseRef},
+    db::{SyncDatabase as Database, SyncDatabaseRef as DatabaseRef, EmptyDB, WrapDatabaseRef},
     handler::register,
     primitives::{
         BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, Env, EnvWithHandlerCfg, HandlerCfg, SpecId, TxEnv,
@@ -12,7 +12,7 @@ use std::boxed::Box;
 /// Evm Builder allows building or modifying EVM.
 /// Note that some of the methods that changes underlying structures
 /// will reset the registered handler to default mainnet.
-pub struct EvmBuilder<'a, BuilderStage, EXT, DB: SyncDatabase> {
+pub struct EvmBuilder<'a, BuilderStage, EXT, DB: Database> {
     context: Context<EXT, DB>,
     /// Handler that will be used by EVM. It contains handle registers
     handler: Handler<'a, Context<EXT, DB>, EXT, DB>,
@@ -50,7 +50,7 @@ impl<'a> Default for EvmBuilder<'a, SetGenericStage, (), EmptyDB> {
     }
 }
 
-impl<'a, EXT, DB: SyncDatabase> EvmBuilder<'a, SetGenericStage, EXT, DB> {
+impl<'a, EXT, DB: Database> EvmBuilder<'a, SetGenericStage, EXT, DB> {
     /// Sets the [`EmptyDB`] as the [`Database`] that will be used by [`Evm`].
     pub fn with_empty_db(self) -> EvmBuilder<'a, SetGenericStage, EXT, EmptyDB> {
         EvmBuilder {
@@ -63,7 +63,7 @@ impl<'a, EXT, DB: SyncDatabase> EvmBuilder<'a, SetGenericStage, EXT, DB> {
         }
     }
     /// Sets the [`Database`] that will be used by [`Evm`].
-    pub fn with_db<ODB: SyncDatabase>(self, db: ODB) -> EvmBuilder<'a, SetGenericStage, EXT, ODB> {
+    pub fn with_db<ODB: Database>(self, db: ODB) -> EvmBuilder<'a, SetGenericStage, EXT, ODB> {
         EvmBuilder {
             context: Context::new(self.context.evm.with_db(db), self.context.external),
             handler: EvmBuilder::<'a, SetGenericStage, EXT, ODB>::handler(self.handler.cfg()),
@@ -71,7 +71,7 @@ impl<'a, EXT, DB: SyncDatabase> EvmBuilder<'a, SetGenericStage, EXT, DB> {
         }
     }
     /// Sets the [`DatabaseRef`] that will be used by [`Evm`].
-    pub fn with_ref_db<ODB: SyncDatabaseRef>(
+    pub fn with_ref_db<ODB: DatabaseRef>(
         self,
         db: ODB,
     ) -> EvmBuilder<'a, SetGenericStage, EXT, WrapDatabaseRef<ODB>> {
@@ -114,7 +114,7 @@ impl<'a, EXT, DB: SyncDatabase> EvmBuilder<'a, SetGenericStage, EXT, DB> {
     }
 
     /// Sets Builder with [`ContextWithHandlerCfg`].
-    pub fn with_context_with_handler_cfg<OEXT, ODB: SyncDatabase>(
+    pub fn with_context_with_handler_cfg<OEXT, ODB: Database>(
         self,
         context_with_handler_cfg: ContextWithHandlerCfg<OEXT, ODB>,
     ) -> EvmBuilder<'a, HandlerStage, OEXT, ODB> {
@@ -182,7 +182,7 @@ impl<'a, EXT, DB: SyncDatabase> EvmBuilder<'a, SetGenericStage, EXT, DB> {
     }
 }
 
-impl<'a, EXT, DB: SyncDatabase> EvmBuilder<'a, HandlerStage, EXT, DB> {
+impl<'a, EXT, DB: Database> EvmBuilder<'a, HandlerStage, EXT, DB> {
     /// Creates new builder from Evm, Evm is consumed and all field are moved to Builder.
     /// It will preserve set handler and context.
     ///
@@ -222,7 +222,7 @@ impl<'a, EXT, DB: SyncDatabase> EvmBuilder<'a, HandlerStage, EXT, DB> {
 
     /// Sets the [`Database`] that will be used by [`Evm`]
     /// and resets the [`Handler`] to default mainnet.
-    pub fn reset_handler_with_db<ODB: SyncDatabase>(
+    pub fn reset_handler_with_db<ODB: Database>(
         self,
         db: ODB,
     ) -> EvmBuilder<'a, SetGenericStage, EXT, ODB> {
@@ -235,7 +235,7 @@ impl<'a, EXT, DB: SyncDatabase> EvmBuilder<'a, HandlerStage, EXT, DB> {
 
     /// Resets [`Handler`] and sets the [`DatabaseRef`] that will be used by [`Evm`]
     /// and resets the [`Handler`] to default mainnet.
-    pub fn reset_handler_with_ref_db<ODB: SyncDatabaseRef>(
+    pub fn reset_handler_with_ref_db<ODB: DatabaseRef>(
         self,
         db: ODB,
     ) -> EvmBuilder<'a, SetGenericStage, EXT, WrapDatabaseRef<ODB>> {
@@ -265,7 +265,7 @@ impl<'a, EXT, DB: SyncDatabase> EvmBuilder<'a, HandlerStage, EXT, DB> {
     }
 }
 
-impl<'a, BuilderStage, EXT, DB: SyncDatabase> EvmBuilder<'a, BuilderStage, EXT, DB> {
+impl<'a, BuilderStage, EXT, DB: Database> EvmBuilder<'a, BuilderStage, EXT, DB> {
     /// Creates the default handler.
     ///
     /// This is useful for adding optimism handle register.

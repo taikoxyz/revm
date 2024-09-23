@@ -2,14 +2,14 @@
 use crate::{
     handler::mainnet,
     interpreter::Gas,
-    primitives::{db::SyncDatabase, EVMError, EVMResultGeneric, ResultAndState, Spec},
+    primitives::{db::SyncDatabase as Database, EVMError, EVMResultGeneric, ResultAndState, Spec},
     Context, FrameResult,
 };
 use std::sync::Arc;
 
 /// Reimburse the caller with ethereum it didn't spent.
 pub type ReimburseCallerHandle<'a, EXT, DB> =
-    Arc<dyn Fn(&mut Context<EXT, DB>, &Gas) -> EVMResultGeneric<(), <DB as SyncDatabase>::Error> + 'a>;
+    Arc<dyn Fn(&mut Context<EXT, DB>, &Gas) -> EVMResultGeneric<(), <DB as Database>::Error> + 'a>;
 
 /// Reward beneficiary with transaction rewards.
 pub type RewardBeneficiaryHandle<'a, EXT, DB> = ReimburseCallerHandle<'a, EXT, DB>;
@@ -19,7 +19,7 @@ pub type OutputHandle<'a, EXT, DB> = Arc<
     dyn Fn(
             &mut Context<EXT, DB>,
             FrameResult,
-        ) -> Result<ResultAndState, EVMError<<DB as SyncDatabase>::Error>>
+        ) -> Result<ResultAndState, EVMError<<DB as Database>::Error>>
         + 'a,
 >;
 
@@ -30,8 +30,8 @@ pub type OutputHandle<'a, EXT, DB> = Arc<
 pub type EndHandle<'a, EXT, DB> = Arc<
     dyn Fn(
             &mut Context<EXT, DB>,
-            Result<ResultAndState, EVMError<<DB as SyncDatabase>::Error>>,
-        ) -> Result<ResultAndState, EVMError<<DB as SyncDatabase>::Error>>
+            Result<ResultAndState, EVMError<<DB as Database>::Error>>,
+        ) -> Result<ResultAndState, EVMError<<DB as Database>::Error>>
         + 'a,
 >;
 
@@ -42,7 +42,7 @@ pub type ClearHandle<'a, EXT, DB> = Arc<dyn Fn(&mut Context<EXT, DB>) + 'a>;
 /// Refund handle, calculates the final refund.
 pub type RefundHandle<'a, EXT, DB> = Arc<dyn Fn(&mut Context<EXT, DB>, &mut Gas, i64) + 'a>;
 /// Handles related to post execution after the stack loop is finished.
-pub struct PostExecutionHandler<'a, EXT, DB: SyncDatabase> {
+pub struct PostExecutionHandler<'a, EXT, DB: Database> {
     /// Calculate final refund
     pub refund: RefundHandle<'a, EXT, DB>,
     /// Reimburse the caller with ethereum it didn't spend.
@@ -60,7 +60,7 @@ pub struct PostExecutionHandler<'a, EXT, DB: SyncDatabase> {
     pub clear: ClearHandle<'a, EXT, DB>,
 }
 
-impl<'a, EXT: 'a, DB: SyncDatabase + 'a> PostExecutionHandler<'a, EXT, DB> {
+impl<'a, EXT: 'a, DB: Database + 'a> PostExecutionHandler<'a, EXT, DB> {
     /// Creates mainnet MainHandles.
     pub fn new<SPEC: Spec + 'a>() -> Self {
         Self {
@@ -74,7 +74,7 @@ impl<'a, EXT: 'a, DB: SyncDatabase + 'a> PostExecutionHandler<'a, EXT, DB> {
     }
 }
 
-impl<'a, EXT, DB: SyncDatabase> PostExecutionHandler<'a, EXT, DB> {
+impl<'a, EXT, DB: Database> PostExecutionHandler<'a, EXT, DB> {
     /// Calculate final refund
     pub fn refund(&self, context: &mut Context<EXT, DB>, gas: &mut Gas, eip7702_refund: i64) {
         (self.refund)(context, gas, eip7702_refund)

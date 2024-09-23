@@ -9,7 +9,7 @@ use crate::{
     inspectors::GasInspector,
     interpreter::{CallInputs, CreateInputs, Interpreter},
     primitives::{Address, ChainAddress, U256},
-    SyncDatabase, EvmContext, Inspector,
+    SyncDatabase as Database, EvmContext, Inspector,
 };
 
 /// Custom print [Inspector], it has step level information of execution.
@@ -20,7 +20,7 @@ pub struct CustomPrintTracer {
     gas_inspector: GasInspector,
 }
 
-impl<DB: SyncDatabase> Inspector<DB> for CustomPrintTracer {
+impl<DB: Database> Inspector<DB> for CustomPrintTracer {
     fn initialize_interp(&mut self, interp: &mut Interpreter, context: &mut EvmContext<DB>) {
         self.gas_inspector.initialize_interp(interp, context);
     }

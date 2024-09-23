@@ -1,6 +1,6 @@
 use crate::{
     builder::{EvmBuilder, HandlerStage, SetGenericStage},
-    db::{SyncDatabase, DatabaseCommit, EmptyDB},
+    db::{SyncDatabase as Database, DatabaseCommit, EmptyDB},
     handler::Handler,
     interpreter::{
         CallInputs, CreateInputs, EOFCreateInputs, Host, InterpreterAction, SharedMemory,
@@ -19,7 +19,7 @@ pub const CALL_STACK_LIMIT: u64 = 1024;
 
 /// EVM instance containing both internal EVM context and external context
 /// and the handler that dictates the logic of EVM (or hardfork specification).
-pub struct Evm<'a, EXT, DB: SyncDatabase> {
+pub struct Evm<'a, EXT, DB: Database> {
     /// Context of execution, containing both EVM and external context.
     pub context: Context<EXT, DB>,
     /// Handler is a component of the of EVM that contains all the logic. Handler contains specification id
@@ -30,7 +30,7 @@ pub struct Evm<'a, EXT, DB: SyncDatabase> {
 impl<EXT, DB> fmt::Debug for Evm<'_, EXT, DB>
 where
     EXT: fmt::Debug,
-    DB: SyncDatabase + fmt::Debug,
+    DB: Database + fmt::Debug,
     DB::Error: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -40,7 +40,7 @@ where
     }
 }
 
-impl<EXT, DB: SyncDatabase + DatabaseCommit> Evm<'_, EXT, DB> {
+impl<EXT, DB: Database + DatabaseCommit> Evm<'_, EXT, DB> {
     /// Commit the changes to the database.
     pub fn transact_commit(&mut self) -> Result<ExecutionResult, EVMError<DB::Error>> {
         let ResultAndState { result, state } = self.transact()?;
@@ -56,7 +56,7 @@ impl<'a> Evm<'a, (), EmptyDB> {
     }
 }
 
-impl<'a, EXT, DB: SyncDatabase> Evm<'a, EXT, DB> {
+impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
     /// Create new EVM.
     pub fn new(
         mut context: Context<EXT, DB>,
@@ -168,7 +168,7 @@ impl<'a, EXT, DB: SyncDatabase> Evm<'a, EXT, DB> {
     }
 }
 
-impl<EXT, DB: SyncDatabase> Evm<'_, EXT, DB> {
+impl<EXT, DB: Database> Evm<'_, EXT, DB> {
     /// Returns specification (hardfork) that the EVM is instanced with.
     ///
     /// SpecId depends on the handler.

@@ -9,7 +9,7 @@ pub use handle_types::*;
 // Includes.
 use crate::{
     interpreter::{opcode::InstructionTables, Host, InterpreterAction, SharedMemory},
-    primitives::{db::SyncDatabase, spec_to_generic, EVMError, HandlerCfg, Spec, SpecId},
+    primitives::{db::SyncDatabase as Database, spec_to_generic, EVMError, HandlerCfg, Spec, SpecId},
     Context, Frame,
 };
 use core::mem;
@@ -21,7 +21,7 @@ use self::register::{HandleRegister, HandleRegisterBox};
 /// Handler acts as a proxy and allow to define different behavior for different
 /// sections of the code. This allows nice integration of different chains or
 /// to disable some mainnet behavior.
-pub struct Handler<'a, H: Host + 'a, EXT, DB: SyncDatabase> {
+pub struct Handler<'a, H: Host + 'a, EXT, DB: Database> {
     /// Handler configuration.
     pub cfg: HandlerCfg,
     /// Instruction table type.
@@ -38,7 +38,7 @@ pub struct Handler<'a, H: Host + 'a, EXT, DB: SyncDatabase> {
     pub execution: ExecutionHandler<'a, EXT, DB>,
 }
 
-impl<'a, EXT, DB: SyncDatabase> EvmHandler<'a, EXT, DB> {
+impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
     /// Created new Handler with given configuration.
     ///
     /// Internally it calls `mainnet_with_spec` with the given spec id.

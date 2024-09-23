@@ -4,7 +4,7 @@ use super::{
 };
 use crate::db::EmptyDB;
 use revm_interpreter::primitives::{
-    db::{SyncDatabase, DatabaseCommit},
+    db::{SyncDatabase as Database, DatabaseCommit},
     hash_map, Account, AccountInfo, Bytecode, HashMap, B256, BLOCK_HASH_HISTORY, U256,
 };
 use std::{
@@ -15,7 +15,7 @@ use std::{
 use crate::primitives::{Address, ChainAddress};
 
 /// Database boxed with a lifetime and Send.
-pub type DBBox<'a, E> = Box<dyn SyncDatabase<Error = E> + Send + 'a>;
+pub type DBBox<'a, E> = Box<dyn Database<Error = E> + Send + 'a>;
 
 /// More constrained version of State that uses Boxed database with a lifetime.
 ///
@@ -67,7 +67,7 @@ impl State<EmptyDB> {
     }
 }
 
-impl<DB: SyncDatabase> State<DB> {
+impl<DB: Database> State<DB> {
     /// Returns the size hint for the inner bundle state.
     /// See [BundleState::size_hint] for more info.
     pub fn bundle_size_hint(&self) -> usize {
@@ -216,7 +216,7 @@ impl<DB: SyncDatabase> State<DB> {
     }
 }
 
-impl<DB: SyncDatabase> SyncDatabase for State<DB> {
+impl<DB: Database> Database for State<DB> {
     type Error = DB::Error;
 
     fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
@@ -294,7 +294,7 @@ impl<DB: SyncDatabase> SyncDatabase for State<DB> {
     }
 }
 
-impl<DB: SyncDatabase> DatabaseCommit for State<DB> {
+impl<DB: Database> DatabaseCommit for State<DB> {
     fn commit(&mut self, evm_state: HashMap<ChainAddress, Account>) {
         let transitions = self.cache.apply_evm_state(evm_state);
         self.apply_transition(transitions);

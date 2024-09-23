@@ -11,21 +11,21 @@ pub use inner_evm_context::InnerEvmContext;
 use revm_interpreter::{as_u64_saturated, Eip7702CodeLoad, StateLoad};
 
 use crate::{
-    db::{SyncDatabase, EmptyDB},
+    db::{SyncDatabase as Database, EmptyDB},
     interpreter::{AccountLoad, Host, SStoreResult, SelfDestructResult},
     primitives::{Address, Bytes, ChainAddress, Env, HandlerCfg, Log, B256, BLOCK_HASH_HISTORY, U256},
 };
 use std::boxed::Box;
 
 /// Main Context structure that contains both EvmContext and External context.
-pub struct Context<EXT, DB: SyncDatabase> {
+pub struct Context<EXT, DB: Database> {
     /// Evm Context (internal context).
     pub evm: EvmContext<DB>,
     /// External contexts.
     pub external: EXT,
 }
 
-impl<EXT: Clone, DB: SyncDatabase + Clone> Clone for Context<EXT, DB>
+impl<EXT: Clone, DB: Database + Clone> Clone for Context<EXT, DB>
 where
     DB::Error: Clone,
 {
@@ -53,7 +53,7 @@ impl Context<(), EmptyDB> {
     }
 }
 
-impl<DB: SyncDatabase> Context<(), DB> {
+impl<DB: Database> Context<(), DB> {
     /// Creates new context with database.
     pub fn new_with_db(db: DB) -> Context<(), DB> {
         Context {
@@ -63,7 +63,7 @@ impl<DB: SyncDatabase> Context<(), DB> {
     }
 }
 
-impl<EXT, DB: SyncDatabase> Context<EXT, DB> {
+impl<EXT, DB: Database> Context<EXT, DB> {
     /// Creates new context with external and database.
     pub fn new(evm: EvmContext<DB>, external: EXT) -> Context<EXT, DB> {
         Context { evm, external }
@@ -71,21 +71,21 @@ impl<EXT, DB: SyncDatabase> Context<EXT, DB> {
 }
 
 /// Context with handler configuration.
-pub struct ContextWithHandlerCfg<EXT, DB: SyncDatabase> {
+pub struct ContextWithHandlerCfg<EXT, DB: Database> {
     /// Context of execution.
     pub context: Context<EXT, DB>,
     /// Handler configuration.
     pub cfg: HandlerCfg,
 }
 
-impl<EXT, DB: SyncDatabase> ContextWithHandlerCfg<EXT, DB> {
+impl<EXT, DB: Database> ContextWithHandlerCfg<EXT, DB> {
     /// Creates new context with handler configuration.
     pub fn new(context: Context<EXT, DB>, cfg: HandlerCfg) -> Self {
         Self { cfg, context }
     }
 }
 
-impl<EXT: Clone, DB: SyncDatabase + Clone> Clone for ContextWithHandlerCfg<EXT, DB>
+impl<EXT: Clone, DB: Database + Clone> Clone for ContextWithHandlerCfg<EXT, DB>
 where
     DB::Error: Clone,
 {
@@ -97,7 +97,7 @@ where
     }
 }
 
-impl<EXT, DB: SyncDatabase> Host for Context<EXT, DB> {
+impl<EXT, DB: Database> Host for Context<EXT, DB> {
     /// Returns reference to Environment.
     #[inline]
     fn env(&self) -> &Env {

@@ -3,7 +3,7 @@ use revm_interpreter::Eip7702CodeLoad;
 use crate::{
     interpreter::{AccountLoad, InstructionResult, SStoreResult, SelfDestructResult, StateLoad},
     primitives::{
-        db::SyncDatabase, hash_map::Entry, Account, Address, Bytecode, EVMError, EvmState,
+        db::SyncDatabase as Database, hash_map::Entry, Account, Address, Bytecode, EVMError, EvmState,
         EvmStorageSlot, HashMap, HashSet, Log, SpecId, SpecId::*, TransientStorage, B256,
         KECCAK_EMPTY, PRECOMPILE3, U256,
     },
@@ -198,7 +198,7 @@ impl JournaledState {
 
     /// Transfers balance from two accounts. Returns error if sender balance is not enough.
     #[inline]
-    pub fn transfer<DB: SyncDatabase>(
+    pub fn transfer<DB: Database>(
         &mut self,
         from: &ChainAddress,
         to: &ChainAddress,
@@ -482,7 +482,7 @@ impl JournaledState {
     ///  * <https://github.com/ethereum/go-ethereum/blob/141cd425310b503c5678e674a8c3872cf46b7086/core/state/statedb.go#L449>
     ///  * <https://eips.ethereum.org/EIPS/eip-6780>
     #[inline]
-    pub fn selfdestruct<DB: SyncDatabase>(
+    pub fn selfdestruct<DB: Database>(
         &mut self,
         address: ChainAddress,
         target: ChainAddress,
@@ -549,7 +549,7 @@ impl JournaledState {
 
     /// Initial load of account. This load will not be tracked inside journal
     #[inline]
-    pub fn initial_account_load<DB: SyncDatabase>(
+    pub fn initial_account_load<DB: Database>(
         &mut self,
         address: ChainAddress,
         storage_keys: impl IntoIterator<Item = U256>,
@@ -579,7 +579,7 @@ impl JournaledState {
 
     /// load account into memory. return if it is cold or warm accessed
     #[inline]
-    pub fn load_account<DB: SyncDatabase>(
+    pub fn load_account<DB: Database>(
         &mut self,
         address: ChainAddress,
         db: &mut DB,
@@ -623,7 +623,7 @@ impl JournaledState {
     }
 
     #[inline]
-    pub fn load_account_delegated<DB: SyncDatabase>(
+    pub fn load_account_delegated<DB: Database>(
         &mut self,
         address: ChainAddress,
         db: &mut DB,
@@ -651,7 +651,7 @@ impl JournaledState {
 
     /// Loads code.
     #[inline]
-    pub fn load_code<DB: SyncDatabase>(
+    pub fn load_code<DB: Database>(
         &mut self,
         address: ChainAddress,
         db: &mut DB,
@@ -676,7 +676,7 @@ impl JournaledState {
     ///
     /// Panics if the account is not present in the state.
     #[inline]
-    pub fn sload<DB: SyncDatabase>(
+    pub fn sload<DB: Database>(
         &mut self,
         address: ChainAddress,
         key: U256,
@@ -724,7 +724,7 @@ impl JournaledState {
     ///
     /// account should already be present in our state.
     #[inline]
-    pub fn sstore<DB: SyncDatabase>(
+    pub fn sstore<DB: Database>(
         &mut self,
         address: ChainAddress,
         key: U256,

@@ -4,7 +4,7 @@ use revm_interpreter::CallOutcome;
 
 use crate::{
     interpreter::{CallInputs, CreateInputs, CreateOutcome},
-    primitives::db::SyncDatabase,
+    primitives::db::SyncDatabase as Database,
     EvmContext, Inspector,
 };
 
@@ -26,7 +26,7 @@ impl GasInspector {
     }
 }
 
-impl<DB: SyncDatabase> Inspector<DB> for GasInspector {
+impl<DB: Database> Inspector<DB> for GasInspector {
     fn initialize_interp(
         &mut self,
         interp: &mut crate::interpreter::Interpreter,
@@ -90,7 +90,7 @@ mod tests {
         inspectors::GasInspector,
         interpreter::{CallInputs, CreateInputs, Interpreter},
         primitives::{Log, ChainAddress, TransactTo},
-        SyncDatabase, EvmContext, Inspector,
+        SyncDatabase as Database, EvmContext, Inspector,
     };
 
     #[derive(Default, Debug)]
@@ -100,7 +100,7 @@ mod tests {
         gas_remaining_steps: Vec<(usize, u64)>,
     }
 
-    impl<DB: SyncDatabase> Inspector<DB> for StackInspector {
+    impl<DB: Database> Inspector<DB> for StackInspector {
         fn initialize_interp(&mut self, interp: &mut Interpreter, context: &mut EvmContext<DB>) {
             self.gas_inspector.initialize_interp(interp, context);
         }

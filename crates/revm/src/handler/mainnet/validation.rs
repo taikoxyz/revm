@@ -1,12 +1,12 @@
 use revm_interpreter::gas;
 
 use crate::{
-    primitives::{db::SyncDatabase, EVMError, Env, InvalidTransaction, Spec},
+    primitives::{db::SyncDatabase as Database, EVMError, Env, InvalidTransaction, Spec},
     Context,
 };
 
 /// Validate environment for the mainnet.
-pub fn validate_env<SPEC: Spec, DB: SyncDatabase>(env: &Env) -> Result<(), EVMError<DB::Error>> {
+pub fn validate_env<SPEC: Spec, DB: Database>(env: &Env) -> Result<(), EVMError<DB::Error>> {
     // Important: validate block before tx.
     env.validate_block_env::<SPEC>()?;
     env.validate_tx::<SPEC>()?;
@@ -14,7 +14,7 @@ pub fn validate_env<SPEC: Spec, DB: SyncDatabase>(env: &Env) -> Result<(), EVMEr
 }
 
 /// Validates transaction against the state.
-pub fn validate_tx_against_state<SPEC: Spec, EXT, DB: SyncDatabase>(
+pub fn validate_tx_against_state<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
 ) -> Result<(), EVMError<DB::Error>> {
     // load acc
@@ -36,7 +36,7 @@ pub fn validate_tx_against_state<SPEC: Spec, EXT, DB: SyncDatabase>(
 }
 
 /// Validate initial transaction gas.
-pub fn validate_initial_tx_gas<SPEC: Spec, DB: SyncDatabase>(
+pub fn validate_initial_tx_gas<SPEC: Spec, DB: Database>(
     env: &Env,
 ) -> Result<u64, EVMError<DB::Error>> {
     let input = &env.tx.data;

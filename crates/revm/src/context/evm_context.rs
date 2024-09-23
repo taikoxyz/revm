@@ -3,7 +3,7 @@ use revm_precompile::PrecompileErrors;
 
 use super::inner_evm_context::InnerEvmContext;
 use crate::{
-    db::SyncDatabase,
+    db::SyncDatabase as Database,
     interpreter::{
         analysis::validate_eof, return_ok, CallInputs, Contract, CreateInputs, EOFCreateInputs,
         EOFCreateKind, Gas, InstructionResult, Interpreter, InterpreterResult,
@@ -22,14 +22,14 @@ use core::{
 use std::{boxed::Box, sync::Arc};
 
 /// EVM context that contains the inner EVM context and precompiles.
-pub struct EvmContext<DB: SyncDatabase> {
+pub struct EvmContext<DB: Database> {
     /// Inner EVM context.
     pub inner: InnerEvmContext<DB>,
     /// Precompiles that are available for evm.
     pub precompiles: ContextPrecompiles<DB>,
 }
 
-impl<DB: SyncDatabase + Clone> Clone for EvmContext<DB>
+impl<DB: Database + Clone> Clone for EvmContext<DB>
 where
     DB::Error: Clone,
 {
@@ -43,7 +43,7 @@ where
 
 impl<DB> fmt::Debug for EvmContext<DB>
 where
-    DB: SyncDatabase + fmt::Debug,
+    DB: Database + fmt::Debug,
     DB::Error: fmt::Debug,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
@@ -54,7 +54,7 @@ where
     }
 }
 
-impl<DB: SyncDatabase> Deref for EvmContext<DB> {
+impl<DB: Database> Deref for EvmContext<DB> {
     type Target = InnerEvmContext<DB>;
 
     fn deref(&self) -> &Self::Target {
@@ -62,13 +62,13 @@ impl<DB: SyncDatabase> Deref for EvmContext<DB> {
     }
 }
 
-impl<DB: SyncDatabase> DerefMut for EvmContext<DB> {
+impl<DB: Database> DerefMut for EvmContext<DB> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.inner
     }
 }
 
-impl<DB: SyncDatabase> EvmContext<DB> {
+impl<DB: Database> EvmContext<DB> {
     /// Create new context with database.
     pub fn new(db: DB) -> Self {
         Self {
@@ -90,7 +90,7 @@ impl<DB: SyncDatabase> EvmContext<DB> {
     ///
     /// Note that this will ignore the previous `error` if set.
     #[inline]
-    pub fn with_db<ODB: SyncDatabase>(self, db: ODB) -> EvmContext<ODB> {
+    pub fn with_db<ODB: Database>(self, db: ODB) -> EvmContext<ODB> {
         EvmContext {
             inner: self.inner.with_db(db),
             precompiles: ContextPrecompiles::default(),

@@ -5,7 +5,7 @@
 use crate::{
     precompile::PrecompileSpecId,
     primitives::{
-        db::SyncDatabase,
+        db::SyncDatabase as Database,
         eip7702, Account, Bytecode, ChainAddress, EVMError, Env, Spec,
         SpecId::{CANCUN, PRAGUE, SHANGHAI},
         TransactTo, TxKind, BLOCKHASH_STORAGE_ADDRESS, U256,
@@ -15,13 +15,13 @@ use crate::{
 
 /// Main precompile load
 #[inline]
-pub fn load_precompiles<SPEC: Spec, DB: SyncDatabase>() -> ContextPrecompiles<DB> {
+pub fn load_precompiles<SPEC: Spec, DB: Database>() -> ContextPrecompiles<DB> {
     ContextPrecompiles::new(PrecompileSpecId::from_spec_id(SPEC::SPEC_ID))
 }
 
 /// Main load handle
 #[inline]
-pub fn load_accounts<SPEC: Spec, EXT, DB: SyncDatabase>(
+pub fn load_accounts<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     chain_id: u64,
 ) -> Result<(), EVMError<DB::Error>> {
@@ -82,7 +82,7 @@ pub fn deduct_caller_inner<SPEC: Spec>(caller_account: &mut Account, env: &Env) 
 
 /// Deducts the caller balance to the transaction limit.
 #[inline]
-pub fn deduct_caller<SPEC: Spec, EXT, DB: SyncDatabase>(
+pub fn deduct_caller<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
 ) -> Result<(), EVMError<DB::Error>> {
     // load caller's account.
@@ -100,7 +100,7 @@ pub fn deduct_caller<SPEC: Spec, EXT, DB: SyncDatabase>(
 
 /// Apply EIP-7702 auth list and return number gas refund on already created accounts.
 #[inline]
-pub fn apply_eip7702_auth_list<SPEC: Spec, EXT, DB: SyncDatabase>(
+pub fn apply_eip7702_auth_list<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
 ) -> Result<u64, EVMError<DB::Error>> {
     // EIP-7702. Load bytecode to authorized accounts.

@@ -1,14 +1,14 @@
 use super::InnerEvmContext;
 use crate::{
     precompile::{Precompile, PrecompileResult},
-    primitives::{db::SyncDatabase, Address, Bytes, HashMap, HashSet},
+    primitives::{db::SyncDatabase as Database, Address, Bytes, HashMap, HashSet},
 };
 use dyn_clone::DynClone;
 use revm_precompile::{PrecompileSpecId, PrecompileWithAddress, Precompiles};
 use std::{boxed::Box, sync::Arc};
 
 /// A single precompile handler.
-pub enum ContextPrecompile<DB: SyncDatabase> {
+pub enum ContextPrecompile<DB: Database> {
     /// Ordinary precompiles
     Ordinary(Precompile),
     /// Stateful precompile that is Arc over [`ContextStatefulPrecompile`] trait.
@@ -19,7 +19,7 @@ pub enum ContextPrecompile<DB: SyncDatabase> {
     ContextStatefulMut(ContextStatefulPrecompileBox<DB>),
 }
 
-impl<DB: SyncDatabase> Clone for ContextPrecompile<DB> {
+impl<DB: Database> Clone for ContextPrecompile<DB> {
     fn clone(&self) -> Self {
         match self {
             Self::Ordinary(p) => Self::Ordinary(p.clone()),
@@ -29,13 +29,13 @@ impl<DB: SyncDatabase> Clone for ContextPrecompile<DB> {
     }
 }
 
-enum PrecompilesCow<DB: SyncDatabase> {
+enum PrecompilesCow<DB: Database> {
     /// Default precompiles, returned by `Precompiles::new`. Used to fast-path the default case.
     StaticRef(&'static Precompiles),
     Owned(HashMap<Address, ContextPrecompile<DB>>),
 }
 
-impl<DB: SyncDatabase> Clone for PrecompilesCow<DB> {
+impl<DB: Database> Clone for PrecompilesCow<DB> {
     fn clone(&self) -> Self {
         match *self {
             PrecompilesCow::StaticRef(p) => PrecompilesCow::StaticRef(p),
@@ -45,11 +45,11 @@ impl<DB: SyncDatabase> Clone for PrecompilesCow<DB> {
 }
 
 /// Precompiles context.
-pub struct ContextPrecompiles<DB: SyncDatabase> {
+pub struct ContextPrecompiles<DB: Database> {
     inner: PrecompilesCow<DB>,
 }
 
-impl<DB: SyncDatabase> Clone for ContextPrecompiles<DB> {
+impl<DB: Database> Clone for ContextPrecompiles<DB> {
     fn clone(&self) -> Self {
         Self {
             inner: self.inner.clone(),
@@ -57,7 +57,7 @@ impl<DB: SyncDatabase> Clone for ContextPrecompiles<DB> {
     }
 }
 
-impl<DB: SyncDatabase> ContextPrecompiles<DB> {
+impl<DB: Database> ContextPrecompiles<DB> {
     /// Creates a new precompiles context at the given spec ID.
     ///
     /// This is a cheap operation that does not allocate by reusing the global precompiles.
@@ -164,13 +164,13 @@ impl<DB: SyncDatabase> ContextPrecompiles<DB> {
     }
 }
 
-impl<DB: SyncDatabase> Extend<(Address, ContextPrecompile<DB>)> for ContextPrecompiles<DB> {
+impl<DB: Database> Extend<(Address, ContextPrecompile<DB>)> for ContextPrecompiles<DB> {
     fn extend<T: IntoIterator<Item = (Address, ContextPrecompile<DB>)>>(&mut self, iter: T) {
         self.to_mut().extend(iter.into_iter().map(Into::into))
     }
 }
 
-impl<DB: SyncDatabase> Extend<PrecompileWithAddress> for ContextPrecompiles<DB> {
+impl<DB: Database> Extend<PrecompileWithAddress> for ContextPrecompiles<DB> {
     fn extend<T: IntoIterator<Item = PrecompileWithAddress>>(&mut self, iter: T) {
         self.to_mut().extend(iter.into_iter().map(|precompile| {
             let (address, precompile) = precompile.into();
@@ -179,7 +179,7 @@ impl<DB: SyncDatabase> Extend<PrecompileWithAddress> for ContextPrecompiles<DB> 
     }
 }
 
-impl<DB: SyncDatabase> Default for ContextPrecompiles<DB> {
+impl<DB: Database> Default for ContextPrecompiles<DB> {
     fn default() -> Self {
         Self {
             inner: Default::default(),
@@ -187,7 +187,7 @@ impl<DB: SyncDatabase> Default for ContextPrecompiles<DB> {
     }
 }
 
-impl<DB: SyncDatabase> Default for PrecompilesCow<DB> {
+impl<DB: Database> Default for PrecompilesCow<DB> {
     fn default() -> Self {
         Self::Owned(Default::default())
     }
@@ -195,7 +195,7 @@ impl<DB: SyncDatabase> Default for PrecompilesCow<DB> {
 
 /// Context aware stateful precompile trait. It is used to create
 /// a arc precompile in [`ContextPrecompile`].
-pub trait ContextStatefulPrecompile<DB: SyncDatabase>: Sync + Send {
+pub trait ContextStatefulPrecompile<DB: Database>: Sync + Send {
     fn call(
         &self,
         bytes: &Bytes,
@@ -206,7 +206,7 @@ pub trait ContextStatefulPrecompile<DB: SyncDatabase>: Sync + Send {
 
 /// Context aware mutable stateful precompile trait. It is used to create
 /// a boxed precompile in [`ContextPrecompile`].
-pub trait ContextStatefulPrecompileMut<DB: SyncDatabase>: DynClone + Send + Sync {
+pub trait ContextStatefulPrecompileMut<DB: Database>: DynClone + Send + Sync {
     fn call_mut(
         &mut self,
         bytes: &Bytes,
@@ -223,7 +223,7 @@ pub type ContextStatefulPrecompileArc<DB> = Arc<dyn ContextStatefulPrecompile<DB
 /// Box over context mutable stateful precompile
 pub type ContextStatefulPrecompileBox<DB> = Box<dyn ContextStatefulPrecompileMut<DB>>;
 
-impl<DB: SyncDatabase> From<Precompile> for ContextPrecompile<DB> {
+impl<DB: Database> From<Precompile> for ContextPrecompile<DB> {
     fn from(p: Precompile) -> Self {
         ContextPrecompile::Ordinary(p)
     }

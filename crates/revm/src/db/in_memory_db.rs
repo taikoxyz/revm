@@ -1,9 +1,9 @@
-use super::{DatabaseCommit, SyncDatabaseRef, EmptyDB};
+use super::{DatabaseCommit, SyncDatabaseRef as DatabaseRef, EmptyDB};
 use crate::primitives::{
     hash_map::Entry, Account, AccountInfo, Address, ChainAddress, Bytecode, HashMap, Log, B256, KECCAK_EMPTY,
     U256,
 };
-use crate::SyncDatabase;
+use crate::SyncDatabase as Database;
 use core::convert::Infallible;
 use std::vec::Vec;
 
@@ -84,7 +84,7 @@ impl<ExtDB> CacheDB<ExtDB> {
     }
 }
 
-impl<ExtDB: SyncDatabaseRef> CacheDB<ExtDB> {
+impl<ExtDB: DatabaseRef> CacheDB<ExtDB> {
     /// Returns the account for the given address.
     ///
     /// If the account was not found in the cache, it will be loaded from the underlying database.
@@ -166,7 +166,7 @@ impl<ExtDB> DatabaseCommit for CacheDB<ExtDB> {
     }
 }
 
-impl<ExtDB: SyncDatabaseRef> SyncDatabase for CacheDB<ExtDB> {
+impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
     type Error = ExtDB::Error;
 
     fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
@@ -247,7 +247,7 @@ impl<ExtDB: SyncDatabaseRef> SyncDatabase for CacheDB<ExtDB> {
     }
 }
 
-impl<ExtDB: SyncDatabaseRef> SyncDatabaseRef for CacheDB<ExtDB> {
+impl<ExtDB: DatabaseRef> DatabaseRef for CacheDB<ExtDB> {
     type Error = ExtDB::Error;
 
     fn basic_ref(&self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
@@ -370,7 +370,7 @@ impl BenchmarkDB {
     }
 }
 
-impl SyncDatabase for BenchmarkDB {
+impl Database for BenchmarkDB {
     type Error = Infallible;
     /// Get basic account information.
     fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
@@ -412,7 +412,7 @@ impl SyncDatabase for BenchmarkDB {
 #[cfg(test)]
 mod tests {
     use super::{CacheDB, EmptyDB};
-    use crate::primitives::{db::SyncDatabase, AccountInfo, Address, ChainAddress, U256};
+    use crate::primitives::{db::SyncDatabase as Database, AccountInfo, Address, ChainAddress, U256};
 
     #[test]
     fn test_insert_account_storage() {
