@@ -1,9 +1,9 @@
-use super::{DatabaseCommit, DatabaseRef, EmptyDB};
+use super::{DatabaseCommit, SyncDatabaseRef as DatabaseRef, EmptyDB};
 use crate::primitives::{
     hash_map::Entry, Account, AccountInfo, Address, ChainAddress, Bytecode, HashMap, Log, B256, KECCAK_EMPTY,
     U256,
 };
-use crate::Database;
+use crate::SyncDatabase as Database;
 use core::convert::Infallible;
 use std::vec::Vec;
 
@@ -24,6 +24,7 @@ pub struct CacheDB<ExtDB> {
     /// `code` is always `None`, and bytecode can be found in `contracts`.
     pub accounts: HashMap<ChainAddress, DbAccount>,
     /// Tracks all contracts by their code hash.
+    // FIX(Cecilia): should be (u64, B256)
     pub contracts: HashMap<B256, Bytecode>,
     /// All logs that were committed via [DatabaseCommit::commit].
     pub logs: Vec<Log>,
@@ -411,7 +412,7 @@ impl Database for BenchmarkDB {
 #[cfg(test)]
 mod tests {
     use super::{CacheDB, EmptyDB};
-    use crate::primitives::{db::Database, AccountInfo, Address, ChainAddress, U256};
+    use crate::primitives::{db::SyncDatabase as Database, AccountInfo, Address, ChainAddress, U256};
 
     #[test]
     fn test_insert_account_storage() {
@@ -474,7 +475,7 @@ mod tests {
         let nonce = 420;
         let mut init_state = CacheDB::new(EmptyDB::default());
         init_state.insert_account_info(
-            account,
+            ChainAddress(0, account),
             AccountInfo {
                 nonce,
                 ..Default::default()
@@ -484,9 +485,9 @@ mod tests {
         let serialized = serde_json::to_string(&init_state).unwrap();
         let deserialized: CacheDB<EmptyDB> = serde_json::from_str(&serialized).unwrap();
 
-        assert!(deserialized.accounts.contains_key(&account));
+        assert!(deserialized.accounts.contains_key(&ChainAddress(0, account)));
         assert_eq!(
-            deserialized.accounts.get(&account).unwrap().info.nonce,
+            deserialized.accounts.get(&ChainAddress(0, account)).unwrap().info.nonce,
             nonce
         );
     }

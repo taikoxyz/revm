@@ -3,7 +3,7 @@ use revm_precompile::PrecompileErrors;
 
 use super::inner_evm_context::InnerEvmContext;
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     interpreter::{
         analysis::validate_eof, return_ok, CallInputs, Contract, CreateInputs, EOFCreateInputs,
         EOFCreateKind, Gas, InstructionResult, Interpreter, InterpreterResult,

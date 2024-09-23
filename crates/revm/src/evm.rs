@@ -1,6 +1,6 @@
 use crate::{
     builder::{EvmBuilder, HandlerStage, SetGenericStage},
-    db::{Database, DatabaseCommit, EmptyDB},
+    db::{SyncDatabase as Database, DatabaseCommit, EmptyDB},
     handler::Handler,
     interpreter::{
         CallInputs, CreateInputs, EOFCreateInputs, Host, InterpreterAction, SharedMemory,

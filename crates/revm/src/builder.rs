@@ -1,5 +1,5 @@
 use crate::{
-    db::{Database, DatabaseRef, EmptyDB, WrapDatabaseRef},
+    db::{SyncDatabase as Database, SyncDatabaseRef as DatabaseRef, EmptyDB, WrapDatabaseRef},
     handler::register,
     primitives::{
         BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, Env, EnvWithHandlerCfg, HandlerCfg, SpecId, TxEnv,

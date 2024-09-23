@@ -5,7 +5,7 @@
 use crate::{
     precompile::PrecompileSpecId,
     primitives::{
-        db::Database,
+        db::SyncDatabase as Database,
         eip7702, Account, Bytecode, ChainAddress, EVMError, Env, Spec,
         SpecId::{CANCUN, PRAGUE, SHANGHAI},
         TransactTo, TxKind, BLOCKHASH_STORAGE_ADDRESS, U256,
