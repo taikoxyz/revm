@@ -153,6 +153,21 @@ macro_rules! pop_address_ret {
 
 /// Pops `U256` values from the stack. Fails the instruction if the stack is too small.
 #[macro_export]
+macro_rules! pop_chain_address {
+    ($interp:expr, $x1:ident) => {
+        pop_address!($interp, $x1);
+        let $x1 = $crate::primitives::ChainAddress($interp.chain_id, $x1);
+    };
+    ($interp:expr, $x1:ident, $x2:ident) => {
+        pop_address!($interp, $x1, $x2);
+        let $x1 = ChainAddress($interp.chain_id, $x1);
+        let $x2 = ChainAddress($interp.chain_id, $x2);
+    };
+}
+
+
+/// Pops `U256` values from the stack. Fails the instruction if the stack is too small.
+#[macro_export]
 macro_rules! pop {
     ($interp:expr, $x1:ident) => {
         $crate::pop_ret!($interp, $x1, ())

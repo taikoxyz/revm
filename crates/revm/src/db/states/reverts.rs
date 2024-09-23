@@ -4,15 +4,16 @@ use super::{
 };
 use core::ops::{Deref, DerefMut};
 use revm_interpreter::primitives::{AccountInfo, Address, HashMap, U256};
+use crate::primitives::ChainAddress;
 use std::vec::Vec;
 
 /// Contains reverts of multiple account in multiple transitions (Transitions as a block).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Reverts(Vec<Vec<(Address, AccountRevert)>>);
+pub struct Reverts(Vec<Vec<(ChainAddress, AccountRevert)>>);
 
 impl Deref for Reverts {
-    type Target = Vec<Vec<(Address, AccountRevert)>>;
+    type Target = Vec<Vec<(ChainAddress, AccountRevert)>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -27,7 +28,7 @@ impl DerefMut for Reverts {
 
 impl Reverts {
     /// Create new reverts
-    pub fn new(reverts: Vec<Vec<(Address, AccountRevert)>>) -> Self {
+    pub fn new(reverts: Vec<Vec<(ChainAddress, AccountRevert)>>) -> Self {
         Self(reverts)
     }
 

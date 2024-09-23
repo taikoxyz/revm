@@ -11,7 +11,7 @@ pub trait BlockHash {
     type Error;
 
     /// Get block hash by block number
-    fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error>;
+    fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error>;
 }
 
 #[auto_impl(&, &mut, Box, Rc, Arc)]
@@ -19,7 +19,7 @@ pub trait BlockHashRef {
     type Error;
 
     /// Get block hash by block number
-    fn block_hash(&self, number: u64) -> Result<B256, Self::Error>;
+    fn block_hash(&self, chain_id: u64, number: u64) -> Result<B256, Self::Error>;
 }
 
 impl<T> BlockHash for &T
@@ -28,8 +28,8 @@ where
 {
     type Error = <T as BlockHashRef>::Error;
 
-    fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
-        BlockHashRef::block_hash(*self, number)
+    fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error> {
+        BlockHashRef::block_hash(*self, chain_id, number)
     }
 }
 
@@ -39,7 +39,7 @@ where
 {
     type Error = <T as BlockHashRef>::Error;
 
-    fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
-        self.deref().block_hash(number)
+    fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error> {
+        self.deref().block_hash(chain_id, number)
     }
 }

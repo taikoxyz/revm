@@ -22,6 +22,7 @@ pub mod secp256k1;
 #[cfg(feature = "secp256r1")]
 pub mod secp256r1;
 pub mod utilities;
+pub mod xcalloptions;
 
 pub use fatal_precompile::fatal_precompile;
 
@@ -32,6 +33,7 @@ pub use primitives::{
     precompile::{PrecompileError as Error, *},
     Address, Bytes, HashMap, HashSet, Log, B256,
 };
+use revm_primitives::ChainAddress;
 #[doc(hidden)]
 pub use revm_primitives as primitives;
 
@@ -129,6 +131,7 @@ impl Precompiles {
             precompiles.extend([
                 // EIP-2565: ModExp Gas Cost.
                 modexp::BERLIN,
+                xcalloptions::XCALLOPTIONS,
             ]);
             Box::new(precompiles)
         })

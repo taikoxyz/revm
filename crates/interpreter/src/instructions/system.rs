@@ -21,12 +21,12 @@ pub fn keccak256<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &mut H)
 
 pub fn address<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &mut H) {
     gas!(interpreter, gas::BASE);
-    push_b256!(interpreter, interpreter.contract.target_address.into_word());
+    push_b256!(interpreter, interpreter.contract.target_address.1.into_word());
 }
 
 pub fn caller<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &mut H) {
     gas!(interpreter, gas::BASE);
-    push_b256!(interpreter, interpreter.contract.caller.into_word());
+    push_b256!(interpreter, interpreter.contract.caller.1.into_word());
 }
 
 pub fn codesize<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &mut H) {

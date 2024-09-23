@@ -3,6 +3,7 @@ use crate::{
     Host, SStoreResult, SelfDestructResult,
 };
 use std::vec::Vec;
+use revm_primitives::ChainAddress;
 
 use super::{AccountLoad, Eip7702CodeLoad, StateLoad};
 
@@ -45,32 +46,32 @@ impl Host for DummyHost {
     }
 
     #[inline]
-    fn load_account_delegated(&mut self, _address: Address) -> Option<AccountLoad> {
+    fn load_account_delegated(&mut self, _address: ChainAddress) -> Option<AccountLoad> {
         Some(AccountLoad::default())
     }
 
     #[inline]
-    fn block_hash(&mut self, _number: u64) -> Option<B256> {
+    fn block_hash(&mut self, _chain_id: u64, _number: u64) -> Option<B256> {
         Some(B256::ZERO)
     }
 
     #[inline]
-    fn balance(&mut self, _address: Address) -> Option<StateLoad<U256>> {
+    fn balance(&mut self, _address: ChainAddress) -> Option<StateLoad<U256>> {
         Some(Default::default())
     }
 
     #[inline]
-    fn code(&mut self, _address: Address) -> Option<Eip7702CodeLoad<Bytes>> {
+    fn code(&mut self, _address: ChainAddress) -> Option<Eip7702CodeLoad<Bytes>> {
         Some(Default::default())
     }
 
     #[inline]
-    fn code_hash(&mut self, _address: Address) -> Option<Eip7702CodeLoad<B256>> {
+    fn code_hash(&mut self, _address: ChainAddress) -> Option<Eip7702CodeLoad<B256>> {
         Some(Eip7702CodeLoad::new_not_delegated(KECCAK_EMPTY, false))
     }
 
     #[inline]
-    fn sload(&mut self, _address: Address, index: U256) -> Option<StateLoad<U256>> {
+    fn sload(&mut self, _address: ChainAddress, index: U256) -> Option<StateLoad<U256>> {
         match self.storage.entry(index) {
             Entry::Occupied(entry) => Some(StateLoad::new(*entry.get(), false)),
             Entry::Vacant(entry) => {
@@ -83,7 +84,7 @@ impl Host for DummyHost {
     #[inline]
     fn sstore(
         &mut self,
-        _address: Address,
+        _address: ChainAddress,
         index: U256,
         value: U256,
     ) -> Option<StateLoad<SStoreResult>> {
@@ -99,7 +100,7 @@ impl Host for DummyHost {
     }
 
     #[inline]
-    fn tload(&mut self, _address: Address, index: U256) -> U256 {
+    fn tload(&mut self, _address: ChainAddress, index: U256) -> U256 {
         self.transient_storage
             .get(&index)
             .copied()
@@ -107,7 +108,7 @@ impl Host for DummyHost {
     }
 
     #[inline]
-    fn tstore(&mut self, _address: Address, index: U256, value: U256) {
+    fn tstore(&mut self, _address: ChainAddress, index: U256, value: U256) {
         self.transient_storage.insert(index, value);
     }
 
@@ -119,8 +120,8 @@ impl Host for DummyHost {
     #[inline]
     fn selfdestruct(
         &mut self,
-        _address: Address,
-        _target: Address,
+        _address: ChainAddress,
+        _target: ChainAddress,
     ) -> Option<StateLoad<SelfDestructResult>> {
         Some(StateLoad::default())
     }

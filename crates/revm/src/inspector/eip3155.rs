@@ -3,7 +3,7 @@ use crate::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, Interpreter, InterpreterResult,
     },
-    primitives::{db::Database, hex, HashMap, B256, U256},
+    primitives::{db::SyncDatabase as Database, hex, HashMap, B256, U256},
     EvmContext, Inspector,
 };
 use revm_interpreter::OpCode;

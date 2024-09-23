@@ -4,7 +4,7 @@ use revm_interpreter::CallOutcome;
 
 use crate::{
     interpreter::{CallInputs, CreateInputs, CreateOutcome},
-    primitives::db::Database,
+    primitives::db::SyncDatabase as Database,
     EvmContext, Inspector,
 };
 
@@ -89,8 +89,8 @@ mod tests {
     use crate::{
         inspectors::GasInspector,
         interpreter::{CallInputs, CreateInputs, Interpreter},
-        primitives::Log,
-        Database, EvmContext, Inspector,
+        primitives::{Log, ChainAddress, TransactTo},
+        SyncDatabase as Database, EvmContext, Inspector,
     };
 
     #[derive(Default, Debug)]
@@ -188,8 +188,8 @@ mod tests {
             .with_external_context(StackInspector::default())
             .modify_tx_env(|tx| {
                 tx.clear();
-                tx.caller = address!("1000000000000000000000000000000000000000");
-                tx.transact_to = TxKind::Call(address!("0000000000000000000000000000000000000000"));
+                tx.caller = ChainAddress(1, address!("1000000000000000000000000000000000000000"));
+                tx.transact_to = TransactTo::Call(ChainAddress(1, address!("0000000000000000000000000000000000000000")));
                 tx.gas_limit = 21100;
             })
             .append_handler_register(inspector_handle_register)

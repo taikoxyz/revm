@@ -1,7 +1,7 @@
 use revm_interpreter::gas;
 
 use crate::{
-    primitives::{db::Database, EVMError, Env, InvalidTransaction, Spec},
+    primitives::{db::SyncDatabase as Database, EVMError, Env, InvalidTransaction, Spec},
     Context,
 };
 

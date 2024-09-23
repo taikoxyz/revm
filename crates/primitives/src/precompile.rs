@@ -1,4 +1,4 @@
-use crate::{Bytes, Env};
+use crate::{Bytes, Env, CallOptions};
 use core::fmt::{self};
 use dyn_clone::DynClone;
 use std::{boxed::Box, string::String, sync::Arc};
@@ -26,6 +26,8 @@ impl PrecompileOutput {
 
 pub type StandardPrecompileFn = fn(&Bytes, u64) -> PrecompileResult;
 pub type EnvPrecompileFn = fn(&Bytes, u64, env: &Env) -> PrecompileResult;
+/// TODO: the input is a CallOptions struct to avoid having to put the interpreter in the primitives crate
+pub type CtxPrecompileFn = fn(&[u8], u64, env: &Env, interpreter: &mut Option<CallOptions>) -> PrecompileResult;
 
 /// Stateful precompile trait. It is used to create
 /// a arc precompile Precompile::Stateful.
@@ -60,6 +62,8 @@ pub enum Precompile {
     /// Mutable stateful precompile that is Box over [`StatefulPrecompileMut`] trait.
     /// It takes a reference to input, gas limit and environment.
     StatefulMut(StatefulPrecompileBox),
+    // Similar to Standard but takes reference to environment.
+    Ctx(CtxPrecompileFn),
 }
 
 impl From<StandardPrecompileFn> for Precompile {
@@ -93,6 +97,7 @@ impl fmt::Debug for Precompile {
             Precompile::Env(_) => f.write_str("Env"),
             Precompile::Stateful(_) => f.write_str("Stateful"),
             Precompile::StatefulMut(_) => f.write_str("StatefulMut"),
+            Precompile::Ctx(_) => f.write_str("Ctx"),
         }
     }
 }
@@ -115,6 +120,7 @@ impl Precompile {
             Precompile::Env(p) => p(bytes, gas_limit, env),
             Precompile::Stateful(ref p) => p.call(bytes, gas_limit, env),
             Precompile::StatefulMut(ref mut p) => p.call_mut(bytes, gas_limit, env),
+            Precompile::Ctx(ref mut p) => p(bytes, gas_limit, env, &mut None), // TODO: Brecht
         }
     }
 
@@ -129,6 +135,7 @@ impl Precompile {
             Precompile::StatefulMut(_) => Err(PrecompileErrors::Fatal {
                 msg: "call_ref on mutable stateful precompile".into(),
             }),
+            Precompile::Ctx(p) => p(bytes, gas_limit, env, &mut None), // TODO: Brecht
         }
     }
 }
@@ -174,6 +181,11 @@ pub enum PrecompileError {
     BlobMismatchedVersion,
     /// The proof verification failed.
     BlobVerifyKzgProofFailed,
+    /// XCALLOPTIONS errors
+    /// The input length is not the expected length
+    XCallOptionsInvalidInputLength,
+    /// The version given is not supported
+    XCallOptionsInvalidVersion,
     /// Catch-all variant for other errors.
     Other(String),
 }
@@ -214,6 +226,8 @@ impl fmt::Display for PrecompileError {
             Self::BlobInvalidInputLength => "invalid blob input length",
             Self::BlobMismatchedVersion => "mismatched blob version",
             Self::BlobVerifyKzgProofFailed => "verifying blob kzg proof failed",
+            Self::XCallOptionsInvalidInputLength => "XCallOptionsInvalidInputLength",
+            Self::XCallOptionsInvalidVersion => "XCallOptionsInvalidVersion",
             Self::Other(s) => s,
         };
         f.write_str(s)

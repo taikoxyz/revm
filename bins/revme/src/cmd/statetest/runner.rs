@@ -10,8 +10,7 @@ use revm::{
     inspectors::TracerEip3155,
     interpreter::analysis::to_analysed,
     primitives::{
-        calc_excess_blob_gas, keccak256, Bytecode, Bytes, EVMResultGeneric, Env, ExecutionResult,
-        SpecId, TxKind, B256,
+        calc_excess_blob_gas, keccak256, Bytecode, Bytes, ChainAddress, EVMResultGeneric, Env, ExecutionResult, SpecId, TransactTo, TxKind, B256
     },
     Evm, State,
 };
@@ -274,7 +273,7 @@ pub fn execute_test_suite(
                 code: Some(bytecode),
                 nonce: info.nonce,
             };
-            cache_state.insert_account_with_storage(address, acc_info, info.storage);
+            cache_state.insert_account_with_storage(ChainAddress(1, address), acc_info, info.storage);
         }
 
         let mut env = Box::<Env>::default();
@@ -284,7 +283,7 @@ pub fn execute_test_suite(
 
         // block env
         env.block.number = unit.env.current_number;
-        env.block.coinbase = unit.env.current_coinbase;
+        env.block.coinbase = ChainAddress(1, unit.env.current_coinbase);
         env.block.timestamp = unit.env.current_timestamp;
         env.block.gas_limit = unit.env.current_gas_limit;
         env.block.basefee = unit.env.current_base_fee.unwrap_or_default();
@@ -307,14 +306,14 @@ pub fn execute_test_suite(
         }
 
         // tx env
-        env.tx.caller = if let Some(address) = unit.transaction.sender {
+        env.tx.caller = ChainAddress(1, if let Some(address) = unit.transaction.sender {
             address
         } else {
             recover_address(unit.transaction.secret_key.as_slice()).ok_or_else(|| TestError {
                 name: name.clone(),
                 kind: TestErrorKind::UnknownPrivateKey(unit.transaction.secret_key),
             })?
-        };
+        });
         env.tx.gas_price = unit
             .transaction
             .gas_price
@@ -365,8 +364,8 @@ pub fn execute_test_suite(
                 env.tx.authorization_list = auth_list;
 
                 let to = match unit.transaction.to {
-                    Some(add) => TxKind::Call(add),
-                    None => TxKind::Create,
+                    Some(add) => TransactTo::Call(ChainAddress(1, add)),
+                    None => TransactTo::Create,
                 };
                 env.tx.transact_to = to;
 

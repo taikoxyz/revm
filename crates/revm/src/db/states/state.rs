@@ -4,14 +4,15 @@ use super::{
 };
 use crate::db::EmptyDB;
 use revm_interpreter::primitives::{
-    db::{Database, DatabaseCommit},
-    hash_map, Account, AccountInfo, Address, Bytecode, HashMap, B256, BLOCK_HASH_HISTORY, U256,
+    db::{SyncDatabase as Database, DatabaseCommit},
+    hash_map, Account, AccountInfo, Bytecode, HashMap, B256, BLOCK_HASH_HISTORY, U256,
 };
 use std::{
     boxed::Box,
     collections::{btree_map, BTreeMap},
     vec::Vec,
 };
+use crate::primitives::{Address, ChainAddress};
 
 /// Database boxed with a lifetime and Send.
 pub type DBBox<'a, E> = Box<dyn Database<Error = E> + Send + 'a>;
@@ -83,7 +84,7 @@ impl<DB: Database> State<DB> {
     /// balances must be filtered out before calling this function.
     pub fn increment_balances(
         &mut self,
-        balances: impl IntoIterator<Item = (Address, u128)>,
+        balances: impl IntoIterator<Item = (ChainAddress, u128)>,
     ) -> Result<(), DB::Error> {
         // make transition and update cache state
         let mut transitions = Vec::new();
@@ -111,7 +112,7 @@ impl<DB: Database> State<DB> {
     /// It is used for DAO hardfork state change to move values from given accounts.
     pub fn drain_balances(
         &mut self,
-        addresses: impl IntoIterator<Item = Address>,
+        addresses: impl IntoIterator<Item = ChainAddress>,
     ) -> Result<Vec<u128>, DB::Error> {
         // make transition and update cache state
         let mut transitions = Vec::new();
@@ -134,17 +135,17 @@ impl<DB: Database> State<DB> {
         self.cache.set_state_clear_flag(has_state_clear);
     }
 
-    pub fn insert_not_existing(&mut self, address: Address) {
+    pub fn insert_not_existing(&mut self, address: ChainAddress) {
         self.cache.insert_not_existing(address)
     }
 
-    pub fn insert_account(&mut self, address: Address, info: AccountInfo) {
+    pub fn insert_account(&mut self, address: ChainAddress, info: AccountInfo) {
         self.cache.insert_account(address, info)
     }
 
     pub fn insert_account_with_storage(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         info: AccountInfo,
         storage: PlainStorage,
     ) {
@@ -153,7 +154,7 @@ impl<DB: Database> State<DB> {
     }
 
     /// Apply evm transitions to transition state.
-    pub fn apply_transition(&mut self, transitions: Vec<(Address, TransitionAccount)>) {
+    pub fn apply_transition(&mut self, transitions: Vec<(ChainAddress, TransitionAccount)>) {
         // add transition to transition state.
         if let Some(s) = self.transition_state.as_mut() {
             s.add_transitions(transitions)
@@ -174,7 +175,7 @@ impl<DB: Database> State<DB> {
     /// Get a mutable reference to the [`CacheAccount`] for the given address.
     /// If the account is not found in the cache, it will be loaded from the
     /// database and inserted into the cache.
-    pub fn load_cache_account(&mut self, address: Address) -> Result<&mut CacheAccount, DB::Error> {
+    pub fn load_cache_account(&mut self, address: ChainAddress) -> Result<&mut CacheAccount, DB::Error> {
         match self.cache.accounts.entry(address) {
             hash_map::Entry::Vacant(entry) => {
                 if self.use_preloaded_bundle {
@@ -218,22 +219,22 @@ impl<DB: Database> State<DB> {
 impl<DB: Database> Database for State<DB> {
     type Error = DB::Error;
 
-    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
+    fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
         self.load_cache_account(address).map(|a| a.account_info())
     }
 
-    fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
+    fn code_by_hash(&mut self, chain_id: u64, code_hash: B256) -> Result<Bytecode, Self::Error> {
         let res = match self.cache.contracts.entry(code_hash) {
             hash_map::Entry::Occupied(entry) => Ok(entry.get().clone()),
             hash_map::Entry::Vacant(entry) => {
                 if self.use_preloaded_bundle {
-                    if let Some(code) = self.bundle_state.contracts.get(&code_hash) {
+                    if let Some(code) = self.bundle_state.contracts.get(&(chain_id, code_hash)) {
                         entry.insert(code.clone());
                         return Ok(code.clone());
                     }
                 }
                 // if not found in bundle ask database
-                let code = self.database.code_by_hash(code_hash)?;
+                let code = self.database.code_by_hash(chain_id, code_hash)?;
                 entry.insert(code.clone());
                 Ok(code)
             }
@@ -241,7 +242,7 @@ impl<DB: Database> Database for State<DB> {
         res
     }
 
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: ChainAddress, index: U256) -> Result<U256, Self::Error> {
         // Account is guaranteed to be loaded.
         // Note that storage from bundle is already loaded with account.
         if let Some(account) = self.cache.accounts.get_mut(&address) {
@@ -271,11 +272,11 @@ impl<DB: Database> Database for State<DB> {
         }
     }
 
-    fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
+    fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error> {
         match self.block_hashes.entry(number) {
             btree_map::Entry::Occupied(entry) => Ok(*entry.get()),
             btree_map::Entry::Vacant(entry) => {
-                let ret = *entry.insert(self.database.block_hash(number)?);
+                let ret = *entry.insert(self.database.block_hash(chain_id, number)?);
 
                 // prune all hashes that are older then BLOCK_HASH_HISTORY
                 let last_block = number.saturating_sub(BLOCK_HASH_HISTORY);
@@ -294,7 +295,7 @@ impl<DB: Database> Database for State<DB> {
 }
 
 impl<DB: Database> DatabaseCommit for State<DB> {
-    fn commit(&mut self, evm_state: HashMap<Address, Account>) {
+    fn commit(&mut self, evm_state: HashMap<ChainAddress, Account>) {
         let transitions = self.cache.apply_evm_state(evm_state);
         self.apply_transition(transitions);
     }
@@ -311,9 +312,10 @@ mod tests {
 
     #[test]
     fn block_hash_cache() {
+        let chain_id = 1;
         let mut state = State::builder().build();
-        state.block_hash(1u64).unwrap();
-        state.block_hash(2u64).unwrap();
+        state.block_hash(chain_id, 1u64).unwrap();
+        state.block_hash(chain_id, 2u64).unwrap();
 
         let test_number = BLOCK_HASH_HISTORY + 2;
 
@@ -326,7 +328,7 @@ mod tests {
             BTreeMap::from([(1, block1_hash), (2, block2_hash)])
         );
 
-        state.block_hash(test_number).unwrap();
+        state.block_hash(chain_id, test_number).unwrap();
         assert_eq!(
             state.block_hashes,
             BTreeMap::from([(test_number, block_test_hash), (2, block2_hash)])
@@ -341,13 +343,14 @@ mod tests {
     /// state of the account before the block.
     #[test]
     fn reverts_preserve_old_values() {
+        let chain_id = 1;
         let mut state = State::builder().with_bundle_update().build();
 
         let (slot1, slot2, slot3) = (U256::from(1), U256::from(2), U256::from(3));
 
         // Non-existing account for testing account state transitions.
         // [LoadedNotExisting] -> [Changed] (nonce: 1, balance: 1) -> [Changed] (nonce: 2) -> [Changed] (nonce: 3)
-        let new_account_address = Address::from_slice(&[0x1; 20]);
+        let new_account_address = ChainAddress(chain_id, Address::from_slice(&[0x1; 20]));
         let new_account_created_info = AccountInfo {
             nonce: 1,
             balance: U256::from(1),
@@ -363,7 +366,7 @@ mod tests {
         };
 
         // Existing account for testing storage state transitions.
-        let existing_account_address = Address::from_slice(&[0x2; 20]);
+        let existing_account_address = ChainAddress(chain_id, Address::from_slice(&[0x2; 20]));
         let existing_account_initial_info = AccountInfo {
             nonce: 1,
             ..Default::default()
@@ -565,10 +568,11 @@ mod tests {
     /// block and reverted to their previous state do not appear in the reverts.
     #[test]
     fn bundle_scoped_reverts_collapse() {
+        let chain_id = 1;
         let mut state = State::builder().with_bundle_update().build();
 
         // Non-existing account.
-        let new_account_address = Address::from_slice(&[0x1; 20]);
+        let new_account_address = ChainAddress(chain_id, Address::from_slice(&[0x1; 20]));
         let new_account_created_info = AccountInfo {
             nonce: 1,
             balance: U256::from(1),
@@ -576,7 +580,7 @@ mod tests {
         };
 
         // Existing account.
-        let existing_account_address = Address::from_slice(&[0x2; 20]);
+        let existing_account_address = ChainAddress(chain_id, Address::from_slice(&[0x2; 20]));
         let existing_account_initial_info = AccountInfo {
             nonce: 1,
             ..Default::default()
@@ -589,7 +593,7 @@ mod tests {
 
         // Existing account with storage.
         let (slot1, slot2) = (U256::from(1), U256::from(2));
-        let existing_account_with_storage_address = Address::from_slice(&[0x3; 20]);
+        let existing_account_with_storage_address = ChainAddress(chain_id, Address::from_slice(&[0x3; 20]));
         let existing_account_with_storage_info = AccountInfo {
             nonce: 1,
             ..Default::default()
@@ -689,10 +693,11 @@ mod tests {
     /// Checks that the behavior of selfdestruct within the block is correct.
     #[test]
     fn selfdestruct_state_and_reverts() {
+        let chain_id = 1;
         let mut state = State::builder().with_bundle_update().build();
 
         // Existing account.
-        let existing_account_address = Address::from_slice(&[0x1; 20]);
+        let existing_account_address = ChainAddress(chain_id, Address::from_slice(&[0x1; 20]));
         let existing_account_info = AccountInfo {
             nonce: 1,
             ..Default::default()

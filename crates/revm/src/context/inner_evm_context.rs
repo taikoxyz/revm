@@ -1,12 +1,12 @@
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     interpreter::{
         analysis::to_analysed, gas, return_ok, AccountLoad, Eip7702CodeLoad, InstructionResult,
         InterpreterResult, SStoreResult, SelfDestructResult, StateLoad,
     },
     journaled_state::JournaledState,
     primitives::{
-        AccessListItem, Account, Address, AnalysisKind, Bytecode, Bytes, CfgEnv, EVMError, Env,
+        AccessListItem, Account, Address, AnalysisKind, Bytecode, Bytes, CfgEnv, ChainAddress, EVMError, Env,
         Eof, HashSet, Spec,
         SpecId::{self, *},
         B256, EOF_MAGIC_BYTES, EOF_MAGIC_HASH, U256,
@@ -98,14 +98,14 @@ impl<DB: Database> InnerEvmContext<DB> {
     ///
     /// Loading of accounts/storages is needed to make them warm.
     #[inline]
-    pub fn load_access_list(&mut self) -> Result<(), EVMError<DB::Error>> {
+    pub fn load_access_list(&mut self, chain_id: u64) -> Result<(), EVMError<DB::Error>> {
         for AccessListItem {
             address,
             storage_keys,
         } in self.env.tx.access_list.iter()
         {
             self.journaled_state.initial_account_load(
-                *address,
+                ChainAddress(chain_id, *address),
                 storage_keys.iter().map(|i| U256::from_be_bytes(i.0)),
                 &mut self.db,
             )?;
@@ -132,13 +132,13 @@ impl<DB: Database> InnerEvmContext<DB> {
 
     /// Fetch block hash from database.
     #[inline]
-    pub fn block_hash(&mut self, number: u64) -> Result<B256, EVMError<DB::Error>> {
-        self.db.block_hash(number).map_err(EVMError::Database)
+    pub fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, EVMError<DB::Error>> {
+        self.db.block_hash(chain_id, number).map_err(EVMError::Database)
     }
 
     /// Mark account as touched as only touched accounts will be added to state.
     #[inline]
-    pub fn touch(&mut self, address: &Address) {
+    pub fn touch(&mut self, address: &ChainAddress) {
         self.journaled_state.touch(address);
     }
 
@@ -146,7 +146,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     #[inline]
     pub fn load_account(
         &mut self,
-        address: Address,
+        address: ChainAddress,
     ) -> Result<StateLoad<&mut Account>, EVMError<DB::Error>> {
         self.journaled_state.load_account(address, &mut self.db)
     }
@@ -157,7 +157,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     #[inline]
     pub fn load_account_delegated(
         &mut self,
-        address: Address,
+        address: ChainAddress,
     ) -> Result<AccountLoad, EVMError<DB::Error>> {
         self.journaled_state
             .load_account_delegated(address, &mut self.db)
@@ -165,7 +165,7 @@ impl<DB: Database> InnerEvmContext<DB> {
 
     /// Return account balance and is_cold flag.
     #[inline]
-    pub fn balance(&mut self, address: Address) -> Result<StateLoad<U256>, EVMError<DB::Error>> {
+    pub fn balance(&mut self, address: ChainAddress) -> Result<StateLoad<U256>, EVMError<DB::Error>> {
         self.journaled_state
             .load_account(address, &mut self.db)
             .map(|acc| acc.map(|a| a.info.balance))
@@ -177,7 +177,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     #[inline]
     pub fn code(
         &mut self,
-        address: Address,
+        address: ChainAddress,
     ) -> Result<Eip7702CodeLoad<Bytes>, EVMError<DB::Error>> {
         let a = self.journaled_state.load_code(address, &mut self.db)?;
         // SAFETY: safe to unwrap as load_code will insert code if it is empty.
@@ -189,11 +189,13 @@ impl<DB: Database> InnerEvmContext<DB> {
             ));
         }
 
+        let chain_id = address.0;
+
         if let Bytecode::Eip7702(code) = code {
             let address = code.address();
             let is_cold = a.is_cold;
 
-            let delegated_account = self.journaled_state.load_code(address, &mut self.db)?;
+            let delegated_account = self.journaled_state.load_code(ChainAddress(chain_id, address), &mut self.db)?;
 
             // SAFETY: safe to unwrap as load_code will insert code if it is empty.
             let delegated_code = delegated_account.info.code.as_ref().unwrap();
@@ -223,7 +225,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     #[inline]
     pub fn code_hash(
         &mut self,
-        address: Address,
+        address: ChainAddress,
     ) -> Result<Eip7702CodeLoad<B256>, EVMError<DB::Error>> {
         let acc = self.journaled_state.load_code(address, &mut self.db)?;
         if acc.is_empty() {
@@ -232,12 +234,14 @@ impl<DB: Database> InnerEvmContext<DB> {
         // SAFETY: safe to unwrap as load_code will insert code if it is empty.
         let code = acc.info.code.as_ref().unwrap();
 
+        let chain_id = address.0;
+
         // If bytecode is EIP-7702 then we need to load the delegated account.
         if let Bytecode::Eip7702(code) = code {
             let address = code.address();
             let is_cold = acc.is_cold;
 
-            let delegated_account = self.journaled_state.load_code(address, &mut self.db)?;
+            let delegated_account = self.journaled_state.load_code(ChainAddress(chain_id, address), &mut self.db)?;
 
             let hash = if delegated_account.is_empty() {
                 B256::ZERO
@@ -266,7 +270,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     #[inline]
     pub fn sload(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         index: U256,
     ) -> Result<StateLoad<U256>, EVMError<DB::Error>> {
         // account is always warm. reference on that statement https://eips.ethereum.org/EIPS/eip-2929 see `Note 2:`
@@ -277,7 +281,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     #[inline]
     pub fn sstore(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         index: U256,
         value: U256,
     ) -> Result<StateLoad<SStoreResult>, EVMError<DB::Error>> {
@@ -287,13 +291,13 @@ impl<DB: Database> InnerEvmContext<DB> {
 
     /// Returns transient storage value.
     #[inline]
-    pub fn tload(&mut self, address: Address, index: U256) -> U256 {
+    pub fn tload(&mut self, address: ChainAddress, index: U256) -> U256 {
         self.journaled_state.tload(address, index)
     }
 
     /// Stores transient storage value.
     #[inline]
-    pub fn tstore(&mut self, address: Address, index: U256, value: U256) {
+    pub fn tstore(&mut self, address: ChainAddress, index: U256, value: U256) {
         self.journaled_state.tstore(address, index, value)
     }
 
@@ -301,8 +305,8 @@ impl<DB: Database> InnerEvmContext<DB> {
     #[inline]
     pub fn selfdestruct(
         &mut self,
-        address: Address,
-        target: Address,
+        address: ChainAddress,
+        target: ChainAddress,
     ) -> Result<StateLoad<SelfDestructResult>, EVMError<DB::Error>> {
         self.journaled_state
             .selfdestruct(address, target, &mut self.db)
@@ -312,7 +316,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     pub fn eofcreate_return<SPEC: Spec>(
         &mut self,
         interpreter_result: &mut InterpreterResult,
-        address: Address,
+        address: ChainAddress,
         journal_checkpoint: JournalCheckpoint,
     ) {
         // Note we still execute RETURN opcode and return the bytes.
@@ -373,7 +377,7 @@ impl<DB: Database> InnerEvmContext<DB> {
     pub fn create_return<SPEC: Spec>(
         &mut self,
         interpreter_result: &mut InterpreterResult,
-        address: Address,
+        address: ChainAddress,
         journal_checkpoint: JournalCheckpoint,
     ) {
         // if return is not ok revert and return.
