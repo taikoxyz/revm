@@ -495,6 +495,54 @@ impl BundleState {
         }
     }
 
+    pub fn filter_for_chain(&self, chain_id: u64) -> Self {
+        let state = self
+            .state
+            .iter()
+            .filter_map(|(address, account)| {
+                if address.0 == chain_id {
+                    Some((*address, account.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let contracts = self
+            .contracts
+            .iter()
+            .filter_map(|((id, hash), bytecode)| {
+                if *id == chain_id {
+                    Some(((*id, *hash), bytecode.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let reverts = self
+            .reverts
+            .iter()
+            .map(|block_reverts| {
+                block_reverts
+                    .iter()
+                    .filter_map(|(address, revert)| {
+                        if address.0 == chain_id {
+                            Some((*address, revert.clone()))
+                        } else {
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        Self {
+            state,
+            contracts,
+            reverts: Reverts::new(reverts),
+            state_size: self.state_size,
+            reverts_size: self.reverts_size,
+        }
+    }
+
     /// Returns the approximate size of changes in the bundle state.
     /// The estimation is not precise, because the information about the number of
     /// destroyed entries that need to be removed is not accessible to the bundle state.

@@ -24,6 +24,7 @@ pub struct CacheDB<ExtDB> {
     /// `code` is always `None`, and bytecode can be found in `contracts`.
     pub accounts: HashMap<ChainAddress, DbAccount>,
     /// Tracks all contracts by their code hash.
+    // FIX(Cecilia): should be (u64, B256)
     pub contracts: HashMap<B256, Bytecode>,
     /// All logs that were committed via [DatabaseCommit::commit].
     pub logs: Vec<Log>,
