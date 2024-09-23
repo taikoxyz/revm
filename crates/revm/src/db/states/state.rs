@@ -228,7 +228,7 @@ impl<DB: SyncDatabase> SyncDatabase for State<DB> {
             hash_map::Entry::Occupied(entry) => Ok(entry.get().clone()),
             hash_map::Entry::Vacant(entry) => {
                 if self.use_preloaded_bundle {
-                    if let Some(code) = self.bundle_state.contracts.get(&code_hash) {
+                    if let Some(code) = self.bundle_state.contracts.get(&(chain_id, code_hash)) {
                         entry.insert(code.clone());
                         return Ok(code.clone());
                     }

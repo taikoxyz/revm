@@ -474,7 +474,7 @@ mod tests {
         let nonce = 420;
         let mut init_state = CacheDB::new(EmptyDB::default());
         init_state.insert_account_info(
-            account,
+            ChainAddress(0, account),
             AccountInfo {
                 nonce,
                 ..Default::default()
@@ -484,9 +484,9 @@ mod tests {
         let serialized = serde_json::to_string(&init_state).unwrap();
         let deserialized: CacheDB<EmptyDB> = serde_json::from_str(&serialized).unwrap();
 
-        assert!(deserialized.accounts.contains_key(&account));
+        assert!(deserialized.accounts.contains_key(&ChainAddress(0, account)));
         assert_eq!(
-            deserialized.accounts.get(&account).unwrap().info.nonce,
+            deserialized.accounts.get(&ChainAddress(0, account)).unwrap().info.nonce,
             nonce
         );
     }

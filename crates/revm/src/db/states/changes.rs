@@ -15,7 +15,7 @@ pub struct StateChangeset {
     /// Vector of **not** sorted storage.
     pub storage: Vec<PlainStorageChangeset>,
     /// Vector of contracts by bytecode hash. **not** sorted.
-    pub contracts: Vec<(B256, Bytecode)>,
+    pub contracts: Vec<((u64, B256), Bytecode)>,
 }
 
 /// Plain storage changeset. Used to apply storage changes of plain state to
