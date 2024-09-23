@@ -496,6 +496,7 @@ impl BundleState {
     }
 
     pub fn filter_for_chain(&self, chain_id: u64) -> Self {
+        let mut state_size = self.state_size;
         let state = self
             .state
             .iter()
@@ -503,6 +504,7 @@ impl BundleState {
                 if address.0 == chain_id {
                     Some((*address, account.clone()))
                 } else {
+                    state_size -= account.size_hint();
                     None
                 }
             })
@@ -518,6 +520,7 @@ impl BundleState {
                 }
             })
             .collect();
+        let mut reverts_size = self.reverts_size;
         let reverts = self
             .reverts
             .iter()
@@ -528,6 +531,7 @@ impl BundleState {
                         if address.0 == chain_id {
                             Some((*address, revert.clone()))
                         } else {
+                            reverts_size -= revert.size_hint();
                             None
                         }
                     })
@@ -538,8 +542,8 @@ impl BundleState {
             state,
             contracts,
             reverts: Reverts::new(reverts),
-            state_size: self.state_size,
-            reverts_size: self.reverts_size,
+            state_size,
+            reverts_size,
         }
     }
 
