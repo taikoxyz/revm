@@ -23,6 +23,7 @@ pub fn execute_frame<SPEC: Spec, EXT, DB: Database>(
     instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
     context: &mut Context<EXT, DB>,
 ) -> Result<InterpreterAction, EVMError<DB::Error>> {
+    println!("mainnet::execute_frame");
     let interpreter = frame.interpreter_mut();
     let memory = mem::replace(shared_memory, EMPTY_SHARED_MEMORY);
     let next_action = match instruction_tables {
@@ -68,6 +69,7 @@ pub fn call<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     inputs: Box<CallInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
+    println!("mainnet::call");
     context.evm.make_call_frame(&inputs)
 }
 
@@ -77,6 +79,7 @@ pub fn call_return<EXT, DB: Database>(
     frame: Box<CallFrame>,
     interpreter_result: InterpreterResult,
 ) -> Result<CallOutcome, EVMError<DB::Error>> {
+    println!("mainnet::call_return");
     context
         .evm
         .call_return(&interpreter_result, frame.frame_data.checkpoint);
@@ -107,6 +110,7 @@ pub fn create<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     inputs: Box<CreateInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
+    println!("mainnet::create");
     context.evm.make_create_frame(SPEC::SPEC_ID, &inputs)
 }
 

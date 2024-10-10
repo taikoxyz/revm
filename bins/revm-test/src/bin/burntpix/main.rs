@@ -4,8 +4,7 @@ use regex::bytes::Regex;
 use revm::{
     db::{CacheDB, EmptyDB},
     primitives::{
-        address, hex, keccak256, AccountInfo, Address, Bytecode, Bytes, ExecutionResult, Output,
-        TxKind, B256, U256,
+        address, hex, keccak256, AccountInfo, Address, Bytecode, Bytes, ChainAddress, ExecutionResult, Output, TransactTo, TxKind, B256, U256
     },
     Evm,
 };
@@ -37,8 +36,8 @@ fn main() {
 
     let mut evm = Evm::builder()
         .modify_tx_env(|tx| {
-            tx.caller = address!("1000000000000000000000000000000000000000");
-            tx.transact_to = TxKind::Call(BURNTPIX_MAIN_ADDRESS);
+            tx.caller = ChainAddress(1, address!("1000000000000000000000000000000000000000"));
+            tx.transact_to = TransactTo::Call(ChainAddress(1, BURNTPIX_MAIN_ADDRESS));
             tx.data = run_call_data.clone().into();
         })
         .with_db(db)
@@ -76,6 +75,7 @@ fn svg(filename: String, svg_data: &[u8]) -> Result<(), Box<dyn Error>> {
     let current_dir = std::env::current_dir()?;
     let svg_dir = current_dir.join("burntpix").join("svgs");
     std::fs::create_dir_all(&svg_dir)?;
+    println!("Storing svg in: {:?}", svg_dir);
 
     let file_path = svg_dir.join(format!("{}.svg", filename));
     let mut file = File::create(file_path)?;
@@ -107,7 +107,7 @@ fn insert_account_info(cache_db: &mut CacheDB<EmptyDB>, addr: Address, code: Byt
         B256::from_str(&code_hash).unwrap(),
         Bytecode::new_raw(code),
     );
-    cache_db.insert_account_info(addr, account_info);
+    cache_db.insert_account_info(ChainAddress(1, addr), account_info);
 }
 
 fn init_db() -> CacheDB<EmptyDB> {
@@ -136,7 +136,7 @@ fn init_db() -> CacheDB<EmptyDB> {
 
     cache_db
         .insert_account_storage(
-            BURNTPIX_MAIN_ADDRESS,
+            ChainAddress(1, BURNTPIX_MAIN_ADDRESS),
             U256::from(0),
             U256::from_be_bytes(*STORAGE_ZERO),
         )
@@ -144,7 +144,7 @@ fn init_db() -> CacheDB<EmptyDB> {
 
     cache_db
         .insert_account_storage(
-            BURNTPIX_MAIN_ADDRESS,
+            ChainAddress(1, BURNTPIX_MAIN_ADDRESS),
             U256::from(1),
             U256::from_be_bytes(*STORAGE_ONE),
         )
@@ -152,7 +152,7 @@ fn init_db() -> CacheDB<EmptyDB> {
 
     cache_db
         .insert_account_storage(
-            BURNTPIX_MAIN_ADDRESS,
+            ChainAddress(1, BURNTPIX_MAIN_ADDRESS),
             U256::from(2),
             U256::from_be_bytes(*STORAGE_TWO),
         )

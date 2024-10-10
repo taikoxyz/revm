@@ -1,13 +1,14 @@
-use revm_primitives::{Address, Bytes, CallOptions, ChainAddress, Env, PrecompileOutput};
+use revm_primitives::{address, Address, Bytes, CallOptions, ChainAddress, Env, PrecompileOutput};
 use crate::{Error, Precompile, PrecompileResult, PrecompileWithAddress, CtxPrecompileFn};
 
 pub const XCALLOPTIONS: PrecompileWithAddress = PrecompileWithAddress(
-    crate::u64_to_address(1000),
+    crate::u64_to_address(1234),
     Precompile::Ctx(xcalloptions_run as CtxPrecompileFn),
 );
 
 /// Sets the xcall options
 fn xcalloptions_run(input: &[u8], _gas_limit: u64, _env: &Env, call_options: &mut Option<CallOptions>) -> PrecompileResult {
+    println!("xcalloptions_run");
     // Verify input length.
     if input.len() < 83 {
         return Err(Error::XCallOptionsInvalidInputLength.into());

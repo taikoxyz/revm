@@ -412,6 +412,7 @@ pub fn create<const IS_CREATE2: bool, H: Host + ?Sized, SPEC: Spec>(
 }
 
 pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+    println!("contract::call");
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
 
@@ -468,6 +469,7 @@ pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &
 }
 
 pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+    println!("contract::call_code");
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
 
@@ -520,6 +522,7 @@ pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, ho
 }
 
 pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+    println!("contract::delegate_call");
     check!(interpreter, HOMESTEAD);
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
@@ -565,6 +568,7 @@ pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter
 }
 
 pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+    println!("contract::static_call");
     check!(interpreter, BYZANTIUM);
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
@@ -609,6 +613,7 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
 }
 
 pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H, to: Address, delegate: bool, code: bool) -> CallTargets {
+    println!("apply_call_options");
     let call_options = interpreter.call_options.clone().unwrap_or_else(||
         CallOptions{
             chain_id: interpreter.chain_id,
@@ -616,7 +621,7 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
             tx_origin: host.env().tx.caller,
             msg_sender: interpreter.contract.target_address,
             block_hash: None,
-            proof: Vec::new(),
+            proof: std::vec::Vec::new(),
         }
     );
     // Consume the values

@@ -75,6 +75,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
     /// Runs main call loop.
     #[inline]
     pub fn run_the_loop(&mut self, first_frame: Frame) -> Result<FrameResult, EVMError<DB::Error>> {
+        println!("run_the_loop");
         let mut call_stack: Vec<Frame> = Vec::with_capacity(1025);
         call_stack.push(first_frame);
 
@@ -228,6 +229,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
     /// This function will validate the transaction.
     #[inline]
     pub fn transact(&mut self) -> EVMResult<DB::Error> {
+        println!("transact");
         let initial_gas_spend = self.preverify_transaction_inner().map_err(|e| {
             self.clear();
             e
@@ -324,6 +326,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
     /// Transact pre-verified transaction.
     fn transact_preverified_inner(&mut self, initial_gas_spend: u64) -> EVMResult<DB::Error> {
+        println!("transact_preverified_inner");
         let spec_id = self.spec_id();
         let ctx = &mut self.context;
         let pre_exec = self.handler.pre_execution();
@@ -333,6 +336,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
         // load precompiles
         let precompiles = pre_exec.load_precompiles();
+        println!("precompiles: {:?}", precompiles.addresses_set());
         ctx.evm.set_precompiles(ctx.evm.env.cfg.chain_id, precompiles);
 
         // deduce caller balance with its limit.

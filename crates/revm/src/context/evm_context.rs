@@ -157,6 +157,8 @@ impl<DB: Database> EvmContext<DB> {
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
         let gas = Gas::new(inputs.gas_limit);
 
+        println!("make_call_frame");
+
         let return_result = |instruction_result: InstructionResult| {
             Ok(FrameOrResult::new_call_result(
                 InterpreterResult {
@@ -216,6 +218,7 @@ impl<DB: Database> EvmContext<DB> {
                 inputs.return_memory_offset.clone(),
             ))
         } else {
+            println!("make_call_frame: load_code"); 
             let account = self
                 .inner
                 .journaled_state
@@ -223,6 +226,8 @@ impl<DB: Database> EvmContext<DB> {
 
             let code_hash = account.info.code_hash();
             let mut bytecode = account.info.code.clone().unwrap_or_default();
+
+            println!("make_call_frame: bytecode: {:?}", bytecode);
 
             // ExtDelegateCall is not allowed to call non-EOF contracts.
             if inputs.scheme.is_ext_delegate_call()

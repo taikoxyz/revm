@@ -441,6 +441,7 @@ impl JournaledState {
     /// Commit the checkpoint.
     #[inline]
     pub fn checkpoint_commit(&mut self) {
+        println!("JournaledState::checkpoint_commit");
         self.depth -= 1;
     }
 
@@ -628,6 +629,7 @@ impl JournaledState {
         address: ChainAddress,
         db: &mut DB,
     ) -> Result<AccountLoad, EVMError<DB::Error>> {
+        println!("JournaledState::load_account_delegated");
         let spec = self.spec;
         let account = self.load_code(address, db)?;
         let is_empty = account.state_clear_aware_is_empty(spec);

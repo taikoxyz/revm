@@ -83,6 +83,7 @@ impl Contract {
         hash: Option<B256>,
         call_context: &CallInputs,
     ) -> Self {
+        println!("Contract::new_with_context");
         Self::new(
             input,
             bytecode,
