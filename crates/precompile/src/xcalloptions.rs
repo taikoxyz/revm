@@ -24,7 +24,7 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, _env: &Env, call_options: &mu
 
     // Check the version
     if version != 1 {
-        return Err(Error::XCallOptionsInvalidInputLength.into());
+        return Err(Error::XCallOptionsInvalidVersion.into());
     }
 
     // Set the call options

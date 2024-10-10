@@ -329,11 +329,14 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         let pre_exec = self.handler.pre_execution();
 
         // load access list and beneficiary if needed.
-        pre_exec.load_accounts(ctx, ctx.evm.env.cfg.chain_id)?;
+        pre_exec.load_accounts(ctx, ctx.evm.env.tx.caller.0)?;
 
         // load precompiles
-        let precompiles = pre_exec.load_precompiles();
-        ctx.evm.set_precompiles(ctx.evm.env.cfg.chain_id, precompiles);
+        for chain_id in ctx.evm.env.tx.chain_ids.clone().unwrap_or_default().into_iter() {
+            // TODO(Brecht): precompiles need to be aware of chain_id
+            let precompiles = pre_exec.load_precompiles();
+            ctx.evm.set_precompiles(chain_id, precompiles);
+        }
 
         // deduce caller balance with its limit.
         pre_exec.deduct_caller(ctx)?;
@@ -431,6 +434,7 @@ mod tests {
                 );
                 tx.caller = ChainAddress(chain_id, caller);
                 tx.transact_to = TransactTo::Call(ChainAddress(chain_id, auth));
+                tx.chain_ids = Some(vec![chain_id]);
             })
             .build();
 
