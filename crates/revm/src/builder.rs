@@ -602,7 +602,7 @@ mod test {
         let evm = evm.modify().with_spec_id(SpecId::FRONTIER).build();
         let _ = evm
             .modify()
-            .modify_tx_env(|tx| tx.chain_id = Some(2))
+            .modify_tx_env(|tx| tx.chain_ids = Some(vec![2]))
             .build();
     }
 
