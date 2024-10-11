@@ -11,6 +11,7 @@ use alloy_primitives::TxKind;
 use core::cmp::{min, Ordering};
 use core::hash::Hash;
 use std::boxed::Box;
+use std::path::Prefix;
 use std::vec::Vec;
 
 /// EVM environment configuration.
@@ -907,6 +908,30 @@ pub struct CallOptions {
     pub block_hash: Option<B256>,
     /// The data necessary to execute the call
     pub proof: Vec<u8>,
+}
+
+impl From<Bytes> for CallOptions {
+    fn from(input: Bytes) -> Self {
+
+        let prefix = String::from_utf8(input[0..12].to_vec()).unwrap();
+        assert_eq!(prefix, "XCallOptions");
+        let version = u16::from_le_bytes(input[12..14].try_into().unwrap());  
+        let chain_id = u64::from_le_bytes(input[14..22].try_into().unwrap());  
+        let sandbox = input[22] != 0;  
+        let tx_origin = Address(input[23..43].try_into().unwrap());  
+        let msg_sender = Address(input[43..63].try_into().unwrap());  
+        let block_hash = Some(input[63..95].try_into().unwrap());  
+        let proof = &input[95..];
+    
+        CallOptions {
+            chain_id,
+            sandbox,
+            tx_origin: ChainAddress(chain_id, tx_origin),
+            msg_sender: ChainAddress(chain_id, msg_sender),
+            block_hash,
+            proof: proof.to_vec(),
+        }
+    }
 }
 
 #[cfg(test)]

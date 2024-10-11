@@ -117,17 +117,21 @@ impl Interpreter {
     /// Test related helper
     #[cfg(test)]
     pub fn new_bytecode(bytecode: Bytecode) -> Self {
+        use revm_primitives::ChainAddress;
+
         Self::new(
             Contract::new(
                 Bytes::new(),
                 bytecode,
                 None,
-                crate::primitives::Address::default(),
+                ChainAddress::default(),
                 None,
-                crate::primitives::Address::default(),
+                ChainAddress::default(),
                 U256::ZERO,
             ),
             0,
+            false,
+            1,
             false,
         )
     }
