@@ -54,7 +54,8 @@ sol!{
     
         function getOwnerL1() external view returns (address) {
             EVM.xCallOnL1();
-            return this.getOwner();
+            address owner = this.getOwner();
+            return owner;
         }
     
     }

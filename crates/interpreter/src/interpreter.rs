@@ -77,7 +77,7 @@ impl Default for Interpreter {
 impl Interpreter {
     /// Create new interpreter
     pub fn new(contract: Contract, gas_limit: u64, is_static: bool, chain_id: u64, sandboxed: bool) -> Self {
-        println!("Interpreter::new");
+        println!("Interpreter::new IS_STATIC: {} SANDBOXED {}", is_static, sandboxed);
         if !contract.bytecode.is_execution_ready() {
             panic!("Contract is not execution ready {:?}", contract.bytecode);
         }

@@ -115,6 +115,7 @@ impl<DB: Database> EvmContext<DB> {
         input_data: &Bytes,
         gas: Gas,
     ) -> Result<Option<InterpreterResult>, EVMError<DB::Error>> {
+        println!("call_precompile {:?}", address);
         let Some(outcome) =
             self.precompiles
                 .call(&address.1, input_data, gas.limit(), &mut self.inner)
@@ -157,7 +158,7 @@ impl<DB: Database> EvmContext<DB> {
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
         let gas = Gas::new(inputs.gas_limit);
 
-        println!("make_call_frame");
+        println!("make_call_frame {:?}", inputs.bytecode_address);
 
         let return_result = |instruction_result: InstructionResult| {
             Ok(FrameOrResult::new_call_result(
@@ -207,6 +208,7 @@ impl<DB: Database> EvmContext<DB> {
             _ => {}
         };
 
+        println!("make_call_frame *==> call_precompile");
         if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas)? {
             if matches!(result.result, return_ok!()) {
                 self.journaled_state.checkpoint_commit();

@@ -75,7 +75,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
     /// Runs main call loop.
     #[inline]
     pub fn run_the_loop(&mut self, first_frame: Frame) -> Result<FrameResult, EVMError<DB::Error>> {
-        println!("run_the_loop");
+        println!("EVM:run_the_loop: exaust the frame stack");
         let mut call_stack: Vec<Frame> = Vec::with_capacity(1025);
         call_stack.push(first_frame);
 
@@ -326,7 +326,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
     /// Transact pre-verified transaction.
     fn transact_preverified_inner(&mut self, initial_gas_spend: u64) -> EVMResult<DB::Error> {
-        println!("transact_preverified_inner");
+        println!("EVM:transact_preverified_inner");
         let spec_id = self.spec_id();
         let ctx = &mut self.context;
         let pre_exec = self.handler.pre_execution();
@@ -349,6 +349,8 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
         let exec = self.handler.execution();
         // call inner handling of call/create
+
+        println!("first_frame_or_result from transact_to {:?}", ctx.evm.env.tx.transact_to);
         let first_frame_or_result = match ctx.evm.env.tx.transact_to {
             TransactTo::Call(_) => exec.call(
                 ctx,

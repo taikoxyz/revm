@@ -37,6 +37,7 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, _env: &Env, call_options: &mu
         block_hash,
         proof: proof.to_vec(),
     });
+    println!("CallOptions: {:?}", call_options);
 
     Ok(PrecompileOutput::new(0, Bytes::default()))
 }

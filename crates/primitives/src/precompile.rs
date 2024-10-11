@@ -115,6 +115,7 @@ impl Precompile {
 
     /// Call the precompile with the given input and gas limit and return the result.
     pub fn call(&mut self, bytes: &Bytes, gas_limit: u64, env: &Env) -> PrecompileResult {
+        println!("Precompile::call {:?}", env.tx.caller);
         match *self {
             Precompile::Standard(p) => p(bytes, gas_limit),
             Precompile::Env(p) => p(bytes, gas_limit, env),

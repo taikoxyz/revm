@@ -172,7 +172,7 @@ impl<'a, EXT, DB: Database> ExecutionHandler<'a, EXT, DB> {
         instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
         context: &mut Context<EXT, DB>,
     ) -> Result<InterpreterAction, EVMError<DB::Error>> {
-        println!("ExecutionHandler::execute_frame");
+        println!("ExecutionHandler::execute_frame {:?}", context.evm.env.tx.caller);
         (self.execute_frame)(frame, shared_memory, instruction_tables, context)
     }
 
@@ -228,6 +228,7 @@ impl<'a, EXT, DB: Database> ExecutionHandler<'a, EXT, DB> {
         context: &mut Context<EXT, DB>,
         inputs: Box<CreateInputs>,
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
+        println!("ExecutionHandler::create");
         (self.create)(context, inputs)
     }
 
