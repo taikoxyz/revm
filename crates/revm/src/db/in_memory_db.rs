@@ -206,16 +206,21 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
             Entry::Occupied(mut acc_entry) => {
                 let acc_entry = acc_entry.get_mut();
                 match acc_entry.storage.entry(index) {
-                    Entry::Occupied(entry) => Ok(*entry.get()),
+                    Entry::Occupied(entry) => {
+                        println!("value: {:?}", entry.get());
+                        Ok(*entry.get())
+                    },
                     Entry::Vacant(entry) => {
                         if matches!(
                             acc_entry.account_state,
                             AccountState::StorageCleared | AccountState::NotExisting
                         ) {
+                            println!("default value 0");
                             Ok(U256::ZERO)
                         } else {
                             let slot = self.db.storage_ref(address, index)?;
                             entry.insert(slot);
+                            println!("slot: {:?}", slot);
                             Ok(slot)
                         }
                     }

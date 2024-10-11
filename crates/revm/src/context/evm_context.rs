@@ -115,6 +115,7 @@ impl<DB: Database> EvmContext<DB> {
         input_data: &Bytes,
         gas: Gas,
     ) -> Result<Option<InterpreterResult>, EVMError<DB::Error>> {
+        println!("brecht: call_precompile");
         let Some(outcome) =
             self.precompiles
                 .call(&address.1, input_data, gas.limit(), &mut self.inner)
@@ -157,7 +158,7 @@ impl<DB: Database> EvmContext<DB> {
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
         let gas = Gas::new(inputs.gas_limit);
 
-        println!("make_call_frame");
+        println!("brecht make_call_frame");
 
         let return_result = |instruction_result: InstructionResult| {
             Ok(FrameOrResult::new_call_result(
@@ -227,7 +228,7 @@ impl<DB: Database> EvmContext<DB> {
             let code_hash = account.info.code_hash();
             let mut bytecode = account.info.code.clone().unwrap_or_default();
 
-            println!("make_call_frame: bytecode: {:?}", bytecode);
+            //println!("make_call_frame: bytecode: {:?}", bytecode);
 
             // ExtDelegateCall is not allowed to call non-EOF contracts.
             if inputs.scheme.is_ext_delegate_call()

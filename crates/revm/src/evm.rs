@@ -100,6 +100,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
             // This error can be set in the Interpreter when it interacts with the context.
             self.context.evm.take_error()?;
 
+            // Brecht
             let exec = &mut self.handler.execution;
             let frame_or_result = match next_action {
                 InterpreterAction::Call { inputs } => exec.call(&mut self.context, inputs)?,
@@ -336,7 +337,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
         // load precompiles
         let precompiles = pre_exec.load_precompiles();
-        println!("precompiles: {:?}", precompiles.addresses_set());
+        //println!("precompiles: {:?}", precompiles.addresses_set());
         ctx.evm.set_precompiles(ctx.evm.env.cfg.chain_id, precompiles);
 
         // deduce caller balance with its limit.

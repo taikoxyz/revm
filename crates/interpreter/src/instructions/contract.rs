@@ -412,7 +412,7 @@ pub fn create<const IS_CREATE2: bool, H: Host + ?Sized, SPEC: Spec>(
 }
 
 pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    println!("contract::call");
+    println!("brecht: contract::call");
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
 
@@ -594,6 +594,11 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
     };
     gas!(interpreter, gas_limit);
 
+    // TODO(Brecht): well, it's complicated
+    if call_targets.target_address.1 == u64_to_address(1234) {
+        xcalloptions_run(&input, &mut interpreter.call_options);
+    }
+
     // Call host to interact with target contract
     interpreter.next_action = InterpreterAction::Call {
         inputs: Box::new(CallInputs {
@@ -613,8 +618,8 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
 }
 
 pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H, to: Address, delegate: bool, code: bool) -> CallTargets {
-    println!("apply_call_options");
-    let call_options = interpreter.call_options.clone().unwrap_or_else(||
+    let call_options = interpreter.call_options.clone().unwrap_or_else(|| {
+        println!("using default call options");
         CallOptions{
             chain_id: interpreter.chain_id,
             sandbox: false,
@@ -623,7 +628,9 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
             block_hash: None,
             proof: std::vec::Vec::new(),
         }
-    );
+    });
+    println!("Consuming call options: {:?}", call_options);
+
     // Consume the values
     interpreter.call_options = None;
 
@@ -635,4 +642,52 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
         caller: if delegate { interpreter.contract.caller } else { interpreter.contract.target_address },
         bytecode_address: to,
     }
+}
+
+#[inline]
+pub const fn u64_to_address(x: u64) -> Address {
+    let x = x.to_be_bytes();
+    Address::new([
+        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7],
+    ])
+}
+
+/// Sets the xcall options
+fn xcalloptions_run(input: &[u8], call_options: &mut Option<CallOptions>) {
+    println!("xcalloptions_run[{}]: {:?}", input.len(), input);
+
+    // Verify input length.
+    // if input.len() < 83 {
+    //     return Err(Error::XCallOptionsInvalidInputLength.into());
+    // }
+
+    // Read the input data
+    let version = u16::from_be_bytes(input[0..2].try_into().unwrap());
+    let chain_id = u64::from_be_bytes(input[2..10].try_into().unwrap());
+    let sandbox = input[10] != 0;
+    let tx_origin = Address(input[11..31].try_into().unwrap());
+    let msg_sender = Address(input[31..51].try_into().unwrap());
+    let block_hash = Some(input[51..83].try_into().unwrap());
+    let proof = &input[83..];
+
+    println!("version: {}", version);
+
+    // Check the version
+    // if version != 1 {
+    //     return Err(Error::XCallOptionsInvalidInputLength.into());
+    // }
+
+    // Set the call options
+    *call_options = Some(CallOptions {
+        chain_id,
+        sandbox,
+        tx_origin: ChainAddress(chain_id, tx_origin),
+        msg_sender: ChainAddress(chain_id, msg_sender),
+        block_hash,
+        proof: proof.to_vec(),
+    });
+
+    println!("setting xcalloptions: {:?}", call_options);
+
+    //Ok(PrecompileOutput::new(0, Bytes::default()))
 }

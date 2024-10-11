@@ -1,4 +1,4 @@
-use std::str::FromStr;
+use std::{io::Read, str::FromStr};
 
 use alloy_sol_macro::sol;
 use alloy_sol_types::{sol_data::Address, SolCall, SolInterface};
@@ -76,11 +76,16 @@ fn main() {
         ChainAddress(L2, deploy), 
         Owner::BYTECODE.clone()
     );
+    db.insert_account_storage(ChainAddress(L2, deploy), U256::from(0), U256::from(2)).expect("failed to set storage");
+
     insert_account_info(
         &mut db, 
         ChainAddress(L1, deploy), 
         Owner::BYTECODE.clone()
     );
+    db.insert_account_storage(ChainAddress(L1, deploy), U256::from(0), U256::from(1)).expect("failed to set storage");
+
+
     db.insert_account_info(
         myself1, 
         AccountInfo::new(
@@ -100,34 +105,53 @@ fn main() {
         )
     );
 
-    let call_1 = Owner::changeOwnerCall { newOwner: myself1.1 }.abi_encode();
-    let call_2 = Owner::getOwnerL1Call { }.abi_encode();
+    let call_native = Owner::getOwnerCall { }.abi_encode();
+    let call_x = Owner::getOwnerL1Call { }.abi_encode();
 
     let mut evm = Evm::builder()
         .modify_tx_env(|tx| {
             tx.caller = myself1;
             tx.transact_to = TransactTo::Call(ChainAddress(L1, deploy));
-            tx.data = call_1.clone().into();
+            tx.data = call_native.clone().into();
         })
         .with_db(&mut db)
         .build();
 
-    let result_1 = evm.transact().unwrap().result;
-    println!("Set owner on L1 {:?} \n\n\n\n", result_1);
+    let result = evm.transact().unwrap().result;
+    println!("Get L1 owner on L1 {:?}", result);
+    assert_eq!(U256::from_str(&result.output().unwrap().to_string()), U256::from_str("1"));
     drop(evm);
+
+    println!("\n====\n");
 
     let mut evm = Evm::builder()
         .modify_tx_env(|tx| {
             tx.caller = myself2;
             tx.transact_to = TransactTo::Call(ChainAddress(L2, deploy));
-            tx.data = call_2.clone().into();
+            tx.data = call_x.clone().into();
         })
         .with_db(&mut db)
         .build();
 
-    let result_2 = evm.transact().unwrap().result;
-    println!("Read owner from L2 {:?}", result_2);
+    let result = evm.transact().unwrap().result;
+    println!("Get L1 owner on L2 {:?}", result);
+    assert_eq!(U256::from_str(&result.output().unwrap().to_string()), U256::from_str("1"));
+    drop(evm);
 
+    println!("\n====\n");
+
+    let mut evm = Evm::builder()
+        .modify_tx_env(|tx| {
+            tx.caller = myself2;
+            tx.transact_to = TransactTo::Call(ChainAddress(L2, deploy));
+            tx.data = call_native.clone().into();
+        })
+        .with_db(&mut db)
+        .build();
+
+    let result = evm.transact().unwrap().result;
+    println!("Get L2 owner on L2 {:?}", result);
+    assert_eq!(U256::from_str(&result.output().unwrap().to_string()), U256::from_str("2"));
 }
 
 fn insert_account_info(cache_db: &mut CacheDB<EmptyDB>, addr: ChainAddress, code: Bytes) {
