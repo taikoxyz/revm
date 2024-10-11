@@ -894,7 +894,8 @@ pub enum AnalysisKind {
     Analyse,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct CallOptions {
     /// The target chain id
     pub chain_id: u64,
@@ -910,27 +911,32 @@ pub struct CallOptions {
     pub proof: Vec<u8>,
 }
 
-impl From<Bytes> for CallOptions {
-    fn from(input: Bytes) -> Self {
 
+impl TryFrom<Bytes> for CallOptions {
+    type Error = (); 
+    fn try_from(input: Bytes) -> Result<Self, ()> {
+        if input.len() < 95 {
+            return Err(());
+        }
         let prefix = String::from_utf8(input[0..12].to_vec()).unwrap();
         assert_eq!(prefix, "XCallOptions");
-        let version = u16::from_le_bytes(input[12..14].try_into().unwrap());  
-        let chain_id = u64::from_le_bytes(input[14..22].try_into().unwrap());  
-        let sandbox = input[22] != 0;  
-        let tx_origin = Address(input[23..43].try_into().unwrap());  
-        let msg_sender = Address(input[43..63].try_into().unwrap());  
-        let block_hash = Some(input[63..95].try_into().unwrap());  
-        let proof = &input[95..];
-    
-        CallOptions {
+        let input = &input[12..];
+        let _version = u16::from_be_bytes(input[0..2].try_into().unwrap());
+        let chain_id = u64::from_be_bytes(input[2..10].try_into().unwrap());
+        let sandbox = input[10] != 0;
+        let tx_origin = Address(input[11..31].try_into().unwrap());
+        let msg_sender = Address(input[31..51].try_into().unwrap());
+        let block_hash = Some(input[51..83].try_into().unwrap());
+        let proof = &input[83..];
+
+        Ok(CallOptions {
             chain_id,
             sandbox,
             tx_origin: ChainAddress(chain_id, tx_origin),
             msg_sender: ChainAddress(chain_id, msg_sender),
             block_hash,
             proof: proof.to_vec(),
-        }
+        })
     }
 }
 

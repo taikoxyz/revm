@@ -87,6 +87,7 @@ pub fn call_return<EXT, DB: Database>(
     Ok(CallOutcome::new(
         interpreter_result,
         frame.return_memory_range,
+        None,
     ))
 }
 
@@ -213,6 +214,7 @@ mod tests {
                 gas,
             },
             0..0,
+            None
         ));
         last_frame_return::<CancunSpec, _, _>(&mut ctx, &mut first_frame).unwrap();
         refund::<CancunSpec, _, _>(&mut ctx, first_frame.gas_mut(), 0);

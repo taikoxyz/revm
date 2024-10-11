@@ -89,8 +89,14 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
 
         // Peek the last stack frame.
         let mut stack_frame = call_stack.last_mut().unwrap();
+        let mut call_options = None;
+        let mut cnt = 0;
 
         loop {
+            println!("loop: {}", cnt);
+            cnt += 1;
+
+            stack_frame.interpreter_mut().call_options = std::mem::take(&mut call_options);
             // Execute the frame.
             let next_action =
                 self.handler
@@ -134,6 +140,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                 }
                 InterpreterAction::None => unreachable!("InterpreterAction::None is not expected"),
             };
+            println!("frame_or_result: {:?}", frame_or_result);
             // handle result
             match frame_or_result {
                 FrameOrResult::Frame(frame) => {
@@ -152,6 +159,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                     match result {
                         FrameResult::Call(outcome) => {
                             // return_call
+                            call_options = outcome.call_options.clone();
                             exec.insert_call_outcome(ctx, stack_frame, &mut shared_memory, outcome)?
                         }
                         FrameResult::Create(outcome) => {

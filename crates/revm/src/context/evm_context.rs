@@ -1,5 +1,6 @@
 use revm_interpreter::CallValue;
 use revm_precompile::PrecompileErrors;
+use crate::primitives::CallOptions;
 
 use super::inner_evm_context::InnerEvmContext;
 use crate::{
@@ -168,6 +169,7 @@ impl<DB: Database> EvmContext<DB> {
                     output: Bytes::new(),
                 },
                 inputs.return_memory_offset.clone(),
+                None
             ))
         };
 
@@ -215,9 +217,12 @@ impl<DB: Database> EvmContext<DB> {
             } else {
                 self.journaled_state.checkpoint_revert(checkpoint);
             }
+            let call_options = CallOptions::try_from(result.output.clone()).ok();
+            println!("call_options: {:?}", call_options);
             Ok(FrameOrResult::new_call_result(
                 result,
                 inputs.return_memory_offset.clone(),
+                call_options
             ))
         } else {
             println!("make_call_frame: load_code"); 
