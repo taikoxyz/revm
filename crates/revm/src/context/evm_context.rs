@@ -128,13 +128,15 @@ impl<DB: Database> EvmContext<DB> {
             result: InstructionResult::Return,
             gas,
             output: Bytes::new(),
+            call_options: None,
         };
 
         match outcome {
             Ok(output) => {
                 if result.gas.record_cost(output.gas_used) {
                     result.result = InstructionResult::Return;
-                    result.output = output.bytes;
+                    result.output = output.bytes.clone();
+                    result.call_options = output.bytes.try_into().ok();
                 } else {
                     result.result = InstructionResult::PrecompileOOG;
                 }
@@ -167,9 +169,9 @@ impl<DB: Database> EvmContext<DB> {
                     result: instruction_result,
                     gas,
                     output: Bytes::new(),
+                    call_options: None,
                 },
                 inputs.return_memory_offset.clone(),
-                None
             ))
         };
 
@@ -210,6 +212,7 @@ impl<DB: Database> EvmContext<DB> {
             _ => {}
         };
 
+        // Only place that sets the Call Options
         println!("make_call_frame *==> call_precompile");
         if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas)? {
             if matches!(result.result, return_ok!()) {
@@ -217,12 +220,10 @@ impl<DB: Database> EvmContext<DB> {
             } else {
                 self.journaled_state.checkpoint_revert(checkpoint);
             }
-            let call_options = CallOptions::try_from(result.output.clone()).ok();
-            println!("call_options: {:?}", call_options);
+            // Pass out the Call Options in CallOutcome
             Ok(FrameOrResult::new_call_result(
                 result,
                 inputs.return_memory_offset.clone(),
-                call_options
             ))
         } else {
             println!("make_call_frame: load_code"); 
@@ -233,8 +234,6 @@ impl<DB: Database> EvmContext<DB> {
 
             let code_hash = account.info.code_hash();
             let mut bytecode = account.info.code.clone().unwrap_or_default();
-
-            println!("make_call_frame: bytecode: {:?}", bytecode);
 
             // ExtDelegateCall is not allowed to call non-EOF contracts.
             if inputs.scheme.is_ext_delegate_call()
@@ -285,6 +284,7 @@ impl<DB: Database> EvmContext<DB> {
                     result: e,
                     gas: Gas::new(inputs.gas_limit),
                     output: Bytes::new(),
+                    call_options: None,
                 },
                 None,
             ))
@@ -383,6 +383,7 @@ impl<DB: Database> EvmContext<DB> {
                     result: e,
                     gas: Gas::new(inputs.gas_limit),
                     output: Bytes::new(),
+                    call_options: None,
                 },
                 None,
             ))

@@ -289,12 +289,11 @@ impl FrameOrResult {
     pub fn new_call_result(
         interpreter_result: InterpreterResult,
         memory_offset: Range<usize>,
-        call_options: Option<CallOptions>,
     ) -> Self {
         FrameOrResult::Result(FrameResult::Call(CallOutcome {
-            result: interpreter_result,
+            result: interpreter_result.clone(),
             memory_offset,
-            call_options,
+            call_options: interpreter_result.call_options,
         }))
     }
 }

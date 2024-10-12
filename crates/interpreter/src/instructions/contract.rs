@@ -156,6 +156,8 @@ pub fn return_contract<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &
             output,
             gas: interpreter.gas,
             result,
+            // TODO(Cecilia): only precompile is allowed to return call options but we will see.
+            call_options: None 
         },
     };
 }

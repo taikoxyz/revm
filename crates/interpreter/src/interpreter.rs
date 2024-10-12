@@ -411,6 +411,7 @@ impl Interpreter {
                 // return empty bytecode
                 output: Bytes::new(),
                 gas: self.gas,
+                call_options: None,
             },
         }
     }
@@ -433,6 +434,8 @@ pub struct InterpreterResult {
     pub output: Bytes,
     /// The gas usage information.
     pub gas: Gas,
+
+    pub call_options: Option<CallOptions>,
 }
 
 impl InterpreterResult {
@@ -442,6 +445,22 @@ impl InterpreterResult {
             result,
             output,
             gas,
+            call_options: None,
+        }
+    }
+
+    /// Returns a new `InterpreterResult` with the given values and call options.
+    pub fn new_with_options(
+        result: InstructionResult,
+        output: Bytes,
+        gas: Gas,
+        call_options: Option<CallOptions>,
+    ) -> Self {
+        Self {
+            result,
+            output,
+            gas,
+            call_options,
         }
     }
 
@@ -488,7 +507,7 @@ mod tests {
 
     #[test]
     fn object_safety() {
-        let mut interp = Interpreter::new(Contract::default(), u64::MAX, false);
+        let mut interp = Interpreter::new(Contract::default(), u64::MAX, false, 1, false);
 
         let mut host = crate::DummyHost::default();
         let table: &InstructionTable<DummyHost> =

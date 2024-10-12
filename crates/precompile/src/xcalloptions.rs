@@ -7,8 +7,8 @@ pub const XCALLOPTIONS: PrecompileWithAddress = PrecompileWithAddress(
 );
 
 /// Sets the xcall options
-fn xcalloptions_run(input: &[u8], _gas_limit: u64, _env: &Env, call_options: &mut Option<CallOptions>) -> PrecompileResult {
-    println!("xcalloptions_run {:?}", input);
+fn xcalloptions_run(input: &[u8], _gas_limit: u64, _env: &Env) -> PrecompileResult {
+    println!("  xcalloptions_run");
     // Verify input length.
     if input.len() < 83 {
         return Err(Error::XCallOptionsInvalidInputLength.into());
@@ -17,7 +17,6 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, _env: &Env, call_options: &mu
     // Read the input data
     let version = u16::from_be_bytes(input[0..2].try_into().unwrap());
     let chain_id = u64::from_be_bytes(input[2..10].try_into().unwrap());
-    println!("chain_id: {:?}", chain_id);
     let sandbox = input[10] != 0;
     let tx_origin = Address(input[11..31].try_into().unwrap());
     let msg_sender = Address(input[31..51].try_into().unwrap());
@@ -30,15 +29,15 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, _env: &Env, call_options: &mu
     }
 
     // Set the call options
-    // *call_options = Some(CallOptions {
-    //     chain_id,
-    //     sandbox,
-    //     tx_origin: ChainAddress(chain_id, tx_origin),
-    //     msg_sender: ChainAddress(chain_id, msg_sender),
-    //     block_hash,
-    //     proof: proof.to_vec(),
-    // });
-    // println!("CallOptions: {:?}", call_options);
+    let call_options = CallOptions {
+        chain_id,
+        sandbox,
+        tx_origin: ChainAddress(chain_id, tx_origin),
+        msg_sender: ChainAddress(chain_id, msg_sender),
+        block_hash,
+        proof: proof.to_vec(),
+    };
+    println!("  CallOptions: {:?}", call_options);
 
     let mut prefix = b"XCallOptions".to_vec();
     prefix.extend_from_slice(&input);
@@ -55,6 +54,6 @@ fn test_xcalloptions() {
     input[2] = 7;
     println!("input: {:?}", input.len());
 
-    xcalloptions_run(&input, 4534, &Env::default(), &mut None).unwrap();
+    xcalloptions_run(&input, 4534, &Env::default()).unwrap();
 
 }
