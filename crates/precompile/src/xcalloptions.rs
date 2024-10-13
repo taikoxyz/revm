@@ -1,4 +1,4 @@
-use revm_primitives::{address, Address, Bytes, CallOptions, ChainAddress, Env, PrecompileOutput};
+use revm_primitives::{address, Address, Bytes, CallOptions, ChainAddress, Env, PrecompileOutput, StatefulPrecompile};
 use crate::{Error, Precompile, PrecompileResult, PrecompileWithAddress, CtxPrecompileFn};
 
 pub const XCALLOPTIONS: PrecompileWithAddress = PrecompileWithAddress(
@@ -7,7 +7,7 @@ pub const XCALLOPTIONS: PrecompileWithAddress = PrecompileWithAddress(
 );
 
 /// Sets the xcall options
-fn xcalloptions_run(input: &[u8], _gas_limit: u64, _env: &Env) -> PrecompileResult {
+fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddress) -> PrecompileResult {
     println!("  xcalloptions_run");
     // Verify input length.
     if input.len() < 83 {
@@ -26,6 +26,13 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, _env: &Env) -> PrecompileResu
     // Check the version
     if version != 1 {
         return Err(Error::XCallOptionsInvalidInputLength.into());
+    }
+    if !sandbox {
+        // env.tx.caller is the Signer of the transaction
+        // caller is the address of the contract that is calling the precompile
+        if tx_origin != env.tx.caller.1 || msg_sender != caller.1 {
+            return Err(Error::XCallOptionsInvalidInputLength.into());
+        }
     }
 
     // Set the call options

@@ -1,4 +1,4 @@
-use crate::{Bytes, Env, CallOptions};
+use crate::{Bytes, CallOptions, ChainAddress, Env};
 use core::fmt::{self};
 use dyn_clone::DynClone;
 use std::{boxed::Box, string::String, sync::Arc};
@@ -27,7 +27,7 @@ impl PrecompileOutput {
 pub type StandardPrecompileFn = fn(&Bytes, u64) -> PrecompileResult;
 pub type EnvPrecompileFn = fn(&Bytes, u64, env: &Env) -> PrecompileResult;
 /// TODO: the input is a CallOptions struct to avoid having to put the interpreter in the primitives crate
-pub type CtxPrecompileFn = fn(&[u8], u64, env: &Env) -> PrecompileResult;
+pub type CtxPrecompileFn = fn(&[u8], u64, env: &Env, caller: ChainAddress) -> PrecompileResult;
 
 /// Stateful precompile trait. It is used to create
 /// a arc precompile Precompile::Stateful.
@@ -114,21 +114,21 @@ impl Precompile {
     }
 
     /// Call the precompile with the given input and gas limit and return the result.
-    pub fn call(&mut self, bytes: &Bytes, gas_limit: u64, env: &Env) -> PrecompileResult {
+    pub fn call(&mut self, bytes: &Bytes, gas_limit: u64, env: &Env, caller: ChainAddress) -> PrecompileResult {
         println!("Precompile::call {:?}", env.tx.caller);
         match *self {
             Precompile::Standard(p) => p(bytes, gas_limit),
             Precompile::Env(p) => p(bytes, gas_limit, env),
             Precompile::Stateful(ref p) => p.call(bytes, gas_limit, env),
             Precompile::StatefulMut(ref mut p) => p.call_mut(bytes, gas_limit, env),
-            Precompile::Ctx(ref mut p) => p(bytes, gas_limit, env), // TODO: Brecht
+            Precompile::Ctx(ref mut p) => p(bytes, gas_limit, env, caller), // TODO: Brecht
         }
     }
 
     /// Call the precompile with the given input and gas limit and return the result.
     ///
     /// Returns an error if the precompile is mutable.
-    pub fn call_ref(&self, bytes: &Bytes, gas_limit: u64, env: &Env) -> PrecompileResult {
+    pub fn call_ref(&self, bytes: &Bytes, gas_limit: u64, env: &Env, caller: ChainAddress) -> PrecompileResult {
         match *self {
             Precompile::Standard(p) => p(bytes, gas_limit),
             Precompile::Env(p) => p(bytes, gas_limit, env),
@@ -136,7 +136,7 @@ impl Precompile {
             Precompile::StatefulMut(_) => Err(PrecompileErrors::Fatal {
                 msg: "call_ref on mutable stateful precompile".into(),
             }),
-            Precompile::Ctx(p) => p(bytes, gas_limit, env), // TODO: Brecht
+            Precompile::Ctx(p) => p(bytes, gas_limit, env, caller), // TODO: Brecht
         }
     }
 }
@@ -188,6 +188,8 @@ pub enum PrecompileError {
     /// The version given is not supported
     XCallOptionsInvalidVersion,
     /// Catch-all variant for other errors.
+    XCallOptionsInvalidOrigin,
+    /// Catch-all variant for other errors.
     Other(String),
 }
 
@@ -229,6 +231,7 @@ impl fmt::Display for PrecompileError {
             Self::BlobVerifyKzgProofFailed => "verifying blob kzg proof failed",
             Self::XCallOptionsInvalidInputLength => "XCallOptionsInvalidInputLength",
             Self::XCallOptionsInvalidVersion => "XCallOptionsInvalidVersion",
+            Self::XCallOptionsInvalidOrigin => "XCallOptionsInvalidOrigin",
             Self::Other(s) => s,
         };
         f.write_str(s)

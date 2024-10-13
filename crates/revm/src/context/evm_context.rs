@@ -115,11 +115,12 @@ impl<DB: Database> EvmContext<DB> {
         address: &ChainAddress,
         input_data: &Bytes,
         gas: Gas,
+        caller: ChainAddress,
     ) -> Result<Option<InterpreterResult>, EVMError<DB::Error>> {
         println!("call_precompile {:?}", address);
         let Some(outcome) =
             self.precompiles
-                .call(&address.1, input_data, gas.limit(), &mut self.inner)
+                .call(&address.1, input_data, gas.limit(), &mut self.inner, caller)
         else {
             return Ok(None);
         };
@@ -214,7 +215,7 @@ impl<DB: Database> EvmContext<DB> {
 
         // Only place that sets the Call Options
         println!("make_call_frame *==> call_precompile");
-        if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas)? {
+        if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas, inputs.target_address)? {
             if matches!(result.result, return_ok!()) {
                 self.journaled_state.checkpoint_commit();
             } else {

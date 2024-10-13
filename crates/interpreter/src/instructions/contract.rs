@@ -616,16 +616,30 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
 
 pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H, to: Address, delegate: bool, code: bool) -> CallTargets {
     println!("apply_call_options");
-    let call_options = interpreter.call_options.clone().unwrap_or_else(||
-        CallOptions{
-            chain_id: interpreter.chain_id,
-            sandbox: false,
-            tx_origin: host.env().tx.caller,
-            msg_sender: interpreter.contract.target_address,
-            block_hash: None,
-            proof: std::vec::Vec::new(),
+    let call_options = match interpreter.call_options.clone() {
+        Some(call_options) => {
+            if !call_options.sandbox {
+                // Already checked in precompiles but let's do it again
+                if call_options.msg_sender.1 != interpreter.contract.target_address.1 
+                || call_options.tx_origin.1 != host.env().tx.caller.1
+                {
+                    interpreter.instruction_result = InstructionResult::Stop;
+                }
+            }
+            call_options
+        },
+        None => {
+            CallOptions {
+                chain_id: interpreter.chain_id,
+                sandbox: true,
+                tx_origin: host.env().tx.caller,
+                msg_sender: interpreter.contract.target_address,
+                block_hash: None,
+                proof: Vec::new(),
+            }
         }
-    );
+    };
+
     // Consume the values
     interpreter.call_options = None;
 
@@ -633,8 +647,8 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
     let to = ChainAddress(call_options.chain_id, to);
 
     CallTargets {
-        target_address: if delegate || code { interpreter.contract.target_address } else { to },
-        caller: if delegate { interpreter.contract.caller } else { interpreter.contract.target_address },
+        target_address: if delegate || code { call_options.msg_sender } else { to },
+        caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender},
         bytecode_address: to,
     }
 }
