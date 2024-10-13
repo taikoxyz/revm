@@ -20,14 +20,28 @@ library EVM {
         internal 
         view 
     {
-        xCallOptions(chainID, true);
+        xCallOptions(chainID, false);
+    }
+
+    function xCallDelegate(uint chainID)
+        internal 
+        view 
+    {
+        xCallDelegate(chainID, false);
+    }
+
+    function xCallDelegate(uint chainID, bool sandbox)
+        internal 
+        view 
+    {
+        xCallOptions(chainID, sandbox, tx.origin, msg.sender);
     }
 
     function xCallOptions(uint chainID, bool sandbox)
         internal 
         view 
     {
-        xCallOptions(chainID, sandbox, address(0), address(0));
+        xCallOptions(chainID, sandbox, tx.origin, address(this));
     }
 
     function xCallOptions(uint chainID, bool sandbox, address txOrigin, address msgSender)
@@ -51,7 +65,7 @@ library EVM {
         // require(chainID() != l1ChainId);
 
         bytes memory input = abi.encodePacked(version, uint64(chainID), sandbox, txOrigin, msgSender, blockHash, proof);
-        (bool success, ) = xCallOptionsAddress.staticcall(input);
+        (bool success, ) = xCallOptionsAddress.staticcall(input); //delegatecall
         require(success);
     }
 

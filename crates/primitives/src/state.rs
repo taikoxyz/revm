@@ -23,6 +23,16 @@ impl Default for ChainAddress {
     }
 }
 
+pub trait OnChain {
+    fn on_chain(&self, chain_id: u64) -> ChainAddress;
+}
+
+impl OnChain for Address {
+    fn on_chain(&self, chain_id: u64) -> ChainAddress {
+        ChainAddress(chain_id, *self)
+    }
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Account {

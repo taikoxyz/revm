@@ -17,7 +17,7 @@ contract ERC20 {
         balanceOf[msg.sender] = totalSupply;  
     }  
 
-    function transfer(address to, uint256 value) external returns (bool) {  
+    function transfer(address to, uint256 value) public returns (bool) {  
         require(balanceOf[msg.sender] >= value, "Insufficient balance");  
         balanceOf[msg.sender] -= value;  
         balanceOf[to] += value;  
@@ -25,19 +25,46 @@ contract ERC20 {
         return true;  
     }  
 
-    function approve(address spender, uint256 value) external returns (bool) {  
+    function approve(address spender, uint256 value) public returns (bool) {  
         allowance[msg.sender][spender] = value;  
         emit Approval(msg.sender, spender, value);  
         return true;  
-    }  
+    }
 
-    function transferFrom(address from, address to, uint256 value) external returns (bool) {  
-        require(balanceOf[from] >= value, "Insufficient balance");  
-        require(allowance[from][msg.sender] >= value, "Allowance exceeded");  
+
+    function transferFrom(address from, address to, uint256 value) public returns (bool) {  
+        require(balanceOf[from] >= value, "Insufficient balance");
+        if (from != msg.sender) {
+            require(allowance[from][msg.sender] >= value, "Allowance exceeded");  
+        }
         balanceOf[from] -= value;  
-        balanceOf[to] += value;  
-        allowance[from][msg.sender] -= value;  
+        balanceOf[to] += value;
+        if (from != msg.sender) {
+            allowance[from][msg.sender] -= value;  
+        }
         emit Transfer(from, to, value);  
         return true;  
-    }  
+    }
+
+    function sandboxedTreansfer(uint256 chain, address to, uint256 value) public returns (bool) {  
+        EVM.xCallOptions(chain, true);
+        return transfer(to, value);  
+    }
+
+    function xApprove(uint256 chain, address spender, uint256 value) public returns (bool) {  
+        EVM.xCallOptions(chain);
+        return approve(spender, value);  
+    }
+
+    function bridge_and_transfer(uint256 from_chain, uint256 to_chain, address from, address to, address bridge, uint256 value) public returns (uint256) {  
+        EVM.xCallOptions(from_chain);
+        this.transferFrom(from, bridge, value);
+        EVM.xCallOptions(to_chain);
+        this.transferFrom(bridge, to, value);
+        return value;
+    }
+
+    function balance_of(address owner) public view returns (uint256) {
+        return balanceOf[owner];
+    }
 }  

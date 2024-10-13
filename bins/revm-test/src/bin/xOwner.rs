@@ -117,6 +117,8 @@ fn main() {
         new_owner.to_string(),
         Address::abi_decode(l1_read.output().unwrap(), false).unwrap().to_string()
     );
+    
+    println!("Success");
 }
 
 fn insert_account_info(cache_db: &mut CacheDB<EmptyDB>, addr: ChainAddress, code: Bytes) {

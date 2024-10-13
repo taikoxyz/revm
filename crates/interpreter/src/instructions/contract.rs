@@ -614,37 +614,48 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
     interpreter.instruction_result = InstructionResult::CallOrCreate;
 }
 
+/// Apply call options to the interpreter.
+/// This is after the PREVIOUS call into precompile return the CallOptions.
+/// User sets the `delegate` and `code` flags in the next call after context switching.
 pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H, to: Address, delegate: bool, code: bool) -> CallTargets {
     println!("apply_call_options");
-    let call_options = match interpreter.call_options.clone() {
+    let (call_options, to) = match interpreter.call_options.clone() {
         Some(call_options) => {
             if !call_options.sandbox {
                 // Already checked in precompiles but let's do it again
                 if call_options.msg_sender.1 != interpreter.contract.target_address.1 
-                || call_options.tx_origin.1 != host.env().tx.caller.1
+                    || call_options.tx_origin.1 != host.env().tx.caller.1
                 {
                     interpreter.instruction_result = InstructionResult::Stop;
                 }
             }
-            call_options
+            // In delegate call, the target address remains on the same chain
+            // Otherwise set to the other chain.
+            let to = if delegate {
+                ChainAddress(interpreter.chain_id, to)
+            } else {
+                interpreter.chain_id = call_options.chain_id;
+                ChainAddress(call_options.chain_id, to)
+            };
+            (call_options, to)
         },
         None => {
-            CallOptions {
-                chain_id: interpreter.chain_id,
-                sandbox: true,
-                tx_origin: host.env().tx.caller,
-                msg_sender: interpreter.contract.target_address,
-                block_hash: None,
-                proof: Vec::new(),
-            }
+            (
+                CallOptions {
+                    chain_id: interpreter.chain_id,
+                    sandbox: true,
+                    tx_origin: host.env().tx.caller,
+                    msg_sender: interpreter.contract.target_address,
+                    block_hash: None,
+                    proof: Vec::new(),
+                }, 
+                ChainAddress(interpreter.chain_id, to)
+            )
         }
     };
 
     // Consume the values
     interpreter.call_options = None;
-
-    // Set the specified chain id on the to address
-    let to = ChainAddress(call_options.chain_id, to);
 
     CallTargets {
         target_address: if delegate || code { call_options.msg_sender } else { to },
