@@ -15,6 +15,7 @@ use crate::{
 use core::cmp::max;
 use std::boxed::Box;
 
+#[derive(Debug, Clone)]
 pub struct CallTargets {
     /// The account address of bytecode that is going to be executed.
     ///
@@ -618,7 +619,7 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
 /// This is after the PREVIOUS call into precompile return the CallOptions.
 /// User sets the `delegate` and `code` flags in the next call after context switching.
 pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H, to: Address, delegate: bool, code: bool) -> CallTargets {
-    println!("apply_call_options");
+    println!("apply_call_options {:?}", interpreter.call_options);
     let (call_options, to) = match interpreter.call_options.clone() {
         Some(call_options) => {
             if !call_options.sandbox {
@@ -653,6 +654,14 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
             )
         }
     };
+
+    println!("call targets {:?}",
+        CallTargets {
+            target_address: if delegate || code { call_options.msg_sender } else { to },
+            caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender},
+            bytecode_address: to,
+        }
+    );
 
     // Consume the values
     interpreter.call_options = None;

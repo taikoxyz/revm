@@ -31,6 +31,7 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
         // env.tx.caller is the Signer of the transaction
         // caller is the address of the contract that is calling the precompile
         if tx_origin != env.tx.caller.1 || msg_sender != caller.1 {
+            println!("  tx_origin: {:?}, env.tx.caller.1: {:?}, msg_sender: {:?}, caller.1: {:?}", tx_origin, env.tx.caller.1, msg_sender, caller.1);
             return Err(Error::XCallOptionsInvalidInputLength.into());
         }
     }
@@ -52,15 +53,3 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
     Ok(PrecompileOutput::new(0, Bytes::copy_from_slice(&prefix)))
 }
 
-
-#[test]
-fn test_xcalloptions() {
-
-    let mut input = [0u8; 84];
-    input[0] = 9;
-    input[2] = 7;
-    println!("input: {:?}", input.len());
-
-    xcalloptions_run(&input, 4534, &Env::default()).unwrap();
-
-}

@@ -15,24 +15,63 @@ contract ERC20 {
 
     constructor(uint256 totalSupply) {  
         balanceOf[msg.sender] = totalSupply;  
-    }  
+    }
 
-    function transfer(address to, uint256 value) public returns (bool) {  
+    // ============ Transfer ============
+
+    function transfer(address to, uint256 value) public returns (uint256) {  
         require(balanceOf[msg.sender] >= value, "Insufficient balance");  
         balanceOf[msg.sender] -= value;  
         balanceOf[to] += value;  
         emit Transfer(msg.sender, to, value);  
-        return true;  
-    }  
+        return value;  
+    } 
 
-    function approve(address spender, uint256 value) public returns (bool) {  
-        allowance[msg.sender][spender] = value;  
-        emit Approval(msg.sender, spender, value);  
-        return true;  
+    function _transfer(address from, address to, uint256 value) public returns (uint256) {
+        require(msg.sender == address(this), "Only this contract can mint");
+        balanceOf[from] -= value;
+        balanceOf[to] += value;
+        return value;
+    } 
+
+    function _mint(address to, uint256 value) public returns (uint256) {
+        require(msg.sender == address(this), "Only this contract can mint");
+        balanceOf[to] += value;
+        return value;
     }
 
+    function xTransfer(uint256 chain, address to, uint256 value) public returns (uint256) {
+        balanceOf[msg.sender] -= value;
+        EVM.xCallOptions(chain);
+        return this._mint(to, value);  
+    }
 
-    function transferFrom(address from, address to, uint256 value) public returns (bool) {  
+    function sandboxedTransfer(uint256 chain, address to, uint256 value) public returns (uint256) {  
+        EVM.xCallOptions(chain, true);  
+        return this._transfer(msg.sender, to, value);
+    }
+
+    // ============ Approve ============
+
+    function approve(address spender, uint256 value) public returns (uint256) {   
+        allowance[msg.sender][spender] = value;  
+        emit Approval(msg.sender, spender, value);  
+        return value;
+    }
+
+    function _approve(address owner, address spender, uint256 value) public returns (uint256) {   
+        require(msg.sender == address(this), "Only contract itself can call this function");
+        allowance[owner][spender] = value;  
+        emit Approval(owner, spender, value);  
+        return value;  
+    }
+
+    function xApprove(uint256 chain, address spender, uint256 value) public returns (uint256) {  
+        EVM.xCallOptions(chain);
+        return this._approve(msg.sender, spender, value);  
+    }
+
+    function transferFrom(address from, address to, uint256 value) public returns (uint256) {  
         require(balanceOf[from] >= value, "Insufficient balance");
         if (from != msg.sender) {
             require(allowance[from][msg.sender] >= value, "Allowance exceeded");  
@@ -43,28 +82,6 @@ contract ERC20 {
             allowance[from][msg.sender] -= value;  
         }
         emit Transfer(from, to, value);  
-        return true;  
+        return value;  
     }
-
-    function sandboxedTreansfer(uint256 chain, address to, uint256 value) public returns (bool) {  
-        EVM.xCallOptions(chain, true);
-        return transfer(to, value);  
-    }
-
-    function xApprove(uint256 chain, address spender, uint256 value) public returns (bool) {  
-        EVM.xCallOptions(chain);
-        return approve(spender, value);  
-    }
-
-    function bridge_and_transfer(uint256 from_chain, uint256 to_chain, address from, address to, address bridge, uint256 value) public returns (uint256) {  
-        EVM.xCallOptions(from_chain);
-        this.transferFrom(from, bridge, value);
-        EVM.xCallOptions(to_chain);
-        this.transferFrom(bridge, to, value);
-        return value;
-    }
-
-    function balance_of(address owner) public view returns (uint256) {
-        return balanceOf[owner];
-    }
-}  
+}

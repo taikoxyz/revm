@@ -4,7 +4,7 @@ use alloy_sol_macro::sol;
 use alloy_sol_types::{sol_data::Address, SolCall, SolInterface, SolType};
 use revm::{
     db::{CacheDB, EmptyDB}, primitives::{
-        address, keccak256, ruint::Uint, AccountInfo, Bytecode, Bytes, ChainAddress, ExecutionResult, Output, TransactTo, B256, KECCAK_EMPTY, U256
+        address, keccak256, ruint::Uint, AccountInfo, Bytecode, Bytes, ChainAddress, ExecutionResult, OnChain, Output, TransactTo, B256, KECCAK_EMPTY, U256
     }, Database, Evm
 };
 
@@ -52,33 +52,33 @@ sol! {
 }
 
 
-const L2: u64 = 160010;
-const L1: u64 = 1;
+const A: u64 = 1;
+const B: u64 = 160010;
 
 /// This example sets L1 owner from L1 and reads it from L2.
-/// Then it sets a new L1 owner from L2 and reads it from L1.
+/// Then sets a new L1 owner from L2 and reads it from L1.
 fn main() {
 
     let owner = address!("2222000000000000000000000000000000000000");
     let new_owner = address!("3333000000000000000000000000000000000000");
 
     
-    let l1_user = ChainAddress(L1, address!("1000000000000000000000000000000000000000"));
-    let l2_user = ChainAddress(L2, address!("1000000000000000000000000000000000000000"));
+    let a_user = ChainAddress(A, address!("1000000000000000000000000000000000000000"));
+    let b_user = ChainAddress(B, address!("1000000000000000000000000000000000000000"));
 
     let deployment = address!("0a743ba7304efcc9e384ece9be7631e2470e401e");
 
     let mut db = CacheDB::new(EmptyDB::default());
     db.insert_account_info(
-        l1_user,
+        a_user,
         AccountInfo::new(U256::MAX, 0, KECCAK_EMPTY, Bytecode::default()),
     );
     db.insert_account_info(
-        l2_user,
+        b_user,
         AccountInfo::new(U256::MAX, 0, KECCAK_EMPTY, Bytecode::default()),
     );
-    insert_account_info(&mut db, ChainAddress(L2, deployment), Owner::BYTECODE.clone());
-    insert_account_info(&mut db, ChainAddress(L1, deployment), Owner::BYTECODE.clone());
+    insert_account_info(&mut db, deployment.on_chain(B), Owner::BYTECODE.clone());
+    insert_account_info(&mut db, deployment.on_chain(A), Owner::BYTECODE.clone());
 
 
     let set_native = Owner::changeOwnerCall { newOwner: owner }.abi_encode();
@@ -91,7 +91,7 @@ fn main() {
         let mut evm = Evm::builder()
             .modify_tx_env(|tx| {
                 tx.caller = addr;
-                tx.transact_to = TransactTo::Call(ChainAddress(addr.0, deployment));
+                tx.transact_to = TransactTo::Call(deployment.on_chain(addr.0));
                 tx.data = op.clone().into();
             })
             .with_db(&mut db)
@@ -103,21 +103,21 @@ fn main() {
     };
 
     // Set L1 owner from L1 and read it from L2
-    do_transact(l1_user, set_native.clone());
-    let l2_read = do_transact(l2_user, get_x.clone());
+    do_transact(a_user, set_native.clone());
+    let l2_read = do_transact(b_user, get_x.clone());
     assert_eq!(
         owner.to_string(),
         Address::abi_decode(l2_read.output().unwrap(), false).unwrap().to_string()
     );
 
     // Set L1 owner from L2 and read it from L1
-    do_transact(l2_user, set_x.clone());
-    let l1_read = do_transact(l1_user, get_native.clone());
+    do_transact(b_user, set_x.clone());
+    let l1_read = do_transact(a_user, get_native.clone());
     assert_eq!(
         new_owner.to_string(),
         Address::abi_decode(l1_read.output().unwrap(), false).unwrap().to_string()
     );
-    
+
     println!("Success");
 }
 
