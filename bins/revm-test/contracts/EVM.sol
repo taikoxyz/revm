@@ -16,6 +16,13 @@ library EVM {
         xCallOptions(l1ChainId);
     }
 
+    function xCallOnL1(bool sandbox)
+        internal 
+        view 
+    {
+        xCallOptions(l1ChainId, sandbox);
+    }
+
     function xCallOptions(uint chainID)
         internal 
         view 
@@ -23,11 +30,19 @@ library EVM {
         xCallOptions(chainID, false);
     }
 
+    function xCallDelegateL1()
+        internal 
+        view 
+    {
+        xCallDelegate(l1ChainId);
+    }
+
     function xCallDelegate(uint chainID)
         internal 
         view 
     {
-        xCallDelegate(chainID, false);
+        // Has to be in sandbox mode to bypass the msg.sender == caller check
+        xCallDelegate(chainID, true);
     }
 
     function xCallDelegate(uint chainID, bool sandbox)

@@ -1,7 +1,7 @@
 mod call_helpers;
 
 pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges, resize_memory};
-use revm_primitives::{CallOptions, ChainAddress};
+use revm_primitives::{CallOptions, ChainAddress, OnChain};
 
 use crate::{
     gas::{self, cost_per_word, EOF_CREATE_GAS, KECCAK256WORD, MIN_CALLEE_GAS},
@@ -621,7 +621,7 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
 pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H, to: Address, delegate: bool, code: bool) -> CallTargets {
     println!("apply_call_options {:?}", interpreter.call_options);
     let (call_options, to) = match interpreter.call_options.clone() {
-        Some(call_options) => {
+        Some(mut call_options) => {
             if !call_options.sandbox {
                 // Already checked in precompiles but let's do it again
                 if call_options.msg_sender.1 != interpreter.contract.target_address.1 
@@ -630,9 +630,10 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
                     interpreter.instruction_result = InstructionResult::Stop;
                 }
             }
-            // In delegate call, the target address remains on the same chain
+            // In delegate call, the caller & target address remains on the same chain
             // Otherwise set to the other chain.
             let to = if delegate {
+                call_options.msg_sender.0 = interpreter.chain_id;
                 ChainAddress(interpreter.chain_id, to)
             } else {
                 interpreter.chain_id = call_options.chain_id;
@@ -659,7 +660,7 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
         CallTargets {
             target_address: if delegate || code { call_options.msg_sender } else { to },
             caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender},
-            bytecode_address: to,
+            bytecode_address: if delegate { to.1.on_chain(call_options.chain_id) } else { to },
         }
     );
 
@@ -669,6 +670,6 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
     CallTargets {
         target_address: if delegate || code { call_options.msg_sender } else { to },
         caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender},
-        bytecode_address: to,
+        bytecode_address: if delegate { to.1.on_chain(call_options.chain_id) } else { to },
     }
 }

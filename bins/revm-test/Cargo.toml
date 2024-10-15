@@ -32,3 +32,6 @@ name = "xTransfer"
 
 [[bin]]
 name = "xOwner"
+
+[[bin]]
+name = "xBallot"
