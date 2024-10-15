@@ -1,8 +1,6 @@
-// SPDX-License-Identifier: GPL-3.0
+// SPDX-License-Identifier: MIT
 
-pragma solidity >=0.7.0 <0.9.0;
-
-import "./EVM.sol";
+pragma solidity >=0.8.12 <0.9.0;
 
 /** 
  * @title Ballot
@@ -103,7 +101,7 @@ contract Ballot {
      * @dev Give your vote (including votes delegated to you) to proposal 'proposals[proposal].name'.
      * @param proposal index of proposal in the proposals array
      */
-    function vote(uint proposal) public {
+    function vote(uint256 proposal) public {
         Voter storage sender = voters[msg.sender];
         require(sender.weight != 0, "Has no right to vote");
         require(!sender.voted, "Already voted.");
@@ -143,6 +141,20 @@ contract Ballot {
 
 contract BallotState {
 
+    struct Voter {
+        uint weight; // weight is accumulated by delegation
+        bool voted;  // if true, that person already voted
+        address delegate; // person delegated to
+        uint vote;   // index of the voted proposal
+    }
+
+    struct Proposal {
+        // If you can limit the length to a certain number of bytes, 
+        // always use one of bytes1 to bytes32 because they are much cheaper
+        bytes32 name;   // short name (up to 32 bytes)
+        uint voteCount; // number of accumulated votes
+    }
+
     address public chairperson;
 
     mapping(address => Voter) public voters;
@@ -150,39 +162,26 @@ contract BallotState {
     Proposal[] public proposals;
 
     constructor(bytes32[] memory proposalNames) {
-        EVM.xCallDelegateL1();
+        EVM.xCallOnL1(true);
         (bool success, ) = address(this).delegatecall(abi.encodeWithSignature("init(bytes32[])", proposalNames));
         require(success, "Init delegate call failed");
     }
 
     function giveRightToVote(address voter) public {
-        EVM.xCallDelegateL1();
+        EVM.xCallOnL1(true);
         (bool success, ) = address(this).delegatecall(abi.encodeWithSignature("giveRightToVote(address)", voter));
         require(success, "GiveRightToVote delegate call failed");
     }
 
     function delegate(address to) public {
-        EVM.xCallDelegateL1();
+        EVM.xCallOnL1(true);
         (bool success, ) = address(this).delegatecall(abi.encodeWithSignature("delegate(address)", to));
         require(success, "Delegate delegate call failed");
     }
 
-    function vote(uint proposal) public {
-        EVM.xCallDelegateL1();
-        (bool success, ) = address(this).delegatecall(abi.encodeWithSignature("vote(uint)", proposal));
+    function vote(uint256 proposal) public {
+        EVM.xCallOnL1(true);
+        (bool success, ) = address(this).delegatecall(abi.encodeWithSignature("vote(uint256)", proposal));
         require(success, "Vote delegate call failed");
-    }
-
-    function winningProposal() public view returns (uint winningProposal_)
-    {
-        EVM.xCallDelegateL1();
-        (bool success, bytes memory result) = address(this).delegatecall(abi.encodeWithSignature("winningProposal()"));
-        require(success, "WinningProposal delegate call failed");
-        return abi.decode(result, (uint));
-    }
-
-    function winnerName() public view returns (bytes32 winnerName_)
-    {
-        winnerName_ = proposals[winningProposal()].name;
     }
 }

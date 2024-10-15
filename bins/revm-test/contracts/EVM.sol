@@ -1,7 +1,6 @@
 // SPDX-License-Identifier: MIT
 
 pragma solidity >=0.8.12 <0.9.0;
-
 // EVM library
 library EVM {
     address constant xCallOptionsAddress = address(0x04D2);
@@ -28,28 +27,6 @@ library EVM {
         view 
     {
         xCallOptions(chainID, false);
-    }
-
-    function xCallDelegateL1()
-        internal 
-        view 
-    {
-        xCallDelegate(l1ChainId);
-    }
-
-    function xCallDelegate(uint chainID)
-        internal 
-        view 
-    {
-        // Has to be in sandbox mode to bypass the msg.sender == caller check
-        xCallDelegate(chainID, true);
-    }
-
-    function xCallDelegate(uint chainID, bool sandbox)
-        internal 
-        view 
-    {
-        xCallOptions(chainID, sandbox, tx.origin, msg.sender);
     }
 
     function xCallOptions(uint chainID, bool sandbox)
