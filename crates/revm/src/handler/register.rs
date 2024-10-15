@@ -1,4 +1,4 @@
-use crate::{db::Database, handler::Handler, Context};
+use crate::{db::SyncDatabase as Database, handler::Handler, Context};
 use std::boxed::Box;
 
 /// EVM Handler

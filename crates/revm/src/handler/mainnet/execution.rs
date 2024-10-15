@@ -1,5 +1,5 @@
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     frame::EOFCreateFrame,
     interpreter::{
         return_ok, return_revert, CallInputs, CreateInputs, CreateOutcome, Gas, InstructionResult,

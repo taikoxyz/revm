@@ -25,7 +25,7 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
 
     // Check the version
     if version != 1 {
-        return Err(Error::XCallOptionsInvalidInputLength.into());
+        return Err(Error::XCallOptionsInvalidVersion.into());
     }
     if !sandbox {
         // env.tx.caller is the Signer of the transaction

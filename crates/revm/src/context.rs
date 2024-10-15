@@ -11,7 +11,7 @@ pub use inner_evm_context::InnerEvmContext;
 use revm_interpreter::{as_u64_saturated, Eip7702CodeLoad, StateLoad};
 
 use crate::{
-    db::{Database, EmptyDB},
+    db::{SyncDatabase as Database, EmptyDB},
     interpreter::{AccountLoad, Host, SStoreResult, SelfDestructResult},
     primitives::{Address, Bytes, ChainAddress, Env, HandlerCfg, Log, B256, BLOCK_HASH_HISTORY, U256},
 };

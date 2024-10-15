@@ -1,5 +1,5 @@
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     interpreter::{
         analysis::to_analysed, gas, return_ok, AccountLoad, Eip7702CodeLoad, InstructionResult,
         InterpreterResult, SStoreResult, SelfDestructResult, StateLoad,

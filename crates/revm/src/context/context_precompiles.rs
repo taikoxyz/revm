@@ -1,7 +1,7 @@
 use super::InnerEvmContext;
 use crate::{
     precompile::{Precompile, PrecompileResult},
-    primitives::{db::Database, ChainAddress, Address, Bytes, HashMap, HashSet},
+    primitives::{db::SyncDatabase as Database, Address, Bytes, ChainAddress, HashMap, HashSet},
 };
 use dyn_clone::DynClone;
 use revm_precompile::{PrecompileSpecId, PrecompileWithAddress, Precompiles};
