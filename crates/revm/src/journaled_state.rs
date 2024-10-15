@@ -441,7 +441,6 @@ impl JournaledState {
     /// Commit the checkpoint.
     #[inline]
     pub fn checkpoint_commit(&mut self) {
-        println!("JournaledState::checkpoint_commit");
         self.depth -= 1;
     }
 

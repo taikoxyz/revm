@@ -1,6 +1,6 @@
 use crate::{Gas, InstructionResult, InterpreterResult};
 use core::ops::Range;
-use revm_primitives::Bytes;
+use revm_primitives::{Bytes, CallOptions};
 
 /// Represents the outcome of a call operation in a virtual machine.
 ///
@@ -16,6 +16,7 @@ use revm_primitives::Bytes;
 pub struct CallOutcome {
     pub result: InterpreterResult,
     pub memory_offset: Range<usize>,
+    pub call_options: Option<CallOptions>,
 }
 
 impl CallOutcome {
@@ -27,10 +28,11 @@ impl CallOutcome {
     ///
     /// * `result` - The result of the interpreter's execution.
     /// * `memory_offset` - The range in memory indicating where the output data is stored.
-    pub fn new(result: InterpreterResult, memory_offset: Range<usize>) -> Self {
+    pub fn new(result: InterpreterResult, memory_offset: Range<usize>, call_options: Option<CallOptions>) -> Self {
         Self {
             result,
             memory_offset,
+            call_options
         }
     }
 

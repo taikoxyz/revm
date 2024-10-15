@@ -75,7 +75,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
     /// Runs main call loop.
     #[inline]
     pub fn run_the_loop(&mut self, first_frame: Frame) -> Result<FrameResult, EVMError<DB::Error>> {
-        println!("run_the_loop");
+        println!("EVM:run_the_loop: exaust the frame stack");
         let mut call_stack: Vec<Frame> = Vec::with_capacity(1025);
         call_stack.push(first_frame);
 
@@ -89,8 +89,14 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
 
         // Peek the last stack frame.
         let mut stack_frame = call_stack.last_mut().unwrap();
+        let mut call_options = None;
+        let mut cnt = 0;
 
         loop {
+            println!("loop: {}", cnt);
+            cnt += 1;
+
+            stack_frame.interpreter_mut().call_options = std::mem::take(&mut call_options);
             // Execute the frame.
             let next_action =
                 self.handler
@@ -100,7 +106,6 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
             // This error can be set in the Interpreter when it interacts with the context.
             self.context.evm.take_error()?;
 
-            // Brecht
             let exec = &mut self.handler.execution;
             let frame_or_result = match next_action {
                 InterpreterAction::Call { inputs } => exec.call(&mut self.context, inputs)?,
@@ -135,6 +140,12 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                 }
                 InterpreterAction::None => unreachable!("InterpreterAction::None is not expected"),
             };
+
+            println!("  loop ==> frame_or_result: {:?}", match frame_or_result {
+                FrameOrResult::Frame(_) => "Frame",
+                FrameOrResult::Result(_) => "Result",
+            });
+
             // handle result
             match frame_or_result {
                 FrameOrResult::Frame(frame) => {
@@ -153,6 +164,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                     match result {
                         FrameResult::Call(outcome) => {
                             // return_call
+                            call_options = outcome.call_options.clone();
                             exec.insert_call_outcome(ctx, stack_frame, &mut shared_memory, outcome)?
                         }
                         FrameResult::Create(outcome) => {
@@ -327,7 +339,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
     /// Transact pre-verified transaction.
     fn transact_preverified_inner(&mut self, initial_gas_spend: u64) -> EVMResult<DB::Error> {
-        println!("transact_preverified_inner");
+        println!("EVM:transact_preverified_inner");
         let spec_id = self.spec_id();
         let ctx = &mut self.context;
         let pre_exec = self.handler.pre_execution();
@@ -337,7 +349,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
         // load precompiles
         let precompiles = pre_exec.load_precompiles();
-        //println!("precompiles: {:?}", precompiles.addresses_set());
+        println!("precompiles: {:?}", precompiles.addresses_set());
         ctx.evm.set_precompiles(ctx.evm.env.cfg.chain_id, precompiles);
 
         // deduce caller balance with its limit.
@@ -350,6 +362,8 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
         let exec = self.handler.execution();
         // call inner handling of call/create
+
+        println!("first_frame_or_result from transact_to {:?}", ctx.evm.env.tx.transact_to);
         let first_frame_or_result = match ctx.evm.env.tx.transact_to {
             TransactTo::Call(_) => exec.call(
                 ctx,

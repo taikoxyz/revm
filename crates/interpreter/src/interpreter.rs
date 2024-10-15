@@ -77,7 +77,7 @@ impl Default for Interpreter {
 impl Interpreter {
     /// Create new interpreter
     pub fn new(contract: Contract, gas_limit: u64, is_static: bool, chain_id: u64, sandboxed: bool) -> Self {
-        println!("Interpreter::new");
+        println!("Interpreter::new IS_STATIC: {} SANDBOXED {}", is_static, sandboxed);
         if !contract.bytecode.is_execution_ready() {
             panic!("Contract is not execution ready {:?}", contract.bytecode);
         }
@@ -117,17 +117,21 @@ impl Interpreter {
     /// Test related helper
     #[cfg(test)]
     pub fn new_bytecode(bytecode: Bytecode) -> Self {
+        use revm_primitives::ChainAddress;
+
         Self::new(
             Contract::new(
                 Bytes::new(),
                 bytecode,
                 None,
-                crate::primitives::Address::default(),
+                ChainAddress::default(),
                 None,
-                crate::primitives::Address::default(),
+                ChainAddress::default(),
                 U256::ZERO,
             ),
             0,
+            false,
+            1,
             false,
         )
     }
@@ -407,6 +411,7 @@ impl Interpreter {
                 // return empty bytecode
                 output: Bytes::new(),
                 gas: self.gas,
+                call_options: None,
             },
         }
     }
@@ -429,6 +434,8 @@ pub struct InterpreterResult {
     pub output: Bytes,
     /// The gas usage information.
     pub gas: Gas,
+
+    pub call_options: Option<CallOptions>,
 }
 
 impl InterpreterResult {
@@ -438,6 +445,22 @@ impl InterpreterResult {
             result,
             output,
             gas,
+            call_options: None,
+        }
+    }
+
+    /// Returns a new `InterpreterResult` with the given values and call options.
+    pub fn new_with_options(
+        result: InstructionResult,
+        output: Bytes,
+        gas: Gas,
+        call_options: Option<CallOptions>,
+    ) -> Self {
+        Self {
+            result,
+            output,
+            gas,
+            call_options,
         }
     }
 
@@ -484,7 +507,7 @@ mod tests {
 
     #[test]
     fn object_safety() {
-        let mut interp = Interpreter::new(Contract::default(), u64::MAX, false);
+        let mut interp = Interpreter::new(Contract::default(), u64::MAX, false, 1, false);
 
         let mut host = crate::DummyHost::default();
         let table: &InstructionTable<DummyHost> =
