@@ -100,7 +100,16 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
             println!("loop: {}", cnt);
             cnt += 1;
 
+            // TODO(Brecht): Potential issue when revert happens after setting the options?
             stack_frame.interpreter_mut().call_options = std::mem::take(&mut call_options);
+
+            // The start of a smart contract execution after all initial checks have passed
+            if stack_frame.is_call() {
+                let input = stack_frame.interpreter().contract.input.clone();
+                println!("-> contract: {:?}, input: {}", stack_frame.interpreter().contract.target_address, input);
+                // TODO: Do something
+            }
+
             // Execute the frame.
             let next_action =
                 self.handler
