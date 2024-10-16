@@ -25,7 +25,6 @@ pub fn load_accounts<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     chain_id: u64,
 ) -> Result<(), EVMError<DB::Error>> {
-    println!("mainnet::load_accounts");
     // set journaling state flag.
     context.evm.journaled_state.set_spec_id(SPEC::SPEC_ID);
 
@@ -58,7 +57,6 @@ pub fn load_accounts<SPEC: Spec, EXT, DB: Database>(
 /// Helper function that deducts the caller balance.
 #[inline]
 pub fn deduct_caller_inner<SPEC: Spec>(caller_account: &mut Account, env: &Env) {
-    println!("mainnet::deduct_caller_inner");
     // Subtract gas costs from the caller's account.
     // We need to saturate the gas cost to prevent underflow in case that `disable_balance_check` is enabled.
     let mut gas_cost = U256::from(env.tx.gas_limit).saturating_mul(env.effective_gas_price());
@@ -87,7 +85,6 @@ pub fn deduct_caller_inner<SPEC: Spec>(caller_account: &mut Account, env: &Env) 
 pub fn deduct_caller<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
 ) -> Result<(), EVMError<DB::Error>> {
-    println!("mainnet::deduct_caller");
     // load caller's account.
     let caller_account = context
         .evm

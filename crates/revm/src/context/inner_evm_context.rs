@@ -148,7 +148,6 @@ impl<DB: Database> InnerEvmContext<DB> {
         &mut self,
         address: ChainAddress,
     ) -> Result<StateLoad<&mut Account>, EVMError<DB::Error>> {
-        println!("InnerEvmCpntext::load_account");
         self.journaled_state.load_account(address, &mut self.db)
     }
 

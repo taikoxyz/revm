@@ -7,7 +7,6 @@ use crate::{
     InvalidTransaction, Spec, SpecId, B256, GAS_PER_BLOB, MAX_BLOB_NUMBER_PER_BLOCK, MAX_CODE_SIZE,
     MAX_INITCODE_SIZE, U256, VERSIONED_HASH_VERSION_KZG, ChainAddress,
 };
-use alloy_primitives::TxKind;
 use core::cmp::{min, Ordering};
 use core::hash::Hash;
 use std::boxed::Box;
@@ -604,6 +603,10 @@ pub struct TxEnv {
     #[cfg(feature = "optimism")]
     /// Optimism fields.
     pub optimism: OptimismFields,
+
+    /// The list, in sequential order, of all the precomputed xcalls
+    /// Set in sync mode
+    pub xcalls: Option<Vec<XCallOutput>>,
 }
 
 pub enum TxType {
@@ -648,6 +651,7 @@ impl Default for TxEnv {
             authorization_list: None,
             #[cfg(feature = "optimism")]
             optimism: OptimismFields::default(),
+            xcalls: None,
         }
     }
 }
