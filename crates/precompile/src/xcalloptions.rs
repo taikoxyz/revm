@@ -32,7 +32,7 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
         // caller is the address of the contract that is calling the precompile
         if tx_origin != env.tx.caller.1 || msg_sender != caller.1 {
             println!("  tx_origin: {:?}, env.tx.caller.1: {:?}, msg_sender: {:?}, caller.1: {:?}", tx_origin, env.tx.caller.1, msg_sender, caller.1);
-            return Err(Error::XCallOptionsInvalidInputLength.into());
+            return Err(Error::XCallOptionsInvalidOrigin.into());
         }
     }
 
