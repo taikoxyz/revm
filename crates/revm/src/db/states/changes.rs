@@ -15,7 +15,29 @@ pub struct StateChangeset {
     /// Vector of **not** sorted storage.
     pub storage: Vec<PlainStorageChangeset>,
     /// Vector of contracts by bytecode hash. **not** sorted.
-    pub contracts: Vec<(B256, Bytecode)>,
+    pub contracts: Vec<((u64, B256), Bytecode)>,
+}
+
+impl StateChangeset {
+    pub fn filter_for_chain(&mut self, chain_id: u64) {
+        // multiple Txs has multiple reverts per ChainAddress, 
+        // filter out account chainges and storage changes for given chain_id
+        self.accounts = self
+            .accounts
+            .drain(..)
+            .filter(|(chain, _)| chain.0 == chain_id)
+            .collect();
+        self.storage = self
+            .storage
+            .drain(..)
+            .filter(|change| change.address.0 == chain_id)
+            .collect();
+        self.contracts = self
+            .contracts
+            .drain(..)
+            .filter(|((chain, _), _)| *chain == chain_id)
+            .collect();
+    }
 }
 
 /// Plain storage changeset. Used to apply storage changes of plain state to
@@ -64,6 +86,29 @@ impl PlainStateReverts {
             accounts: Vec::with_capacity(capacity),
             storage: Vec::with_capacity(capacity),
         }
+    }
+
+    pub fn filter_for_chain(&mut self, chain_id: u64) {
+        // multiple Txs has multiple reverts per ChainAddress, 
+        // filter out account chainges and storage changes for given chain_id
+        self.accounts = self
+            .accounts
+            .drain(..)
+            .map(|inner| {
+                inner.into_iter()
+                    .filter(|(chain, _)| chain.0 == chain_id)
+                    .collect()
+            })
+            .collect();
+        self.storage = self
+            .storage
+            .drain(..)
+            .map(|inner| {
+                inner.into_iter()
+                    .filter(|revert| revert.address.0 == chain_id)
+                    .collect()
+            })
+            .collect(); 
     }
 }
 

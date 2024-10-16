@@ -636,7 +636,6 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
                 call_options.msg_sender.0 = interpreter.chain_id;
                 ChainAddress(interpreter.chain_id, to)
             } else {
-                interpreter.chain_id = call_options.chain_id;
                 ChainAddress(call_options.chain_id, to)
             };
             (call_options, to)
@@ -645,7 +644,7 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
             (
                 CallOptions {
                     chain_id: interpreter.chain_id,
-                    sandbox: true,
+                    sandbox: false,
                     tx_origin: host.env().tx.caller,
                     msg_sender: interpreter.contract.target_address,
                     block_hash: None,
@@ -659,7 +658,7 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
     println!("call targets {:?}",
         CallTargets {
             target_address: if delegate || code { call_options.msg_sender } else { to },
-            caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender},
+            caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender },
             bytecode_address: if delegate { to.1.on_chain(call_options.chain_id) } else { to },
         }
     );

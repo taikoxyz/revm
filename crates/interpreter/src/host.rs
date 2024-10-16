@@ -3,7 +3,7 @@ use core::ops::{Deref, DerefMut};
 
 mod dummy;
 pub use dummy::DummyHost;
-use revm_primitives::ChainAddress;
+use revm_primitives::{ChainAddress, XCallData};
 
 /// EVM context host.
 pub trait Host {
@@ -49,6 +49,9 @@ pub trait Host {
 
     /// Emit a log owned by `address` with given `LogData`.
     fn log(&mut self, log: Log);
+
+    /// Store an xcall
+    fn xcall(&mut self, xcall: XCallData);
 
     /// Mark `address` to be deleted, with funds transferred to `target`.
     fn selfdestruct(

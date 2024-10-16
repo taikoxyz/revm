@@ -9,7 +9,7 @@ use crate::{
     inspectors::GasInspector,
     interpreter::{CallInputs, CreateInputs, Interpreter},
     primitives::{Address, ChainAddress, U256},
-    Database, EvmContext, Inspector,
+    SyncDatabase as Database, EvmContext, Inspector,
 };
 
 /// Custom print [Inspector], it has step level information of execution.

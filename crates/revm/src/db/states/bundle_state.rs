@@ -28,7 +28,7 @@ pub struct BundleBuilder {
     revert_account: HashMap<(u64, ChainAddress), Option<Option<AccountInfo>>>,
     revert_storage: HashMap<(u64, ChainAddress), Vec<(U256, U256)>>,
 
-    contracts: HashMap<B256, Bytecode>,
+    contracts: HashMap<(u64, B256), Bytecode>,
 }
 
 /// Option for [`BundleState`] when converting it to the plain state.
@@ -159,8 +159,8 @@ impl BundleBuilder {
     }
 
     /// Collect contracts info
-    pub fn contract(mut self, address: B256, bytecode: Bytecode) -> Self {
-        self.set_contract(address, bytecode);
+    pub fn contract(mut self, chain_id: u64, address: B256, bytecode: Bytecode) -> Self {
+        self.set_contract(chain_id, address, bytecode);
         self
     }
 
@@ -234,8 +234,8 @@ impl BundleBuilder {
     }
 
     /// Set contracts info.
-    pub fn set_contract(&mut self, address: B256, bytecode: Bytecode) -> &mut Self {
-        self.contracts.insert(address, bytecode);
+    pub fn set_contract(&mut self, chain_id: u64, address: B256, bytecode: Bytecode) -> &mut Self {
+        self.contracts.insert((chain_id, address), bytecode);
         self
     }
 
@@ -365,7 +365,7 @@ impl BundleBuilder {
     }
 
     /// Mutable getter for `contracts` field
-    pub fn get_contracts_mut(&mut self) -> &mut HashMap<B256, Bytecode> {
+    pub fn get_contracts_mut(&mut self) -> &mut HashMap<(u64, B256), Bytecode> {
         &mut self.contracts
     }
 }
@@ -399,7 +399,7 @@ pub struct BundleState {
     /// Account state.
     pub state: HashMap<ChainAddress, BundleAccount>,
     /// All created contracts in this block.
-    pub contracts: HashMap<B256, Bytecode>,
+    pub contracts: HashMap<(u64, B256), Bytecode>,
     /// Changes to revert.
     ///
     /// Note: Inside vector is *not* sorted by address.
@@ -436,7 +436,7 @@ impl BundleState {
                 ),
             >,
         >,
-        contracts: impl IntoIterator<Item = (B256, Bytecode)>,
+        contracts: impl IntoIterator<Item = ((u64, B256), Bytecode)>,
     ) -> Self {
         // Create state from iterator.
         let mut state_size = 0;
@@ -495,6 +495,58 @@ impl BundleState {
         }
     }
 
+    pub fn filter_for_chain(&self, chain_id: u64) -> Self {
+        let mut state_size = self.state_size;
+        let state = self
+            .state
+            .iter()
+            .filter_map(|(address, account)| {
+                if address.0 == chain_id {
+                    Some((*address, account.clone()))
+                } else {
+                    state_size -= account.size_hint();
+                    None
+                }
+            })
+            .collect();
+        let contracts = self
+            .contracts
+            .iter()
+            .filter_map(|((id, hash), bytecode)| {
+                if *id == chain_id {
+                    Some(((*id, *hash), bytecode.clone()))
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let mut reverts_size = self.reverts_size;
+        let reverts = self
+            .reverts
+            .iter()
+            .map(|block_reverts| {
+                block_reverts
+                    .iter()
+                    .filter_map(|(address, revert)| {
+                        if address.0 == chain_id {
+                            Some((*address, revert.clone()))
+                        } else {
+                            reverts_size -= revert.size_hint();
+                            None
+                        }
+                    })
+                    .collect::<Vec<_>>()
+            })
+            .collect::<Vec<_>>();
+        Self {
+            state,
+            contracts,
+            reverts: Reverts::new(reverts),
+            state_size,
+            reverts_size,
+        }
+    }
+
     /// Returns the approximate size of changes in the bundle state.
     /// The estimation is not precise, because the information about the number of
     /// destroyed entries that need to be removed is not accessible to the bundle state.
@@ -523,8 +575,8 @@ impl BundleState {
     }
 
     /// Get bytecode from state
-    pub fn bytecode(&self, hash: &B256) -> Option<Bytecode> {
-        self.contracts.get(hash).cloned()
+    pub fn bytecode(&self, chain_id: u64, hash: &B256) -> Option<Bytecode> {
+        self.contracts.get(&(chain_id, *hash)).cloned()
     }
 
     /// Consume [`TransitionState`] by applying the changes and creating the
@@ -549,7 +601,7 @@ impl BundleState {
         for (address, transition) in transitions.transitions.into_iter() {
             // add new contract if it was created/changed.
             if let Some((hash, new_bytecode)) = transition.has_new_contract() {
-                self.contracts.insert(hash, new_bytecode.clone());
+                self.contracts.insert((address.0, hash), new_bytecode.clone());
             }
             // update state and create revert.
             let revert = match self.state.entry(address) {
@@ -635,7 +687,7 @@ impl BundleState {
             .contracts
             .into_iter()
             // remove empty bytecodes
-            .filter(|(b, _)| *b != KECCAK_EMPTY)
+            .filter(|((_, b), _)| *b != KECCAK_EMPTY)
             .collect::<Vec<_>>();
         StateChangeset {
             accounts,
@@ -1302,7 +1354,7 @@ mod tests {
         assert!(builder.get_contracts_mut().is_empty());
         builder
             .get_contracts_mut()
-            .insert(B256::default(), Bytecode::default());
-        assert!(builder.get_contracts_mut().contains_key(&B256::default()));
+            .insert((0, B256::default()), Bytecode::default());
+        assert!(builder.get_contracts_mut().contains_key(&(0, B256::default())));
     }
 }

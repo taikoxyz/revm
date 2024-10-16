@@ -2,7 +2,7 @@
 use super::{GenericContextHandle, GenericContextHandleRet, GenericContextHandleChain};
 use crate::{
     handler::mainnet,
-    primitives::{db::Database, EVMError, Spec},
+    primitives::{db::SyncDatabase as Database, EVMError, Spec},
     Context, ContextPrecompiles,
 };
 use std::sync::Arc;

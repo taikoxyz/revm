@@ -1,6 +1,6 @@
 use crate::{
     handler::mainnet,
-    primitives::{db::Database, EVMError, Env, Spec},
+    primitives::{db::SyncDatabase as Database, EVMError, Env, Spec},
     Context,
 };
 use std::sync::Arc;

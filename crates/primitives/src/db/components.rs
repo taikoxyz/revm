@@ -6,7 +6,7 @@ pub use block_hash::{BlockHash, BlockHashRef};
 pub use state::{State, StateRef};
 
 use crate::{
-    db::{Database, DatabaseRef},
+    db::{SyncDatabase as Database, SyncDatabaseRef as DatabaseRef},
     Account, AccountInfo, Address, ChainAddress, Bytecode, HashMap, B256, U256,
 };
 

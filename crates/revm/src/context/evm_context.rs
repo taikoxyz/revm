@@ -4,7 +4,7 @@ use crate::primitives::CallOptions;
 
 use super::inner_evm_context::InnerEvmContext;
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     interpreter::{
         analysis::validate_eof, return_ok, CallInputs, Contract, CreateInputs, EOFCreateInputs,
         EOFCreateKind, Gas, InstructionResult, Interpreter, InterpreterResult,
@@ -214,7 +214,7 @@ impl<DB: Database> EvmContext<DB> {
         };
 
         // Only place that sets the Call Options
-        println!("make_call_frame *==> call_precompile {:?}", inputs.input);
+        //println!("make_call_frame *==> call_precompile {:?}", inputs.input);
         if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas, inputs.caller)? {
             if matches!(result.result, return_ok!()) {
                 self.journaled_state.checkpoint_commit();
@@ -227,7 +227,7 @@ impl<DB: Database> EvmContext<DB> {
                 inputs.return_memory_offset.clone(),
             ))
         } else {
-            println!("make_call_frame: load_code"); 
+            //println!("make_call_frame: load_code");
             let account = self
                 .inner
                 .journaled_state

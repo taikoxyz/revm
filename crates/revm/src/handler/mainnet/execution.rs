@@ -1,5 +1,5 @@
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     frame::EOFCreateFrame,
     interpreter::{
         return_ok, return_revert, CallInputs, CreateInputs, CreateOutcome, Gas, InstructionResult,
@@ -98,7 +98,6 @@ pub fn insert_call_outcome<EXT, DB: Database>(
     shared_memory: &mut SharedMemory,
     outcome: CallOutcome,
 ) -> Result<(), EVMError<DB::Error>> {
-    println!("mainnet::insert_call_outcome");
     context.evm.take_error()?;
     frame
         .frame_data_mut()

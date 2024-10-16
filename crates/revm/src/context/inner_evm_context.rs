@@ -1,5 +1,5 @@
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     interpreter::{
         analysis::to_analysed, gas, return_ok, AccountLoad, Eip7702CodeLoad, InstructionResult,
         InterpreterResult, SStoreResult, SelfDestructResult, StateLoad,
@@ -148,7 +148,6 @@ impl<DB: Database> InnerEvmContext<DB> {
         &mut self,
         address: ChainAddress,
     ) -> Result<StateLoad<&mut Account>, EVMError<DB::Error>> {
-        println!("InnerEvmCpntext::load_account");
         self.journaled_state.load_account(address, &mut self.db)
     }
 

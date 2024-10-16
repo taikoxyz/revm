@@ -3,7 +3,7 @@ use crate::{
     Host, SStoreResult, SelfDestructResult,
 };
 use std::vec::Vec;
-use revm_primitives::ChainAddress;
+use revm_primitives::{ChainAddress, XCallData};
 
 use super::{AccountLoad, Eip7702CodeLoad, StateLoad};
 
@@ -14,6 +14,7 @@ pub struct DummyHost {
     pub storage: HashMap<U256, U256>,
     pub transient_storage: HashMap<U256, U256>,
     pub log: Vec<Log>,
+    pub xcall: Vec<XCallData>,
 }
 
 impl DummyHost {
@@ -124,5 +125,10 @@ impl Host for DummyHost {
         _target: ChainAddress,
     ) -> Option<StateLoad<SelfDestructResult>> {
         Some(StateLoad::default())
+    }
+
+    #[inline]
+    fn xcall(&mut self, xcall: XCallData) {
+        self.xcall.push(xcall)
     }
 }

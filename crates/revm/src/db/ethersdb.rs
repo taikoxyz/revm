@@ -5,7 +5,7 @@ use ethers_providers::Middleware;
 use tokio::runtime::{Handle, Runtime};
 
 use crate::primitives::{AccountInfo, Address, Bytecode, ChainAddress, B256, U256};
-use crate::{Database, DatabaseRef};
+use crate::{SyncDatabase as Database, SyncDatabaseRef as DatabaseRef};
 
 use super::utils::HandleOrRuntime;
 

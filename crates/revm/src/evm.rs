@@ -1,18 +1,20 @@
+use revm_interpreter::{Gas, InstructionResult, InterpreterResult};
+
 use crate::{
     builder::{EvmBuilder, HandlerStage, SetGenericStage},
-    db::{Database, DatabaseCommit, EmptyDB},
+    db::{SyncDatabase as Database, DatabaseCommit, EmptyDB},
     handler::Handler,
     interpreter::{
         CallInputs, CreateInputs, EOFCreateInputs, Host, InterpreterAction, SharedMemory,
     },
     primitives::{
-        specification::SpecId, BlockEnv, CfgEnv, ChainAddress, EVMError, EVMResult, EnvWithHandlerCfg,
-        ExecutionResult, HandlerCfg, ResultAndState, TransactTo, TxEnv, TxKind, EOF_MAGIC_BYTES,
+        specification::SpecId, BlockEnv, Bytes, CfgEnv, ChainAddress, EVMError, EVMResult, EnvWithHandlerCfg,
+        ExecutionResult, HandlerCfg, ResultAndState, TransactTo, TxEnv, TxKind, EOF_MAGIC_BYTES, XCallData, XCallInput, XCallOutput,
     },
     Context, ContextWithHandlerCfg, Frame, FrameOrResult, FrameResult,
 };
-use core::fmt;
-use std::{boxed::Box, vec::Vec};
+use core::{fmt, future::pending};
+use std::{boxed::Box, collections::HashMap, vec::Vec};
 
 /// EVM call stack limit.
 pub const CALL_STACK_LIMIT: u64 = 1024;
@@ -92,11 +94,22 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
         let mut call_options = None;
         let mut cnt = 0;
 
+        let mut pending_xcalls: HashMap<u64, usize> = HashMap::new();
+        let mut xcall_idx = 0usize;
         loop {
             println!("loop: {}", cnt);
             cnt += 1;
 
+            // TODO(Brecht): Potential issue when revert happens after setting the options?
             stack_frame.interpreter_mut().call_options = std::mem::take(&mut call_options);
+
+            // The start of a smart contract execution after all initial checks have passed
+            if stack_frame.is_call() {
+                let input = stack_frame.interpreter().contract.input.clone();
+                println!("-> contract: {:?}, input: {}", stack_frame.interpreter().contract.target_address, input);
+                // TODO: Do something
+            }
+
             // Execute the frame.
             let next_action =
                 self.handler
@@ -107,8 +120,89 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
             self.context.evm.take_error()?;
 
             let exec = &mut self.handler.execution;
-            let frame_or_result = match next_action {
-                InterpreterAction::Call { inputs } => exec.call(&mut self.context, inputs)?,
+            let frame_or_result = match next_action.clone() {
+                InterpreterAction::Call { inputs } => {
+                    println!(">>> Call: {:?}", inputs);
+                    // We have to record xcalls, except those done to the parent chain (those will still execute locally)
+                    let is_xcall =  inputs.target_address.0 != stack_frame.frame_data().interpreter.chain_id && inputs.target_address.0 != self.context.evm.env.cfg.parent_chain_id.unwrap_or_default();
+                    println!("chain {} -> {} (is xcall: {})", inputs.target_address.0, stack_frame.frame_data().interpreter.chain_id, is_xcall);
+
+                    if is_xcall && self.context.evm.env.tx.xcalls.is_some() {
+                        let xcalls = self.context.evm.env.tx.xcalls.as_ref().unwrap();
+                        let gas = Gas::new(inputs.gas_limit);
+                        let return_result = |instruction_result: InstructionResult| {
+                            FrameOrResult::new_call_result(
+                                InterpreterResult {
+                                    result: instruction_result,
+                                    gas,
+                                    output: Bytes::new(),
+                                    call_options: None,
+                                },
+                                inputs.return_memory_offset.clone(),
+                            )
+                        };
+                        // Check depth
+                        if self.context.evm.journaled_state.depth() > CALL_STACK_LIMIT {
+                            return_result(InstructionResult::CallTooDeep)
+                        } else {
+                            let xcall = &xcalls[xcall_idx];
+                            xcall_idx += 1;
+                            FrameOrResult::new_call_result(
+                                InterpreterResult {
+                                    result: InstructionResult::Return,
+                                    gas: Gas::new(xcall.gas),
+                                    output: Bytes::from(xcall.output.clone()),
+                                    call_options: None,
+                                },
+                                inputs.return_memory_offset.clone(),
+                            )
+                        }
+                    } else {
+                        // Insert the xcall before the call is made, because the call might do more calls
+                        let pending_xcall_idx = self.context.evm.journaled_state.xcall(XCallData {
+                            input: XCallInput {
+                                input: inputs.clone().input,
+                                gas_limit: inputs.clone().gas_limit,
+                                bytecode_address: inputs.clone().bytecode_address,
+                                target_address: inputs.clone().target_address,
+                                caller: inputs.clone().caller,
+                                is_static: inputs.clone().is_static,
+                                is_eof: inputs.clone().is_eof,
+                            },
+                            output: XCallOutput {
+                                result: 0,
+                                output: Bytes::new(),
+                                gas: 0,
+                            }
+                        });
+
+                        let res = exec.call(&mut self.context, inputs.clone())?;
+                        match &res {
+                            FrameOrResult::Frame(_) => {
+                                if is_xcall {
+                                    println!("pending xcall at: {}", call_stack.len());
+                                    pending_xcalls.insert(call_stack.len() as u64, pending_xcall_idx);
+                                }
+                            }
+                            FrameOrResult::Result(FrameResult::Call(outcome)) => {
+                                println!("call done: {:?}", outcome);
+                                if let Some(&xcall_idx) = pending_xcalls.get(&(self.context.evm.journaled_state.depth())) {
+                                    println!("xcall: {:?}", xcall_idx);
+                                    // return_call
+                                    let xcall = &mut self.context.evm.journaled_state.xcalls[xcall_idx];
+                                    xcall.output.output = outcome.result.output.clone();
+                                    xcall.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
+                                } else {
+                                    println!("outcome: {:?}", outcome);
+                                }
+                            }
+                            _ => {
+                                println!("uncatched frame result");
+                            }
+                        };
+                        res
+                    }
+                }
                 InterpreterAction::Create { inputs } => exec.create(&mut self.context, inputs)?,
                 InterpreterAction::EOFCreate { inputs } => {
                     exec.eofcreate(&mut self.context, inputs)?
@@ -154,6 +248,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                     stack_frame = call_stack.last_mut().unwrap();
                 }
                 FrameOrResult::Result(result) => {
+                    let depth = call_stack.len();
                     let Some(top_frame) = call_stack.last_mut() else {
                         // Break the loop if there are no more frames.
                         return Ok(result);
@@ -165,6 +260,18 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                         FrameResult::Call(outcome) => {
                             // return_call
                             call_options = outcome.call_options.clone();
+
+                            println!("call done [{}] with return: {:?}", depth, outcome);
+                            //println!("pending xcalls: {:?}", pending_xcalls);
+                            if let Some(&xcall_idx) = pending_xcalls.get(&ctx.evm.journaled_state.depth()) {
+                                println!("xcall: {:?}", xcall_idx);
+                                let xcall = &mut ctx.evm.journaled_state.xcalls[xcall_idx];
+                                xcall.output.output = outcome.result.output.clone();
+                                xcall.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
+                            } else {
+                                println!("outcome uncatched: {:?}", outcome);
+                            }
+
                             exec.insert_call_outcome(ctx, stack_frame, &mut shared_memory, outcome)?
                         }
                         FrameResult::Create(outcome) => {
@@ -345,12 +452,14 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         let pre_exec = self.handler.pre_execution();
 
         // load access list and beneficiary if needed.
-        pre_exec.load_accounts(ctx, ctx.evm.env.cfg.chain_id)?;
+        pre_exec.load_accounts(ctx, ctx.evm.env.tx.caller.0)?;
 
         // load precompiles
-        let precompiles = pre_exec.load_precompiles();
-        println!("precompiles: {:?}", precompiles.addresses_set());
-        ctx.evm.set_precompiles(ctx.evm.env.cfg.chain_id, precompiles);
+        for chain_id in ctx.evm.env.tx.chain_ids.clone().unwrap_or(vec![ctx.evm.env.tx.caller.0]).into_iter() {
+            // TODO(Brecht): precompiles need to be aware of chain_id
+            let precompiles = pre_exec.load_precompiles();
+            ctx.evm.set_precompiles(chain_id, precompiles);
+        }
 
         // deduce caller balance with its limit.
         pre_exec.deduct_caller(ctx)?;
@@ -450,6 +559,7 @@ mod tests {
                 );
                 tx.caller = ChainAddress(chain_id, caller);
                 tx.transact_to = TransactTo::Call(ChainAddress(chain_id, auth));
+                tx.chain_ids = Some(vec![chain_id]);
             })
             .build();
 

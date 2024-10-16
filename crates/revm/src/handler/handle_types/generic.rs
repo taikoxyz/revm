@@ -1,5 +1,5 @@
 use crate::{
-    primitives::{db::Database, EVMResultGeneric},
+    primitives::{db::SyncDatabase as Database, EVMResultGeneric},
     Context,
 };
 use std::sync::Arc;

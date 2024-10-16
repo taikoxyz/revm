@@ -1,7 +1,7 @@
 use super::{cache::CacheState, state::DBBox, BundleState, State, TransitionState};
 use crate::db::EmptyDB;
 use revm_interpreter::primitives::{
-    db::{Database, DatabaseRef, WrapDatabaseRef},
+    db::{SyncDatabase as Database, SyncDatabaseRef as DatabaseRef, WrapDatabaseRef},
     B256,
 };
 use std::collections::BTreeMap;
