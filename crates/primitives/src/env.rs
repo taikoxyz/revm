@@ -3,9 +3,9 @@ pub mod handler_cfg;
 pub use handler_cfg::{CfgEnvWithHandlerCfg, EnvWithHandlerCfg, HandlerCfg};
 
 use crate::{
-    calc_blob_gasprice, AccessListItem, Account, Address, AuthorizationList, Bytes, InvalidHeader,
-    InvalidTransaction, Spec, SpecId, B256, GAS_PER_BLOB, MAX_BLOB_NUMBER_PER_BLOCK, MAX_CODE_SIZE,
-    MAX_INITCODE_SIZE, U256, VERSIONED_HASH_VERSION_KZG, ChainAddress,
+    calc_blob_gasprice, AccessListItem, Account, Address, AuthorizationList, Bytes, ChainAddress,
+    InvalidHeader, InvalidTransaction, Spec, SpecId, XCallOutput, B256, GAS_PER_BLOB, MAX_BLOB_NUMBER_PER_BLOCK, MAX_CODE_SIZE,
+    MAX_INITCODE_SIZE, U256, VERSIONED_HASH_VERSION_KZG
 };
 use core::cmp::{min, Ordering};
 use core::hash::Hash;
