@@ -50,14 +50,15 @@ asm-keccak = ["revm-primitives/asm-keccak"]
 portable = ["revm-primitives/portable"]
 parse = ["dep:paste", "dep:phf"]
 
-optimism = ["revm-primitives/optimism"]
+optimism = []
+taiko = ["revm-primitives/taiko"]
 # Optimism default handler enabled Optimism handler register by default in EvmBuilder.
-optimism-default-handler = [
-    "optimism",
-    "revm-primitives/optimism-default-handler",
+taiko-default-handler = [
+    "taiko",
+    "revm-primitives/taiko-default-handler",
 ]
-negate-optimism-default-handler = [
-    "revm-primitives/negate-optimism-default-handler",
+negate-taiko-default-handler = [
+    "revm-primitives/negate-taiko-default-handler",
 ]
 
 dev = [

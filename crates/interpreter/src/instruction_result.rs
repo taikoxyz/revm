@@ -137,8 +137,6 @@ impl From<HaltReason> for InstructionResult {
             HaltReason::EofAuxDataTooSmall => Self::EofAuxDataTooSmall,
             HaltReason::EOFFunctionStackOverflow => Self::EOFFunctionStackOverflow,
             HaltReason::InvalidEXTCALLTarget => Self::InvalidEXTCALLTarget,
-            #[cfg(feature = "optimism")]
-            HaltReason::FailedDeposit => Self::FatalExternalError,
         }
     }
 }

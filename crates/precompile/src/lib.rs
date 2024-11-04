@@ -22,6 +22,7 @@ pub mod secp256k1;
 #[cfg(feature = "secp256r1")]
 pub mod secp256r1;
 pub mod utilities;
+pub mod zk_op;
 
 pub use fatal_precompile::fatal_precompile;
 
@@ -294,10 +295,8 @@ impl PrecompileSpecId {
             CANCUN => Self::CANCUN,
             PRAGUE | PRAGUE_EOF => Self::PRAGUE,
             LATEST => Self::LATEST,
-            #[cfg(feature = "optimism")]
-            BEDROCK | REGOLITH | CANYON => Self::BERLIN,
-            #[cfg(feature = "optimism")]
-            ECOTONE | FJORD | GRANITE | HOLOCENE => Self::CANCUN,
+            #[cfg(feature = "taiko")]
+            KATLA | HEKLA | ONTAKE => Self::BERLIN,
         }
     }
 }

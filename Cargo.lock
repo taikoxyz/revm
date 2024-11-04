@@ -75,7 +75,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-serde",
- "c-kzg",
+ "c-kzg 1.0.3",
  "serde",
 ]
 
@@ -117,7 +117,7 @@ dependencies = [
  "alloy-primitives",
  "alloy-rlp",
  "alloy-serde",
- "c-kzg",
+ "c-kzg 1.0.3",
  "once_cell",
  "serde",
  "sha2",
@@ -834,6 +834,19 @@ version = "1.7.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8318a53db07bb3f8dca91a600466bdb3f2eaadeedfdbcf02e1accbad9271ba50"
 dependencies = [
+ "serde",
+]
+
+[[package]]
+name = "c-kzg"
+version = "1.0.0"
+source = "git+https://github.com/brechtpd/c-kzg-4844?branch=for-alpha7#3bf0372e8c7a4ba908aff65da0508fcaaf9d38e6"
+dependencies = [
+ "blst",
+ "cc",
+ "glob",
+ "hex",
+ "libc",
  "serde",
 ]
 
@@ -3170,7 +3183,7 @@ version = "11.0.3"
 dependencies = [
  "aurora-engine-modexp",
  "blst",
- "c-kzg",
+ "c-kzg 1.0.0",
  "cfg-if",
  "criterion",
  "eyre",
@@ -3200,7 +3213,7 @@ dependencies = [
  "auto_impl",
  "bitflags 2.6.0",
  "bitvec",
- "c-kzg",
+ "c-kzg 1.0.3",
  "cfg-if",
  "dyn-clone",
  "enumn",
