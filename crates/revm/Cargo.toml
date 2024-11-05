@@ -84,7 +84,7 @@ portable = ["revm-precompile/portable", "revm-interpreter/portable"]
 
 test-utils = []
 
-optimism = ["revm-interpreter/taiko", "revm-precompile/taiko"]
+optimism = []
 taiko = ["revm-interpreter/taiko", "revm-precompile/taiko"]
 # Taiko default handler enabled Taiko handler register by default in EvmBuilder.
 taiko-default-handler = [
