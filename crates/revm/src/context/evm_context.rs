@@ -118,9 +118,10 @@ impl<DB: Database> EvmContext<DB> {
         caller: ChainAddress,
     ) -> Result<Option<InterpreterResult>, EVMError<DB::Error>> {
         println!("call_precompile {:?}", address);
+        let mut call_options = None;
         let Some(outcome) =
             self.precompiles
-                .call(&address.1, input_data, gas.limit(), &mut self.inner, caller)
+                .call(&address.1, input_data, gas.limit(), &mut self.inner, caller, &mut call_options)
         else {
             return Ok(None);
         };
@@ -137,7 +138,7 @@ impl<DB: Database> EvmContext<DB> {
                 if result.gas.record_cost(output.gas_used) {
                     result.result = InstructionResult::Return;
                     result.output = output.bytes.clone();
-                    result.call_options = output.bytes.try_into().ok();
+                    result.call_options = call_options;
                 } else {
                     result.result = InstructionResult::PrecompileOOG;
                 }

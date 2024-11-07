@@ -7,7 +7,7 @@ pub const XCALLOPTIONS: PrecompileWithAddress = PrecompileWithAddress(
 );
 
 /// Sets the xcall options
-fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddress) -> PrecompileResult {
+fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddress, call_options: &mut Option<CallOptions>) -> PrecompileResult {
     println!("  xcalloptions_run");
     // Verify input length.
     if input.len() < 83 {
@@ -37,19 +37,16 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
     }
 
     // Set the call options
-    let call_options = CallOptions {
+    *call_options = Some(CallOptions {
         chain_id,
         sandbox,
         tx_origin: ChainAddress(chain_id, tx_origin),
         msg_sender: ChainAddress(chain_id, msg_sender),
         block_hash,
         proof: proof.to_vec(),
-    };
+    });
     println!("  CallOptions: {:?}", call_options);
 
-    let mut prefix = b"XCallOptions".to_vec();
-    prefix.extend_from_slice(&input);
-
-    Ok(PrecompileOutput::new(0, Bytes::copy_from_slice(&prefix)))
+    Ok(PrecompileOutput::new(0, Bytes::new()))
 }
 
