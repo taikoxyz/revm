@@ -1,7 +1,7 @@
 mod call_helpers;
 
 pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges, resize_memory};
-use revm_primitives::{CallOptions, ChainAddress};
+use revm_primitives::{CallOptions, ChainAddress, OnChain};
 
 use crate::{
     gas::{self, cost_per_word, EOF_CREATE_GAS, KECCAK256WORD, MIN_CALLEE_GAS},
@@ -15,6 +15,7 @@ use crate::{
 use core::cmp::max;
 use std::boxed::Box;
 
+#[derive(Debug, Clone)]
 pub struct CallTargets {
     /// The account address of bytecode that is going to be executed.
     ///
@@ -156,6 +157,8 @@ pub fn return_contract<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &
             output,
             gas: interpreter.gas,
             result,
+            // TODO(Cecilia): only precompile is allowed to return call options but we will see.
+            call_options: None 
         },
     };
 }
@@ -412,7 +415,7 @@ pub fn create<const IS_CREATE2: bool, H: Host + ?Sized, SPEC: Spec>(
 }
 
 pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    println!("brecht: contract::call");
+    println!("contract::call");
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
 
@@ -594,11 +597,6 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
     };
     gas!(interpreter, gas_limit);
 
-    // TODO(Brecht): well, it's complicated
-    if call_targets.target_address.1 == u64_to_address(1234) {
-        xcalloptions_run(&input, &mut interpreter.call_options);
-    }
-
     // Call host to interact with target contract
     interpreter.next_action = InterpreterAction::Call {
         inputs: Box::new(CallInputs {
@@ -617,77 +615,60 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
     interpreter.instruction_result = InstructionResult::CallOrCreate;
 }
 
+/// Apply call options to the interpreter.
+/// This is after the PREVIOUS call into precompile return the CallOptions.
+/// User sets the `delegate` and `code` flags in the next call after context switching.
 pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H, to: Address, delegate: bool, code: bool) -> CallTargets {
-    let call_options = interpreter.call_options.clone().unwrap_or_else(|| {
-        println!("using default call options");
-        CallOptions{
-            chain_id: interpreter.chain_id,
-            sandbox: false,
-            tx_origin: host.env().tx.caller,
-            msg_sender: interpreter.contract.target_address,
-            block_hash: None,
-            proof: std::vec::Vec::new(),
+    println!("apply_call_options {:?}", interpreter.call_options);
+    let (call_options, to) = match interpreter.call_options.clone() {
+        Some(mut call_options) => {
+            if !call_options.sandbox {
+                // Already checked in precompiles but let's do it again
+                if call_options.msg_sender.1 != interpreter.contract.target_address.1 
+                    || call_options.tx_origin.1 != host.env().tx.caller.1
+                {
+                    interpreter.instruction_result = InstructionResult::Stop;
+                }
+            }
+            // In delegate call, the caller & target address remains on the same chain
+            // Otherwise set to the other chain.
+            let to = if delegate {
+                call_options.msg_sender.0 = interpreter.chain_id;
+                ChainAddress(interpreter.chain_id, to)
+            } else {
+                ChainAddress(call_options.chain_id, to)
+            };
+            (call_options, to)
+        },
+        None => {
+            (
+                CallOptions {
+                    chain_id: interpreter.chain_id,
+                    sandbox: false,
+                    tx_origin: host.env().tx.caller,
+                    msg_sender: interpreter.contract.target_address,
+                    block_hash: None,
+                    proof: Vec::new(),
+                }, 
+                ChainAddress(interpreter.chain_id, to)
+            )
         }
-    });
-    println!("Consuming call options: {:?}", call_options);
+    };
+
+    println!("call targets {:?}",
+        CallTargets {
+            target_address: if delegate || code { call_options.msg_sender } else { to },
+            caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender },
+            bytecode_address: if delegate { to.1.on_chain(call_options.chain_id) } else { to },
+        }
+    );
 
     // Consume the values
     interpreter.call_options = None;
 
-    // Set the specified chain id on the to address
-    let to = ChainAddress(call_options.chain_id, to);
-
     CallTargets {
-        target_address: if delegate || code { interpreter.contract.target_address } else { to },
-        caller: if delegate { interpreter.contract.caller } else { interpreter.contract.target_address },
-        bytecode_address: to,
+        target_address: if delegate || code { call_options.msg_sender } else { to },
+        caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender},
+        bytecode_address: if delegate { to.1.on_chain(call_options.chain_id) } else { to },
     }
-}
-
-#[inline]
-pub const fn u64_to_address(x: u64) -> Address {
-    let x = x.to_be_bytes();
-    Address::new([
-        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, x[0], x[1], x[2], x[3], x[4], x[5], x[6], x[7],
-    ])
-}
-
-/// Sets the xcall options
-fn xcalloptions_run(input: &[u8], call_options: &mut Option<CallOptions>) {
-    println!("xcalloptions_run[{}]: {:?}", input.len(), input);
-
-    // Verify input length.
-    // if input.len() < 83 {
-    //     return Err(Error::XCallOptionsInvalidInputLength.into());
-    // }
-
-    // Read the input data
-    let version = u16::from_be_bytes(input[0..2].try_into().unwrap());
-    let chain_id = u64::from_be_bytes(input[2..10].try_into().unwrap());
-    let sandbox = input[10] != 0;
-    let tx_origin = Address(input[11..31].try_into().unwrap());
-    let msg_sender = Address(input[31..51].try_into().unwrap());
-    let block_hash = Some(input[51..83].try_into().unwrap());
-    let proof = &input[83..];
-
-    println!("version: {}", version);
-
-    // Check the version
-    // if version != 1 {
-    //     return Err(Error::XCallOptionsInvalidInputLength.into());
-    // }
-
-    // Set the call options
-    *call_options = Some(CallOptions {
-        chain_id,
-        sandbox,
-        tx_origin: ChainAddress(chain_id, tx_origin),
-        msg_sender: ChainAddress(chain_id, msg_sender),
-        block_hash,
-        proof: proof.to_vec(),
-    });
-
-    println!("setting xcalloptions: {:?}", call_options);
-
-    //Ok(PrecompileOutput::new(0, Bytes::default()))
 }

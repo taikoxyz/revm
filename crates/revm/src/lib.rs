@@ -34,7 +34,7 @@ pub use context::{
 pub use db::{
     CacheState, DBBox, State, StateBuilder, StateDBBox, TransitionAccount, TransitionState,
 };
-pub use db::{Database, DatabaseCommit, DatabaseRef, InMemoryDB};
+pub use db::{SyncDatabase, DatabaseRef, Database, DatabaseCommit, SyncDatabaseRef, InMemoryDB};
 pub use evm::{Evm, CALL_STACK_LIMIT};
 pub use frame::{CallFrame, CreateFrame, Frame, FrameData, FrameOrResult, FrameResult};
 pub use handler::Handler;

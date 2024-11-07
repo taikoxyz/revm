@@ -28,7 +28,10 @@ name = "transfer"
 name = "burntpix"
 
 [[bin]]
-name = "gwyneth"
+name = "xTransfer"
 
 [[bin]]
-name = "counter"
+name = "xOwner"
+
+[[bin]]
+name = "xBallot"

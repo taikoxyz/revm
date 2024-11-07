@@ -4,7 +4,7 @@ use revm_interpreter::CallOutcome;
 
 use crate::{
     interpreter::{CallInputs, CreateInputs, CreateOutcome},
-    primitives::db::Database,
+    primitives::db::SyncDatabase as Database,
     EvmContext, Inspector,
 };
 
@@ -90,7 +90,7 @@ mod tests {
         inspectors::GasInspector,
         interpreter::{CallInputs, CreateInputs, Interpreter},
         primitives::{Log, ChainAddress, TransactTo},
-        Database, EvmContext, Inspector,
+        SyncDatabase as Database, EvmContext, Inspector,
     };
 
     #[derive(Default, Debug)]

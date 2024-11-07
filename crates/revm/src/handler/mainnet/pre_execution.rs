@@ -5,7 +5,7 @@
 use crate::{
     precompile::PrecompileSpecId,
     primitives::{
-        db::Database,
+        db::SyncDatabase as Database,
         eip7702, Account, Bytecode, ChainAddress, EVMError, Env, Spec,
         SpecId::{CANCUN, PRAGUE, SHANGHAI},
         TransactTo, TxKind, BLOCKHASH_STORAGE_ADDRESS, U256,
@@ -123,7 +123,7 @@ pub fn apply_eip7702_auth_list<SPEC: Spec, EXT, DB: Database>(
 
         // 2. Verify the chain id is either 0 or the chain's current ID.
         if !authorization.chain_id().is_zero()
-            && authorization.chain_id() != U256::from(context.evm.inner.env.cfg.chain_id)
+            && !context.evm.inner.env.tx.chain_ids.clone().unwrap_or_default().contains(&authorization.chain_id().as_limbs()[0])
         {
             continue;
         }

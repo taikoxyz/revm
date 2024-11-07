@@ -4,7 +4,8 @@ use regex::bytes::Regex;
 use revm::{
     db::{CacheDB, EmptyDB},
     primitives::{
-        address, hex, keccak256, AccountInfo, Address, Bytecode, Bytes, ChainAddress, ExecutionResult, Output, TransactTo, TxKind, B256, U256
+        address, hex, keccak256, AccountInfo, Address, Bytecode, Bytes, ChainAddress,
+        ExecutionResult, Output, TransactTo, TxKind, B256, U256,
     },
     Evm,
 };

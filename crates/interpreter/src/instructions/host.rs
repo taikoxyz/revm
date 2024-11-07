@@ -133,6 +133,7 @@ pub fn sstore<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host:
     require_non_staticcall!(interpreter);
 
     pop!(interpreter, index, value);
+    println!("addr: {:?} index: {:?}, value: {:?}", interpreter.contract.target_address, index, value);
     let Some(state_load) = host.sstore(interpreter.contract.target_address, index, value) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;

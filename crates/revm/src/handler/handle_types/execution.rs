@@ -2,7 +2,7 @@ use crate::{
     frame::EOFCreateFrame,
     handler::mainnet,
     interpreter::{CallInputs, CreateInputs, SharedMemory},
-    primitives::{db::Database, EVMError, Spec},
+    primitives::{db::SyncDatabase as Database, EVMError, Spec},
     CallFrame, Context, CreateFrame, Frame, FrameOrResult, FrameResult,
 };
 use revm_interpreter::{
@@ -172,7 +172,7 @@ impl<'a, EXT, DB: Database> ExecutionHandler<'a, EXT, DB> {
         instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
         context: &mut Context<EXT, DB>,
     ) -> Result<InterpreterAction, EVMError<DB::Error>> {
-        //println!("ExecutionHandler::execute_frame");
+        //println!("ExecutionHandler::execute_frame {:?}", context.evm.env.tx.caller);
         (self.execute_frame)(frame, shared_memory, instruction_tables, context)
     }
 
@@ -183,7 +183,6 @@ impl<'a, EXT, DB: Database> ExecutionHandler<'a, EXT, DB> {
         context: &mut Context<EXT, DB>,
         frame_result: &mut FrameResult,
     ) -> Result<(), EVMError<DB::Error>> {
-        //println!("ExecutionHandler::last_frame_return");
         (self.last_frame_return)(context, frame_result)
     }
 
@@ -194,7 +193,6 @@ impl<'a, EXT, DB: Database> ExecutionHandler<'a, EXT, DB> {
         context: &mut Context<EXT, DB>,
         inputs: Box<CallInputs>,
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
-        //println!("ExecutionHandler::call {:?}", inputs);
         (self.call)(context, inputs)
     }
 
@@ -228,6 +226,7 @@ impl<'a, EXT, DB: Database> ExecutionHandler<'a, EXT, DB> {
         context: &mut Context<EXT, DB>,
         inputs: Box<CreateInputs>,
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
+        println!("ExecutionHandler::create");
         (self.create)(context, inputs)
     }
 
