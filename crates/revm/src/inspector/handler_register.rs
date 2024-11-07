@@ -1,5 +1,5 @@
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     handler::register::EvmHandler,
     interpreter::{opcode, InstructionResult, Interpreter},
     primitives::EVMError,

@@ -121,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_serde() {
-        let interp = Interpreter::new(Contract::default(), u64::MAX, false);
+        let interp = Interpreter::new(Contract::default(), u64::MAX, false, 1, false);
         let serialized = bincode::serialize(&interp).unwrap();
         let de: Interpreter = bincode::deserialize(&serialized).unwrap();
         assert_eq!(interp.program_counter(), de.program_counter());

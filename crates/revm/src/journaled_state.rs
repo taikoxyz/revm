@@ -3,14 +3,14 @@ use revm_interpreter::Eip7702CodeLoad;
 use crate::{
     interpreter::{AccountLoad, InstructionResult, SStoreResult, SelfDestructResult, StateLoad},
     primitives::{
-        db::Database, hash_map::Entry, Account, Address, Bytecode, EVMError, EvmState,
+        db::SyncDatabase as Database, hash_map::Entry, Account, Address, Bytecode, EVMError, EvmState,
         EvmStorageSlot, HashMap, HashSet, Log, SpecId, SpecId::*, TransientStorage, B256,
         KECCAK_EMPTY, PRECOMPILE3, U256,
     },
 };
 use core::mem;
 use std::vec::Vec;
-use crate::primitives::ChainAddress;
+use crate::primitives::{ChainAddress, XCallData};
 
 /// A journal of state changes internal to the EVM.
 ///
@@ -26,6 +26,8 @@ pub struct JournaledState {
     pub transient_storage: TransientStorage,
     /// Emitted logs.
     pub logs: Vec<Log>,
+    /// xcalls done as part of this tx.
+    pub xcalls: Vec<XCallData>,
     /// The current call stack depth.
     pub depth: usize,
     /// The journal of state changes, one for each call.
@@ -68,6 +70,7 @@ impl JournaledState {
             depth: 0,
             spec,
             warm_preloaded_addresses,
+            xcalls: Vec::new(),
         }
     }
 
@@ -112,7 +115,7 @@ impl JournaledState {
     ///
     /// This resets the [JournaledState] to its initial state in [Self::new]
     #[inline]
-    pub fn finalize(&mut self) -> (EvmState, Vec<Log>) {
+    pub fn finalize(&mut self) -> (EvmState, Vec<Log>, Vec<XCallData>) {
         let Self {
             state,
             transient_storage,
@@ -122,6 +125,7 @@ impl JournaledState {
             // kept, see [Self::new]
             spec: _,
             warm_preloaded_addresses: _,
+            xcalls,
         } = self;
 
         *transient_storage = TransientStorage::default();
@@ -129,8 +133,9 @@ impl JournaledState {
         *depth = 0;
         let state = mem::take(state);
         let logs = mem::take(logs);
+        let xcalls = mem::take(xcalls);
 
-        (state, logs)
+        (state, logs, xcalls)
     }
 
     /// Returns the _loaded_ [Account] for the given address.
@@ -431,6 +436,7 @@ impl JournaledState {
     pub fn checkpoint(&mut self) -> JournalCheckpoint {
         let checkpoint = JournalCheckpoint {
             log_i: self.logs.len(),
+            xcall_i: self.xcalls.len(),
             journal_i: self.journal.len(),
         };
         self.depth += 1;
@@ -467,6 +473,7 @@ impl JournaledState {
             });
 
         self.logs.truncate(checkpoint.log_i);
+        self.xcalls.truncate(checkpoint.xcall_i);
         self.journal.truncate(checkpoint.journal_i);
     }
 
@@ -628,7 +635,6 @@ impl JournaledState {
         address: ChainAddress,
         db: &mut DB,
     ) -> Result<AccountLoad, EVMError<DB::Error>> {
-        println!("JournaledState::load_account_delegated");
         let spec = self.spec;
         let account = self.load_code(address, db)?;
         let is_empty = account.state_clear_aware_is_empty(spec);
@@ -829,6 +835,13 @@ impl JournaledState {
     pub fn log(&mut self, log: Log) {
         self.logs.push(log);
     }
+
+    /// push xcall into subroutine
+    #[inline]
+    pub fn xcall(&mut self, xcall: XCallData) -> usize {
+        self.xcalls.push(xcall);
+        self.xcalls.len() - 1
+    }
 }
 
 /// Journal entries that are used to track changes to the state and are used to revert it.
@@ -902,5 +915,6 @@ pub enum JournalEntry {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct JournalCheckpoint {
     log_i: usize,
+    xcall_i: usize,
     journal_i: usize,
 }

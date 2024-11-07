@@ -3,11 +3,10 @@ pub mod handler_cfg;
 pub use handler_cfg::{CfgEnvWithHandlerCfg, EnvWithHandlerCfg, HandlerCfg};
 
 use crate::{
-    calc_blob_gasprice, AccessListItem, Account, Address, AuthorizationList, Bytes, InvalidHeader,
-    InvalidTransaction, Spec, SpecId, B256, GAS_PER_BLOB, MAX_BLOB_NUMBER_PER_BLOCK, MAX_CODE_SIZE,
-    MAX_INITCODE_SIZE, U256, VERSIONED_HASH_VERSION_KZG, ChainAddress,
+    calc_blob_gasprice, AccessListItem, Account, Address, AuthorizationList, Bytes, ChainAddress,
+    InvalidHeader, InvalidTransaction, Spec, SpecId, XCallOutput, B256, GAS_PER_BLOB, MAX_BLOB_NUMBER_PER_BLOCK, MAX_CODE_SIZE,
+    MAX_INITCODE_SIZE, U256, VERSIONED_HASH_VERSION_KZG
 };
-use alloy_primitives::TxKind;
 use core::cmp::{min, Ordering};
 use core::hash::Hash;
 use std::boxed::Box;
@@ -94,9 +93,14 @@ impl Env {
     #[inline]
     pub fn validate_tx<SPEC: Spec>(&self) -> Result<(), InvalidTransaction> {
         // Check if the transaction's chain id is correct
-        if let Some(tx_chain_id) = self.tx.chain_id {
-            if tx_chain_id != self.cfg.chain_id {
+        if let Some(chain_ids) = self.tx.chain_ids.clone() {
+            if !chain_ids.contains(&self.tx.caller.0) {
                 return Err(InvalidTransaction::InvalidChainId);
+            }
+            if let TransactTo::Call(to) = self.tx.transact_to {
+                if !chain_ids.contains(&to.0) || self.tx.caller.0 != to.0 {
+                    return Err(InvalidTransaction::InvalidChainId);
+                }
             }
         }
 
@@ -204,7 +208,7 @@ impl Env {
             }
 
             // Check validity of authorization_list
-            auth_list.is_valid(self.cfg.chain_id)?;
+            auth_list.is_valid(self.tx.caller.0)?;
 
             // Check if other fields are unset.
             if self.tx.max_fee_per_blob_gas.is_some() || !self.tx.blob_hashes.is_empty() {
@@ -287,9 +291,6 @@ impl Env {
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct CfgEnv {
-    /// Chain ID of the EVM, it will be compared to the transaction's Chain ID.
-    /// Chain ID is introduced EIP-155
-    pub chain_id: u64,
     /// KZG Settings for point evaluation precompile. By default, this is loaded from the ethereum mainnet trusted setup.
     #[cfg(any(feature = "c-kzg", feature = "kzg-rs"))]
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -336,8 +337,8 @@ pub struct CfgEnv {
     /// By default, it is set to `false`.
     #[cfg(feature = "optional_beneficiary_reward")]
     pub disable_beneficiary_reward: bool,
-    /// Chain ID of the parent chain, `0` for no parent chain
-    pub parent_chain_id: u64,
+    /// Chain ID of the parent chain
+    pub parent_chain_id: Option<u64>,
 }
 
 impl CfgEnv {
@@ -347,8 +348,8 @@ impl CfgEnv {
         self.limit_contract_code_size.unwrap_or(MAX_CODE_SIZE)
     }
 
-    pub fn with_chain_id(mut self, chain_id: u64) -> Self {
-        self.chain_id = chain_id;
+    pub fn with_parent_chain_id(mut self, parent_chain_id: u64) -> Self {
+        self.parent_chain_id = Some(parent_chain_id);
         self
     }
 
@@ -416,8 +417,7 @@ impl CfgEnv {
 impl Default for CfgEnv {
     fn default() -> Self {
         Self {
-            chain_id: 1,
-            parent_chain_id: 1,
+            parent_chain_id: None,
             perf_analyse_created_bytecodes: AnalysisKind::default(),
             limit_contract_code_size: None,
             #[cfg(any(feature = "c-kzg", feature = "kzg-rs"))]
@@ -560,7 +560,7 @@ pub struct TxEnv {
     /// Incorporated as part of the Spurious Dragon upgrade via [EIP-155].
     ///
     /// [EIP-155]: https://eips.ethereum.org/EIPS/eip-155
-    pub chain_id: Option<u64>,
+    pub chain_ids: Option<Vec<u64>>,
 
     /// A list of addresses and storage keys that the transaction plans to access.
     ///
@@ -603,6 +603,10 @@ pub struct TxEnv {
     #[cfg(feature = "optimism")]
     /// Optimism fields.
     pub optimism: OptimismFields,
+
+    /// The list, in sequential order, of all the precomputed xcalls
+    /// Set in sync mode
+    pub xcalls: Option<Vec<XCallOutput>>,
 }
 
 pub enum TxType {
@@ -639,7 +643,7 @@ impl Default for TxEnv {
             transact_to: TransactTo::Call(ChainAddress(1, Address::ZERO)), // will do nothing
             value: U256::ZERO,
             data: Bytes::new(),
-            chain_id: None,
+            chain_ids: None,
             nonce: None,
             access_list: Vec::new(),
             blob_hashes: Vec::new(),
@@ -647,6 +651,7 @@ impl Default for TxEnv {
             authorization_list: None,
             #[cfg(feature = "optimism")]
             optimism: OptimismFields::default(),
+            xcalls: None,
         }
     }
 }
@@ -721,7 +726,6 @@ use alloy_rlp::{Buf, BufMut, Decodable, Encodable, EMPTY_STRING_CODE};
 /// The `to` field of a transaction. Either a target address, or empty for a
 /// contract creation.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "arbitrary", derive(derive_arbitrary::Arbitrary, proptest_derive::Arbitrary))]
 pub enum TransactTo {
     /// A transaction that creates a contract.
     #[default]
@@ -911,35 +915,6 @@ pub struct CallOptions {
     pub proof: Vec<u8>,
 }
 
-
-impl TryFrom<Bytes> for CallOptions {
-    type Error = (); 
-    fn try_from(input: Bytes) -> Result<Self, ()> {
-        if input.len() < 95 {
-            return Err(());
-        }
-        let prefix = String::from_utf8(input[0..12].to_vec()).unwrap();
-        assert_eq!(prefix, "XCallOptions");
-        let input = &input[12..];
-        let _version = u16::from_be_bytes(input[0..2].try_into().unwrap());
-        let chain_id = u64::from_be_bytes(input[2..10].try_into().unwrap());
-        let sandbox = input[10] != 0;
-        let tx_origin = Address(input[11..31].try_into().unwrap());
-        let msg_sender = Address(input[31..51].try_into().unwrap());
-        let block_hash = Some(input[51..83].try_into().unwrap());
-        let proof = &input[83..];
-
-        Ok(CallOptions {
-            chain_id,
-            sandbox,
-            tx_origin: ChainAddress(chain_id, tx_origin),
-            msg_sender: ChainAddress(chain_id, msg_sender),
-            block_hash,
-            proof: proof.to_vec(),
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -947,8 +922,7 @@ mod tests {
     #[test]
     fn test_validate_tx_chain_id() {
         let mut env = Env::default();
-        env.tx.chain_id = Some(1);
-        env.cfg.chain_id = 2;
+        env.tx.chain_ids = Some(vec![1]);
         assert_eq!(
             env.validate_tx::<crate::LatestSpec>(),
             Err(InvalidTransaction::InvalidChainId)

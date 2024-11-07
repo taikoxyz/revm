@@ -4,7 +4,7 @@ use crate::primitives::CallOptions;
 
 use super::inner_evm_context::InnerEvmContext;
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     interpreter::{
         analysis::validate_eof, return_ok, CallInputs, Contract, CreateInputs, EOFCreateInputs,
         EOFCreateKind, Gas, InstructionResult, Interpreter, InterpreterResult,
@@ -118,9 +118,10 @@ impl<DB: Database> EvmContext<DB> {
         caller: ChainAddress,
     ) -> Result<Option<InterpreterResult>, EVMError<DB::Error>> {
         println!("call_precompile {:?}", address);
+        let mut call_options = None;
         let Some(outcome) =
             self.precompiles
-                .call(&address.1, input_data, gas.limit(), &mut self.inner, caller)
+                .call(&address.1, input_data, gas.limit(), &mut self.inner, caller, &mut call_options)
         else {
             return Ok(None);
         };
@@ -137,7 +138,7 @@ impl<DB: Database> EvmContext<DB> {
                 if result.gas.record_cost(output.gas_used) {
                     result.result = InstructionResult::Return;
                     result.output = output.bytes.clone();
-                    result.call_options = output.bytes.try_into().ok();
+                    result.call_options = call_options;
                 } else {
                     result.result = InstructionResult::PrecompileOOG;
                 }
@@ -214,7 +215,7 @@ impl<DB: Database> EvmContext<DB> {
         };
 
         // Only place that sets the Call Options
-        println!("make_call_frame *==> call_precompile {:?}", inputs.input);
+        //println!("make_call_frame *==> call_precompile {:?}", inputs.input);
         if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas, inputs.caller)? {
             if matches!(result.result, return_ok!()) {
                 self.journaled_state.checkpoint_commit();
@@ -227,7 +228,7 @@ impl<DB: Database> EvmContext<DB> {
                 inputs.return_memory_offset.clone(),
             ))
         } else {
-            println!("make_call_frame: load_code"); 
+            //println!("make_call_frame: load_code");
             let account = self
                 .inner
                 .journaled_state

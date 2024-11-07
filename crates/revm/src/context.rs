@@ -11,9 +11,9 @@ pub use inner_evm_context::InnerEvmContext;
 use revm_interpreter::{as_u64_saturated, Eip7702CodeLoad, StateLoad};
 
 use crate::{
-    db::{Database, EmptyDB},
+    db::{SyncDatabase as Database, EmptyDB},
     interpreter::{AccountLoad, Host, SStoreResult, SelfDestructResult},
-    primitives::{Address, Bytes, ChainAddress, Env, HandlerCfg, Log, B256, BLOCK_HASH_HISTORY, U256},
+    primitives::{Address, Bytes, ChainAddress, Env, HandlerCfg, Log, B256, BLOCK_HASH_HISTORY, U256, XCallData},
 };
 use std::boxed::Box;
 
@@ -201,5 +201,9 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
             .selfdestruct(address, target, &mut self.evm.inner.db)
             .map_err(|e| self.evm.error = Err(e))
             .ok()
+    }
+
+    fn xcall(&mut self, xcall: XCallData) {
+        self.evm.journaled_state.xcall(xcall);
     }
 }
