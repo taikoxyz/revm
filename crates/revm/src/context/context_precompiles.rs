@@ -1,7 +1,7 @@
 use super::InnerEvmContext;
 use crate::{
     precompile::{Precompile, PrecompileResult},
-    primitives::{db::SyncDatabase as Database, Address, Bytes, ChainAddress, HashMap, HashSet},
+    primitives::{db::SyncDatabase as Database, Address, Bytes, CallOptions, ChainAddress, HashMap, HashSet},
 };
 use dyn_clone::DynClone;
 use revm_precompile::{PrecompileSpecId, PrecompileWithAddress, Precompiles};
@@ -122,12 +122,13 @@ impl<DB: Database> ContextPrecompiles<DB> {
         gas_limit: u64,
         evmctx: &mut InnerEvmContext<DB>,
         caller: ChainAddress,
+        call_options: &mut Option<CallOptions>,
     ) -> Option<PrecompileResult> {
         println!("ContextPrecompiles::call {:?}", address);
         Some(match self.inner {
-            PrecompilesCow::StaticRef(p) => p.get(address)?.call_ref(bytes, gas_limit, &evmctx.env, caller),
+            PrecompilesCow::StaticRef(p) => p.get(address)?.call_ref(bytes, gas_limit, &evmctx.env, caller, call_options),
             PrecompilesCow::Owned(ref mut owned) => match owned.get_mut(address)? {
-                ContextPrecompile::Ordinary(p) => p.call(bytes, gas_limit, &evmctx.env, caller),
+                ContextPrecompile::Ordinary(p) => p.call(bytes, gas_limit, &evmctx.env, caller, call_options),
                 ContextPrecompile::ContextStateful(p) => p.call(bytes, gas_limit, evmctx),
                 ContextPrecompile::ContextStatefulMut(p) => p.call_mut(bytes, gas_limit, evmctx),
             },

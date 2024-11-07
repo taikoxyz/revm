@@ -915,35 +915,6 @@ pub struct CallOptions {
     pub proof: Vec<u8>,
 }
 
-
-impl TryFrom<Bytes> for CallOptions {
-    type Error = (); 
-    fn try_from(input: Bytes) -> Result<Self, ()> {
-        if input.len() < 95 {
-            return Err(());
-        }
-        let prefix = String::from_utf8(input[0..12].to_vec()).unwrap();
-        assert_eq!(prefix, "XCallOptions");
-        let input = &input[12..];
-        let _version = u16::from_be_bytes(input[0..2].try_into().unwrap());
-        let chain_id = u64::from_be_bytes(input[2..10].try_into().unwrap());
-        let sandbox = input[10] != 0;
-        let tx_origin = Address(input[11..31].try_into().unwrap());
-        let msg_sender = Address(input[31..51].try_into().unwrap());
-        let block_hash = Some(input[51..83].try_into().unwrap());
-        let proof = &input[83..];
-
-        Ok(CallOptions {
-            chain_id,
-            sandbox,
-            tx_origin: ChainAddress(chain_id, tx_origin),
-            msg_sender: ChainAddress(chain_id, msg_sender),
-            block_hash,
-            proof: proof.to_vec(),
-        })
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
