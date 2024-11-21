@@ -8,6 +8,7 @@ use crate::{
 };
 use core::marker::PhantomData;
 use std::boxed::Box;
+use revm_precompile::zk_op::ZkOperation;
 
 /// Evm Builder allows building or modifying EVM.
 /// Note that some of the methods that changes underlying structures
@@ -31,11 +32,11 @@ pub struct HandlerStage;
 impl<'a> Default for EvmBuilder<'a, SetGenericStage, (), EmptyDB> {
     fn default() -> Self {
         cfg_if::cfg_if! {
-            if #[cfg(all(feature = "optimism-default-handler",
-                not(feature = "negate-optimism-default-handler")))] {
+            if #[cfg(all(feature = "taiko-default-handler",
+                not(feature = "negate-taiko-default-handler")))] {
                     let mut handler_cfg = HandlerCfg::new(SpecId::LATEST);
-                    // set is_optimism to true by default.
-                    handler_cfg.is_optimism = true;
+                    // set is_taiko to true by default.
+                    handler_cfg.is_taiko = true;
 
             } else {
                 let handler_cfg = HandlerCfg::new(SpecId::LATEST);
@@ -180,6 +181,32 @@ impl<'a, EXT, DB: Database> EvmBuilder<'a, SetGenericStage, EXT, DB> {
             phantom: PhantomData,
         }
     }
+
+    /// Sets the Taiko handler with latest spec.
+    ///
+    /// If `taiko-default-handler` feature is enabled this is not needed.
+    #[cfg(feature = "taiko")]
+    pub fn taiko(mut self) -> EvmBuilder<'a, HandlerStage, EXT, DB> {
+        self.handler = Handler::taiko_with_spec(self.handler.cfg.spec_id);
+        EvmBuilder {
+            context: self.context,
+            handler: self.handler,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Sets the mainnet handler with latest spec.
+    ///
+    /// Enabled only with `taiko-default-handler` feature.
+    #[cfg(feature = "taiko-default-handler")]
+    pub fn mainnet(mut self) -> EvmBuilder<'a, HandlerStage, EXT, DB> {
+        self.handler = Handler::mainnet_with_spec(self.handler.cfg.spec_id);
+        EvmBuilder {
+            context: self.context,
+            handler: self.handler,
+            phantom: PhantomData,
+        }
+    }
 }
 
 impl<'a, EXT, DB: Database> EvmBuilder<'a, HandlerStage, EXT, DB> {
@@ -211,6 +238,19 @@ impl<'a, EXT, DB: Database> EvmBuilder<'a, HandlerStage, EXT, DB> {
     ///
     /// Enabled only with `optimism-default-handler` feature.
     #[cfg(feature = "optimism-default-handler")]
+    pub fn reset_handler_with_mainnet(mut self) -> EvmBuilder<'a, HandlerStage, EXT, DB> {
+        self.handler = Handler::mainnet_with_spec(self.handler.cfg.spec_id);
+        EvmBuilder {
+            context: self.context,
+            handler: self.handler,
+            phantom: PhantomData,
+        }
+    }
+
+    /// Resets the [`Handler`] and sets base mainnet handler.
+    ///
+    /// Enabled only with `taiko-default-handler` feature.
+    #[cfg(feature = "taiko-default-handler")]
     pub fn reset_handler_with_mainnet(mut self) -> EvmBuilder<'a, HandlerStage, EXT, DB> {
         self.handler = Handler::mainnet_with_spec(self.handler.cfg.spec_id);
         EvmBuilder {
@@ -433,6 +473,13 @@ impl<'a, BuilderStage, EXT, DB: Database> EvmBuilder<'a, BuilderStage, EXT, DB> 
     pub fn reset_handler(mut self) -> Self {
         self.handler = Self::handler(self.handler.cfg());
         self
+    }
+
+    /// Modifiy precompile to the zk operations.
+    pub fn set_zkvm_operations(zk_op: Vec<ZkOperation>) {
+        revm_precompile::zk_op::ZKVM_OPERATIONS
+            .set(Box::new(zk_op))
+            .expect("Failed to set zk operations");
     }
 }
 

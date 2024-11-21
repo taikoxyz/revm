@@ -853,6 +853,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "c-kzg-taiko"
+version = "1.0.0"
+source = "git+https://github.com/smtmfft/c-kzg-4844?branch=for-alpha7#a2d3ae768eede8228920619c98c87584ad8afd09"
+dependencies = [
+ "blst",
+ "cc",
+ "glob",
+ "hex",
+ "libc",
+ "serde",
+]
+
+[[package]]
 name = "cast"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -977,6 +990,12 @@ name = "const-oid"
 version = "0.9.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c2459377285ad874054d797f3ccebf984978aa39129f6eafde5cdc8315b612f8"
+
+[[package]]
+name = "convert_case"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6245d59a3e82a7fc217c5828a6692dbc6dfb63a0c8c90495621f7b9d79704a0e"
 
 [[package]]
 name = "core-foundation"
@@ -1159,8 +1178,10 @@ version = "0.99.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5f33878137e4dafd7fa914ad4e259e18a4e8e532b9617a2d0150262bf53abfce"
 dependencies = [
+ "convert_case",
  "proc-macro2",
  "quote",
+ "rustc_version 0.4.0",
  "syn 2.0.70",
 ]
 
@@ -3170,7 +3191,7 @@ version = "11.0.3"
 dependencies = [
  "aurora-engine-modexp",
  "blst",
- "c-kzg",
+ "c-kzg-taiko",
  "cfg-if",
  "criterion",
  "eyre",
@@ -3200,12 +3221,14 @@ dependencies = [
  "auto_impl",
  "bitflags 2.6.0",
  "bitvec",
- "c-kzg",
+ "c-kzg-taiko",
  "cfg-if",
+ "derive_more 0.99.18",
  "dyn-clone",
  "enumn",
  "hex",
  "kzg-rs",
+ "once_cell",
  "serde",
 ]
 

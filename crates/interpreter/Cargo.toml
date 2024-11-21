@@ -59,6 +59,15 @@ optimism-default-handler = [
 negate-optimism-default-handler = [
     "revm-primitives/negate-optimism-default-handler",
 ]
+taiko = ["revm-primitives/taiko"]
+# taiko default handler enabled taiko handler register by default in EvmBuilder.
+taiko-default-handler = [
+    "taiko",
+    "revm-primitives/taiko-default-handler",
+]
+negate-taiko-default-handler = [
+    "revm-primitives/negate-taiko-default-handler",
+]
 
 dev = [
     "memory_limit",

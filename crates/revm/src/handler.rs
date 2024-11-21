@@ -45,9 +45,9 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
     /// Or `optimism_with_spec` if the optimism feature is enabled and `cfg.is_optimism` is set.
     pub fn new(cfg: HandlerCfg) -> Self {
         cfg_if::cfg_if! {
-            if #[cfg(feature = "optimism")] {
-                if cfg.is_optimism {
-                    Handler::optimism_with_spec(cfg.spec_id)
+            if #[cfg(feature = "taiko")] {
+                if cfg.is_taiko {
+                    Handler::taiko_with_spec(cfg.spec_id)
                 } else {
                     Handler::mainnet_with_spec(cfg.spec_id)
                 }
@@ -90,6 +90,23 @@ impl<'a, EXT, DB: Database> EvmHandler<'a, EXT, DB> {
     #[cfg(feature = "optimism")]
     pub fn optimism_with_spec(spec_id: SpecId) -> Self {
         spec_to_generic!(spec_id, Self::optimism::<SPEC>())
+    }
+
+    /// Handler for taiko
+    #[cfg(feature = "taiko")]
+    pub fn taiko<SPEC: Spec>() -> Self {
+        let mut handler = Self::mainnet::<SPEC>();
+        handler.cfg.is_taiko = true;
+        handler.append_handler_register(HandleRegisters::Plain(
+            crate::taiko::taiko_handle_register::<DB, EXT>,
+        ));
+        handler
+    }
+
+    /// Taiko with spec. Similar to [`Self::mainnet_with_spec`].
+    #[cfg(feature = "taiko")]
+    pub fn taiko_with_spec(spec_id: SpecId) -> Self {
+        spec_to_generic!(spec_id, Self::taiko::<SPEC>())
     }
 
     /// Creates handler with variable spec id, inside it will call `mainnet::<SPEC>` for

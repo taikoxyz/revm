@@ -22,6 +22,7 @@ pub mod secp256k1;
 #[cfg(feature = "secp256r1")]
 pub mod secp256r1;
 pub mod utilities;
+pub mod zk_op;
 
 pub use fatal_precompile::fatal_precompile;
 
@@ -233,7 +234,7 @@ impl Precompiles {
     ///
     /// Other precompiles with overwrite existing precompiles.
     #[inline]
-    pub fn extend(&mut self, other: impl IntoIterator<Item = PrecompileWithAddress>) {
+    pub fn extend(&mut self, other: impl IntoIterator<Item=PrecompileWithAddress>) {
         let items = other.into_iter().collect::<Vec<_>>();
         self.addresses.extend(items.iter().map(|p| *p.address()));
         self.inner.extend(items.into_iter().map(Into::into));
@@ -298,6 +299,8 @@ impl PrecompileSpecId {
             BEDROCK | REGOLITH | CANYON => Self::BERLIN,
             #[cfg(feature = "optimism")]
             ECOTONE | FJORD | GRANITE | HOLOCENE => Self::CANCUN,
+            #[cfg(feature = "taiko")]
+            KATLA | HEKLA | ONTAKE => Self::BERLIN,
         }
     }
 }

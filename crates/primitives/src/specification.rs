@@ -6,6 +6,7 @@ pub use SpecId::*;
 ///
 /// Information was obtained from the [Ethereum Execution Specifications](https://github.com/ethereum/execution-specs)
 #[cfg(not(feature = "optimism"))]
+#[cfg(not(feature = "taiko"))]
 #[repr(u8)]
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, PartialOrd, Ord, Hash, enumn::N)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -30,6 +31,41 @@ pub enum SpecId {
     CANCUN = 17,          // Cancun                 19426587 (Timestamp: 1710338135)
     PRAGUE = 18,          // Prague                 TBD
     PRAGUE_EOF = 19,      // Prague+EOF             TBD
+    #[default]
+    LATEST = u8::MAX,
+}
+
+/// Specification IDs and their activation block.
+///
+/// Information was obtained from the [Ethereum Execution Specifications](https://github.com/ethereum/execution-specs)
+#[cfg(feature = "taiko")]
+#[repr(u8)]
+#[derive(Debug, Default, Copy, Clone, PartialEq, Eq, Hash, Ord, PartialOrd, enumn::N)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum SpecId {
+    FRONTIER = 0,         // Frontier               0
+    FRONTIER_THAWING = 1, // Frontier Thawing       200000
+    HOMESTEAD = 2,        // Homestead              1150000
+    DAO_FORK = 3,         // DAO Fork               1920000
+    TANGERINE = 4,        // Tangerine Whistle      2463000
+    SPURIOUS_DRAGON = 5,  // Spurious Dragon        2675000
+    BYZANTIUM = 6,        // Byzantium              4370000
+    CONSTANTINOPLE = 7,   // Constantinople         7280000 is overwritten with PETERSBURG
+    PETERSBURG = 8,       // Petersburg             7280000
+    ISTANBUL = 9,         // Istanbul	            9069000
+    MUIR_GLACIER = 10,    // Muir Glacier           9200000
+    BERLIN = 11,          // Berlin	                12244000
+    LONDON = 12,          // London	                12965000
+    ARROW_GLACIER = 13,   // Arrow Glacier          13773000
+    GRAY_GLACIER = 14,    // Gray Glacier           15050000
+    MERGE = 15,           // Paris/Merge            15537394 (TTD: 58750000000000000000000)
+    SHANGHAI = 16,        // Shanghai               17034870 (Timestamp: 1681338455)
+    KATLA = 17,
+    HEKLA = 18,
+    ONTAKE = 19,
+    CANCUN = 20,          // Cancun                 19426587 (Timestamp: 1710338135)
+    PRAGUE = 21,          // Prague                 TBD
+    PRAGUE_EOF = 22,      // Prague+EOF             TBD
     #[default]
     LATEST = u8::MAX,
 }
@@ -126,6 +162,12 @@ impl From<&str> for SpecId {
             "Granite" => SpecId::GRANITE,
             #[cfg(feature = "optimism")]
             "Holocene" => SpecId::HOLOCENE,
+            #[cfg(feature = "taiko")]
+            "Katla" => SpecId::KATLA,
+            #[cfg(feature = "taiko")]
+            "Hekla" => SpecId::HEKLA,
+            #[cfg(feature = "taiko")]
+            "Ontake" => SpecId::ONTAKE,
             _ => Self::LATEST,
         }
     }
@@ -168,6 +210,12 @@ impl From<SpecId> for &'static str {
             SpecId::GRANITE => "Granite",
             #[cfg(feature = "optimism")]
             SpecId::HOLOCENE => "Holocene",
+            #[cfg(feature = "taiko")]
+            SpecId::KATLA => "Katla",
+            #[cfg(feature = "taiko")]
+            SpecId::HEKLA => "Hekla",
+            #[cfg(feature = "taiko")]
+            SpecId::ONTAKE => "Ontake",
             SpecId::LATEST => "Latest",
         }
     }
@@ -234,7 +282,16 @@ spec!(GRANITE, GraniteSpec);
 #[cfg(feature = "optimism")]
 spec!(HOLOCENE, HoloceneSpec);
 
+// Taiko Hardforks
+#[cfg(feature = "taiko")]
+spec!(KATLA, KatlaSpec);
+#[cfg(feature = "taiko")]
+spec!(HEKLA, HeklaSpec);
+#[cfg(feature = "taiko")]
+spec!(ONTAKE, OntakeSpec);
+
 #[cfg(not(feature = "optimism"))]
+#[cfg(not(feature = "taiko"))]
 #[macro_export]
 macro_rules! spec_to_generic {
     ($spec_id:expr, $e:expr) => {{
@@ -305,7 +362,7 @@ macro_rules! spec_to_generic {
     }};
 }
 
-#[cfg(feature = "optimism")]
+#[cfg(feature = "taiko")]
 #[macro_export]
 macro_rules! spec_to_generic {
     ($spec_id:expr, $e:expr) => {{
@@ -372,32 +429,19 @@ macro_rules! spec_to_generic {
                 use $crate::PragueEofSpec as SPEC;
                 $e
             }
-            $crate::SpecId::BEDROCK => {
-                use $crate::BedrockSpec as SPEC;
+            #[cfg(feature = "taiko")]
+            $crate::SpecId::KATLA => {
+                use $crate::KatlaSpec as SPEC;
                 $e
             }
-            $crate::SpecId::REGOLITH => {
-                use $crate::RegolithSpec as SPEC;
+            #[cfg(feature = "taiko")]
+            $crate::SpecId::HEKLA => {
+                use $crate::HeklaSpec as SPEC;
                 $e
             }
-            $crate::SpecId::CANYON => {
-                use $crate::CanyonSpec as SPEC;
-                $e
-            }
-            $crate::SpecId::ECOTONE => {
-                use $crate::EcotoneSpec as SPEC;
-                $e
-            }
-            $crate::SpecId::FJORD => {
-                use $crate::FjordSpec as SPEC;
-                $e
-            }
-            $crate::SpecId::GRANITE => {
-                use $crate::GraniteSpec as SPEC;
-                $e
-            }
-            $crate::SpecId::HOLOCENE => {
-                use $crate::HoloceneSpec as SPEC;
+            #[cfg(feature = "taiko")]
+            $crate::SpecId::ONTAKE => {
+                use $crate::OntakeSpec as SPEC;
                 $e
             }
         }
@@ -444,6 +488,12 @@ mod tests {
         spec_to_generic!(GRANITE, assert_eq!(SPEC::SPEC_ID, GRANITE));
         #[cfg(feature = "optimism")]
         spec_to_generic!(HOLOCENE, assert_eq!(SPEC::SPEC_ID, HOLOCENE));
+        #[cfg(feature = "taiko")]
+        spec_to_generic!(KATLA, assert_eq!(SPEC::SPEC_ID, KATLA));
+        #[cfg(feature = "taiko")]
+        spec_to_generic!(HEKLA, assert_eq!(SPEC::SPEC_ID, HEKLA));
+        #[cfg(feature = "taiko")]
+        spec_to_generic!(ONTAKE, assert_eq!(SPEC::SPEC_ID, ONTAKE));
         spec_to_generic!(PRAGUE, assert_eq!(SPEC::SPEC_ID, PRAGUE));
         spec_to_generic!(PRAGUE_EOF, assert_eq!(SPEC::SPEC_ID, PRAGUE_EOF));
         spec_to_generic!(LATEST, assert_eq!(SPEC::SPEC_ID, LATEST));
