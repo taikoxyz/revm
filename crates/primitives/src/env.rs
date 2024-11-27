@@ -355,6 +355,11 @@ impl CfgEnv {
         self.parent_chain_id = Some(parent_chain_id);
         self
     }
+    
+    pub fn with_chain_id(mut self, chain_id: u64) -> Self {
+        self.chain_id = chain_id;
+        self
+    }
 
     #[cfg(feature = "optional_eip3607")]
     pub fn is_eip3607_disabled(&self) -> bool {
