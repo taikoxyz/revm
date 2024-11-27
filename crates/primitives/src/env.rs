@@ -291,6 +291,9 @@ impl Env {
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[non_exhaustive]
 pub struct CfgEnv {
+    /// Chain ID of the EVM, it will be compared to the transaction's Chain ID.
+    /// Chain ID is introduced EIP-155
+    pub chain_id: u64,
     /// KZG Settings for point evaluation precompile. By default, this is loaded from the ethereum mainnet trusted setup.
     #[cfg(any(feature = "c-kzg", feature = "kzg-rs"))]
     #[cfg_attr(feature = "serde", serde(skip))]
@@ -417,6 +420,7 @@ impl CfgEnv {
 impl Default for CfgEnv {
     fn default() -> Self {
         Self {
+            chain_id: 1,
             parent_chain_id: None,
             perf_analyse_created_bytecodes: AnalysisKind::default(),
             limit_contract_code_size: None,
