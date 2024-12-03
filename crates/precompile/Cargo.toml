@@ -45,10 +45,10 @@ aurora-engine-modexp = { version = "1.1", default-features = false }
 bn = { package = "substrate-bn", version = "0.6", default-features = false }
 
 # For setting the CfgEnv KZGSettings. Enabled by c-kzg flag.
-c-kzg = { package = "c-kzg-taiko", git = "https://github.com/smtmfft/c-kzg-4844", branch = "for-alpha7", default-features = false, optional = true, features = [
+c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7", default-features = false, optional = true, features = [
     "preload-kzg-settings",
     "no-threads",
-]}
+] }
 
 # Optionally use `kzg-rs` for a pure Rust implementation of KZG point evaluation.
 kzg-rs = { version = "0.2.3", default-features = false, optional = true }
@@ -105,7 +105,7 @@ taiko-default-handler = [
     "revm-primitives/taiko-default-handler",
 ]
 negate-taiko-default-handler = [
-#    "revm-primitives/negate-taiko-default-handler",
+    #    "revm-primitives/negate-taiko-default-handler",
 ]
 
 # Enables the p256verify precompile.
