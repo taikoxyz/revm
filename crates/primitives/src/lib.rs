@@ -30,7 +30,7 @@ pub use bytecode::*;
 pub use constants::*;
 pub use eip7702::{
     Authorization, AuthorizationList, Eip7702Bytecode, Eip7702DecodeError, InvalidAuthorization,
-    RecoveredAuthorization, Signature, SignedAuthorization, EIP7702_MAGIC, EIP7702_MAGIC_BYTES,
+    RecoveredAuthorization, SignedAuthorization, EIP7702_MAGIC, EIP7702_MAGIC_BYTES,
 };
 pub use env::*;
 
