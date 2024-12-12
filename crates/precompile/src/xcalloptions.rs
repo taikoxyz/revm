@@ -8,11 +8,14 @@ pub const XCALLOPTIONS: PrecompileWithAddress = PrecompileWithAddress(
 
 /// Sets the xcall options
 fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddress, call_options: &mut Option<CallOptions>) -> PrecompileResult {
-    println!("  xcalloptions_run");
+    println!("  xcalloptions_run: {}, {:?}", input.len(), input);
+
     // Verify input length.
     if input.len() < 83 {
         return Err(Error::XCallOptionsInvalidInputLength.into());
     }
+
+    println!("A");
 
     // Read the input data
     let version = u16::from_be_bytes(input[0..2].try_into().unwrap());
@@ -23,10 +26,15 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
     let block_hash: Option<revm_primitives::FixedBytes<32>> = Some(input[51..83].try_into().unwrap());
     let proof = &input[83..];
 
+    println!("B");
+
     // Check the version
     if version != 1 {
         return Err(Error::XCallOptionsInvalidVersion.into());
     }
+
+    println!("C");
+
     if !sandbox {
         // env.tx.caller is the Signer of the transaction
         // caller is the address of the contract that is calling the precompile
@@ -35,6 +43,8 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
             return Err(Error::XCallOptionsInvalidOrigin.into());
         }
     }
+
+    println!("D");
 
     // Set the call options
     *call_options = Some(CallOptions {
@@ -49,4 +59,3 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
 
     Ok(PrecompileOutput::new(0, Bytes::new()))
 }
-
