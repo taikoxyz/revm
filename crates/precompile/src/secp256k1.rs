@@ -6,7 +6,29 @@ pub const ECRECOVER: PrecompileWithAddress = PrecompileWithAddress(
     Precompile::Standard(ec_recover_run),
 );
 
-pub use self::secp256k1::ecrecover;
+#[allow(clippy::module_inception)]
+mod secp256k1_zk {
+    use crate::zk_op::{self, ZkOperation};
+    use crate::Error;
+    use revm_primitives::{alloy_primitives::B512, B256};
+
+    pub(crate) fn ecrecover(sig: &B512, recid: u8, msg: &B256) -> Result<B256, Error> {
+        #[cfg(feature = "sp1-cycle-tracker")]
+        println!("cycle-tracker-start: ecrecover");
+        let res = if zk_op::contains_operation(&ZkOperation::Secp256k1) {
+            zk_op::ZKVM_OPERATOR
+                .get()
+                .unwrap()
+                .secp256k1_ecrecover(sig, recid, msg)
+                .map(Into::<B256>::into)
+        } else {
+            super::secp256k1::ecrecover(sig, recid, msg).map_err(|e| Error::Other(e.to_string()))
+        };
+        #[cfg(feature = "sp1-cycle-tracker")]
+        println!("cycle-tracker-end: ecrecover");
+        res
+    }
+}
 
 #[cfg(not(feature = "secp256k1"))]
 #[allow(clippy::module_inception)]
@@ -14,7 +36,7 @@ mod secp256k1 {
     use k256::ecdsa::{Error, RecoveryId, Signature, VerifyingKey};
     use revm_primitives::{alloy_primitives::B512, keccak256, B256};
 
-    pub fn ecrecover(sig: &B512, mut recid: u8, msg: &B256) -> Result<B256, Error> {
+    pub(crate) fn ecrecover(sig: &B512, mut recid: u8, msg: &B256) -> Result<B256, Error> {
         // parse signature
         let mut sig = Signature::from_slice(sig.as_slice())?;
 
@@ -52,7 +74,7 @@ mod secp256k1 {
     // Silence the unused crate dependency warning.
     use k256 as _;
 
-    pub fn ecrecover(sig: &B512, recid: u8, msg: &B256) -> Result<B256, secp256k1::Error> {
+    pub(crate) fn ecrecover(sig: &B512, recid: u8, msg: &B256) -> Result<B256, secp256k1::Error> {
         let recid = RecoveryId::from_i32(recid as i32).expect("recovery ID is valid");
         let sig = RecoverableSignature::from_compact(sig.as_slice(), recid)?;
 
@@ -83,7 +105,7 @@ pub fn ec_recover_run(input: &Bytes, gas_limit: u64) -> PrecompileResult {
     let recid = input[63] - 27;
     let sig = <&B512>::try_from(&input[64..128]).unwrap();
 
-    let out = secp256k1::ecrecover(sig, recid, msg)
+    let out = secp256k1_zk::ecrecover(sig, recid, msg)
         .map(|o| o.to_vec().into())
         .unwrap_or_default();
     Ok(PrecompileOutput::new(ECRECOVER_BASE, out))

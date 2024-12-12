@@ -392,7 +392,7 @@ date: 04.04.2023
 Mosty utility functions, additional checks and convenience changes.
 Old bytecode that supported gas block was replaced with jumpmap only bitvec.
 
-Changelog: 
+Changelog:
 * 992a11c - (HEAD -> v/310, origin/lib_versions) bump all (81 minutes ago) <rakita>
 * c2ee8ff - add feature for ignoring base fee check (#436) (6 days ago) <Dan Cline>
 * 2d5b710 - Comment Fix (#430) (2 weeks ago) <David Kulman>
