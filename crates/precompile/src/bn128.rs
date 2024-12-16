@@ -1,10 +1,8 @@
-use crate::{
-    utilities::{bool_to_bytes32, right_pad},
-    Address, Error, Precompile, PrecompileResult, PrecompileWithAddress,
-};
+use crate::{utilities::{bool_to_bytes32, right_pad}, zk_op, Address, Error, Precompile, PrecompileResult, PrecompileWithAddress};
 use bn::{AffineG1, AffineG2, Fq, Fq2, Group, Gt, G1, G2};
 use revm_primitives::PrecompileOutput;
 use std::vec::Vec;
+use crate::zk_op::ZkOperation;
 
 pub mod add {
     use super::*;
@@ -123,40 +121,71 @@ pub fn new_g1_point(px: Fq, py: Fq) -> Result<G1, Error> {
 }
 
 pub fn run_add(input: &[u8], gas_cost: u64, gas_limit: u64) -> PrecompileResult {
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-start: bn-add");
+
     if gas_cost > gas_limit {
         return Err(Error::OutOfGas.into());
     }
 
-    let input = right_pad::<ADD_INPUT_LEN>(input);
+    let output = if zk_op::contains_operation(&ZkOperation::Bn128Add) {
+        zk_op::ZKVM_OPERATOR
+            .get()
+            .unwrap()
+            .bn128_run_add(input)
+            .unwrap()
+    } else {
+        let input = right_pad::<ADD_INPUT_LEN>(input);
+        let p1 = read_point(&input[..64])?;
+        let p2 = read_point(&input[64..])?;
 
-    let p1 = read_point(&input[..64])?;
-    let p2 = read_point(&input[64..])?;
+        let mut output = [0u8; 64];
+        if let Some(sum) = AffineG1::from_jacobian(p1 + p2) {
+            sum.x().to_big_endian(&mut output[..32]).unwrap();
+            sum.y().to_big_endian(&mut output[32..]).unwrap();
+        }
 
-    let mut output = [0u8; 64];
-    if let Some(sum) = AffineG1::from_jacobian(p1 + p2) {
-        sum.x().to_big_endian(&mut output[..32]).unwrap();
-        sum.y().to_big_endian(&mut output[32..]).unwrap();
-    }
+        output
+    };
+
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-end: bn-add");
+
     Ok(PrecompileOutput::new(gas_cost, output.into()))
 }
 
 pub fn run_mul(input: &[u8], gas_cost: u64, gas_limit: u64) -> PrecompileResult {
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-start: bn-mul");
+
     if gas_cost > gas_limit {
         return Err(Error::OutOfGas.into());
     }
 
-    let input = right_pad::<MUL_INPUT_LEN>(input);
+    let output = if zk_op::contains_operation(&ZkOperation::Bn128Mul) {
+        zk_op::ZKVM_OPERATOR
+            .get()
+            .unwrap()
+            .bn128_run_mul(input)
+            .unwrap()
+    } else {
+        let input = right_pad::<MUL_INPUT_LEN>(input);
+        let p = read_point(&input[..64])?;
+        // `Fr::from_slice` can only fail when the length is not 32.
+        let fr = bn::Fr::from_slice(&input[64..96]).unwrap();
 
-    let p = read_point(&input[..64])?;
+        let mut output = [0u8; 64];
+        if let Some(mul) = AffineG1::from_jacobian(p * fr) {
+            mul.x().to_big_endian(&mut output[..32]).unwrap();
+            mul.y().to_big_endian(&mut output[32..]).unwrap();
+        }
 
-    // `Fr::from_slice` can only fail when the length is not 32.
-    let fr = bn::Fr::from_slice(&input[64..96]).unwrap();
+        output
+    };
 
-    let mut output = [0u8; 64];
-    if let Some(mul) = AffineG1::from_jacobian(p * fr) {
-        mul.x().to_big_endian(&mut output[..32]).unwrap();
-        mul.y().to_big_endian(&mut output[32..]).unwrap();
-    }
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-end: bn-mul");
+
     Ok(PrecompileOutput::new(gas_cost, output.into()))
 }
 
@@ -166,6 +195,9 @@ pub fn run_pair(
     pair_base_cost: u64,
     gas_limit: u64,
 ) -> PrecompileResult {
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-start: bn-pair");
+
     let gas_used = (input.len() / PAIR_ELEMENT_LEN) as u64 * pair_per_point_cost + pair_base_cost;
     if gas_used > gas_limit {
         return Err(Error::OutOfGas.into());
@@ -175,7 +207,13 @@ pub fn run_pair(
         return Err(Error::Bn128PairLength.into());
     }
 
-    let success = if input.is_empty() {
+    let success = if zk_op::contains_operation(&ZkOperation::Bn128Pairing) {
+        zk_op::ZKVM_OPERATOR
+            .get()
+            .unwrap()
+            .bn128_run_pairing(input)
+            .unwrap()
+    } else if input.is_empty() {
         true
     } else {
         let elements = input.len() / PAIR_ELEMENT_LEN;
@@ -218,6 +256,10 @@ pub fn run_pair(
 
         mul == Gt::one()
     };
+
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-end: bn-pair");
+
     Ok(PrecompileOutput::new(gas_used, bool_to_bytes32(success)))
 }
 
@@ -239,13 +281,13 @@ mod tests {
              07c2b7f58a84bd6145f00c9c2bc0bb1a187f20ff2c92963a88019e7c6a014eed\
              06614e20c147e940f2d70da3f74c9a17df361706a4485c742bd6788478fa17d7",
         )
-        .unwrap();
+            .unwrap();
         let expected = hex::decode(
             "\
             2243525c5efd4b9c3d3c45ac0ca3fe4dd85e830a4ce6b65fa1eeaee202839703\
             301d1d33be6da8e509df21cc35964723180eed7532537db9ae5e7d48f195c915",
         )
-        .unwrap();
+            .unwrap();
 
         let outcome = run_add(&input, BYZANTIUM_ADD_GAS_COST, 500).unwrap();
         assert_eq!(outcome.bytes, expected);
@@ -258,13 +300,13 @@ mod tests {
             0000000000000000000000000000000000000000000000000000000000000000\
             0000000000000000000000000000000000000000000000000000000000000000",
         )
-        .unwrap();
+            .unwrap();
         let expected = hex::decode(
             "\
             0000000000000000000000000000000000000000000000000000000000000000\
             0000000000000000000000000000000000000000000000000000000000000000",
         )
-        .unwrap();
+            .unwrap();
 
         let outcome = run_add(&input, BYZANTIUM_ADD_GAS_COST, 500).unwrap();
         assert_eq!(outcome.bytes, expected);
@@ -277,7 +319,7 @@ mod tests {
             0000000000000000000000000000000000000000000000000000000000000000\
             0000000000000000000000000000000000000000000000000000000000000000",
         )
-        .unwrap();
+            .unwrap();
 
         let res = run_add(&input, BYZANTIUM_ADD_GAS_COST, 499);
         println!("{:?}", res);
@@ -290,7 +332,7 @@ mod tests {
             0000000000000000000000000000000000000000000000000000000000000000\
             0000000000000000000000000000000000000000000000000000000000000000",
         )
-        .unwrap();
+            .unwrap();
 
         let outcome = run_add(&input, BYZANTIUM_ADD_GAS_COST, 500).unwrap();
         assert_eq!(outcome.bytes, expected);
@@ -303,7 +345,7 @@ mod tests {
             1111111111111111111111111111111111111111111111111111111111111111\
             1111111111111111111111111111111111111111111111111111111111111111",
         )
-        .unwrap();
+            .unwrap();
 
         let res = run_add(&input, BYZANTIUM_ADD_GAS_COST, 500);
         assert!(matches!(
@@ -320,13 +362,13 @@ mod tests {
             21611ce0a6af85915e2f1d70300909ce2e49dfad4a4619c8390cae66cefdb204\
             00000000000000000000000000000000000000000000000011138ce750fa15c2",
         )
-        .unwrap();
+            .unwrap();
         let expected = hex::decode(
             "\
             070a8d6a982153cae4be29d434e8faef8a47b274a053f5a4ee2a6c9c13c31e5c\
             031b8ce914eba3a9ffb989f9cdd5b0f01943074bf4f0f315690ec3cec6981afc",
         )
-        .unwrap();
+            .unwrap();
 
         let outcome = run_mul(&input, BYZANTIUM_MUL_GAS_COST, 40_000).unwrap();
         assert_eq!(outcome.bytes, expected);
@@ -338,7 +380,7 @@ mod tests {
             0000000000000000000000000000000000000000000000000000000000000000\
             0200000000000000000000000000000000000000000000000000000000000000",
         )
-        .unwrap();
+            .unwrap();
 
         let res = run_mul(&input, BYZANTIUM_MUL_GAS_COST, 39_999);
         assert!(matches!(res, Err(PrecompileErrors::Error(Error::OutOfGas))));
@@ -350,13 +392,13 @@ mod tests {
             0000000000000000000000000000000000000000000000000000000000000000\
             0200000000000000000000000000000000000000000000000000000000000000",
         )
-        .unwrap();
+            .unwrap();
         let expected = hex::decode(
             "\
             0000000000000000000000000000000000000000000000000000000000000000\
             0000000000000000000000000000000000000000000000000000000000000000",
         )
-        .unwrap();
+            .unwrap();
 
         let outcome = run_mul(&input, BYZANTIUM_MUL_GAS_COST, 40_000).unwrap();
         assert_eq!(outcome.bytes, expected);
@@ -368,7 +410,7 @@ mod tests {
             0000000000000000000000000000000000000000000000000000000000000000\
             0000000000000000000000000000000000000000000000000000000000000000",
         )
-        .unwrap();
+            .unwrap();
 
         let outcome = run_mul(&input, BYZANTIUM_MUL_GAS_COST, 40_000).unwrap();
         assert_eq!(outcome.bytes, expected);
@@ -380,7 +422,7 @@ mod tests {
             1111111111111111111111111111111111111111111111111111111111111111\
             0f00000000000000000000000000000000000000000000000000000000000000",
         )
-        .unwrap();
+            .unwrap();
 
         let res = run_mul(&input, BYZANTIUM_MUL_GAS_COST, 40_000);
         assert!(matches!(
@@ -406,7 +448,7 @@ mod tests {
             090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b\
             12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
         )
-        .unwrap();
+            .unwrap();
         let expected =
             hex::decode("0000000000000000000000000000000000000000000000000000000000000001")
                 .unwrap();
@@ -417,7 +459,7 @@ mod tests {
             BYZANTIUM_PAIR_BASE,
             260_000,
         )
-        .unwrap();
+            .unwrap();
         assert_eq!(outcome.bytes, expected);
 
         // out of gas test
@@ -436,7 +478,7 @@ mod tests {
             090689d0585ff075ec9e99ad690c3395bc4b313370b38ef355acdadcd122975b\
             12c85ea5db8c6deb4aab71808dcb408fe3d1e7690c43d37b4ce6cc0166fa7daa",
         )
-        .unwrap();
+            .unwrap();
 
         let res = run_pair(
             &input,
@@ -458,7 +500,7 @@ mod tests {
             BYZANTIUM_PAIR_BASE,
             260_000,
         )
-        .unwrap();
+            .unwrap();
         assert_eq!(outcome.bytes, expected);
 
         // point not on curve fail
@@ -471,7 +513,7 @@ mod tests {
             1111111111111111111111111111111111111111111111111111111111111111\
             1111111111111111111111111111111111111111111111111111111111111111",
         )
-        .unwrap();
+            .unwrap();
 
         let res = run_pair(
             &input,
@@ -492,7 +534,7 @@ mod tests {
             111111111111111111111111111111\
         ",
         )
-        .unwrap();
+            .unwrap();
 
         let res = run_pair(
             &input,

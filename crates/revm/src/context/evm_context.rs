@@ -530,6 +530,7 @@ pub(crate) mod test_utils {
                 db,
                 error: Ok(()),
                 #[cfg(feature = "optimism")]
+                #[cfg(feature = "taiko")]
                 l1_block_info: None,
             },
             precompiles: ContextPrecompiles::default(),

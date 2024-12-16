@@ -44,9 +44,10 @@ aurora-engine-modexp = { version = "1.1", default-features = false }
 # ecAdd, ecMul, ecPairing
 bn = { package = "substrate-bn", version = "0.6", default-features = false }
 
-# KZG point evaluation precompile
-c-kzg = { version = "1.0.3", default-features = false, optional = true, features = [
-    "ethereum_kzg_settings",
+# For setting the CfgEnv KZGSettings. Enabled by c-kzg flag.
+c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7", default-features = false, optional = true, features = [
+    "preload-kzg-settings",
+    "no-threads",
 ] }
 
 # Optionally use `kzg-rs` for a pure Rust implementation of KZG point evaluation.
@@ -94,6 +95,17 @@ optimism-default-handler = [
 ]
 negate-optimism-default-handler = [
     "revm-primitives/negate-optimism-default-handler",
+]
+
+sp1-cycle-tracker = []
+taiko = ["revm-primitives/taiko", "secp256r1"]
+# Taiko default handler enabled Taiko handler register by default in EvmBuilder.
+taiko-default-handler = [
+    "taiko",
+    "revm-primitives/taiko-default-handler",
+]
+negate-taiko-default-handler = [
+    #    "revm-primitives/negate-taiko-default-handler",
 ]
 
 # Enables the p256verify precompile.

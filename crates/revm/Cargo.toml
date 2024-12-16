@@ -96,6 +96,19 @@ negate-optimism-default-handler = [
     "revm-interpreter/negate-optimism-default-handler",
 ]
 
+sp1-cycle-tracker = ["revm-precompile/sp1-cycle-tracker"]
+taiko = ["revm-interpreter/taiko", "revm-precompile/taiko"]
+# Taiko default handler enabled Taiko handler register by default in EvmBuilder.
+taiko-default-handler = [
+    "taiko",
+    "revm-precompile/taiko-default-handler",
+    "revm-interpreter/taiko-default-handler",
+]
+negate-taiko-default-handler = [
+    "revm-precompile/negate-taiko-default-handler",
+    "revm-interpreter/negate-taiko-default-handler",
+]
+
 ethersdb = ["std", "dep:tokio", "dep:ethers-providers", "dep:ethers-core"]
 
 alloydb = [

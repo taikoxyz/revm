@@ -1,11 +1,8 @@
-use crate::{
-    primitives::U256,
-    utilities::{left_pad, left_pad_vec, right_pad_vec, right_pad_with_offset},
-    Error, Precompile, PrecompileResult, PrecompileWithAddress,
-};
+use crate::{primitives::U256, utilities::{left_pad, left_pad_vec, right_pad_vec, right_pad_with_offset}, zk_op, Error, Precompile, PrecompileResult, PrecompileWithAddress};
 use aurora_engine_modexp::modexp;
 use core::cmp::{max, min};
 use revm_primitives::{Bytes, PrecompileOutput};
+use crate::zk_op::ZkOperation;
 
 pub const BYZANTIUM: PrecompileWithAddress = PrecompileWithAddress(
     crate::u64_to_address(5),
@@ -48,6 +45,9 @@ pub fn run_inner<F>(input: &[u8], gas_limit: u64, min_gas: u64, calc_gas: F) -> 
 where
     F: FnOnce(u64, u64, u64, &U256) -> u64,
 {
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-start: modexp");
+
     // If there is no minimum gas, return error.
     if min_gas > gas_limit {
         return Err(Error::OutOfGas.into());
@@ -110,7 +110,18 @@ where
     debug_assert_eq!(modulus.len(), mod_len);
 
     // Call the modexp.
-    let output = modexp(base, exponent, modulus);
+    let output = if zk_op::contains_operation(&ZkOperation::Modexp) {
+        zk_op::ZKVM_OPERATOR
+            .get()
+            .unwrap()
+            .modexp_run(base, exponent, modulus)
+            .unwrap()
+    } else {
+        modexp(base, exponent, modulus)
+    };
+
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-end: modexp");
 
     // left pad the result to modulus length. bytes will always by less or equal to modulus length.
     Ok(PrecompileOutput::new(

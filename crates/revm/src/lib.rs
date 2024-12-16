@@ -23,6 +23,9 @@ mod journaled_state;
 #[cfg(feature = "optimism")]
 pub mod optimism;
 
+#[cfg(feature = "taiko")]
+pub mod taiko;
+
 // Export items.
 
 pub use builder::EvmBuilder;

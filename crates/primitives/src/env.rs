@@ -599,6 +599,9 @@ pub struct TxEnv {
     #[cfg(feature = "optimism")]
     /// Optimism fields.
     pub optimism: OptimismFields,
+    #[cfg(feature = "taiko")]
+    /// Taiko fields.
+    pub taiko: TaikoFields,
 }
 
 pub enum TxType {
@@ -642,6 +645,8 @@ impl Default for TxEnv {
             authorization_list: None,
             #[cfg(feature = "optimism")]
             optimism: OptimismFields::default(),
+            #[cfg(feature = "taiko")]
+            taiko: TaikoFields::default(),
         }
     }
 }
@@ -703,6 +708,15 @@ pub struct OptimismFields {
     /// for non-optimism chains when the `optimism` feature is enabled,
     /// but the [CfgEnv] `optimism` field is set to false.
     pub enveloped_tx: Option<Bytes>,
+}
+
+#[cfg(feature = "taiko")]
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct TaikoFields {
+    pub treasury: Address,
+    pub basefee_ratio: u8,
+    pub is_anchor: bool,
 }
 
 /// Transaction destination

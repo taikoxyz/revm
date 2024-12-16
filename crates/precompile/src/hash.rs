@@ -1,7 +1,8 @@
-use super::calc_linear_cost_u32;
+use super::{calc_linear_cost_u32, zk_op};
 use crate::{Error, Precompile, PrecompileResult, PrecompileWithAddress};
 use revm_primitives::{Bytes, PrecompileOutput};
 use sha2::Digest;
+use crate::zk_op::ZkOperation;
 
 pub const SHA256: PrecompileWithAddress =
     PrecompileWithAddress(crate::u64_to_address(2), Precompile::Standard(sha256_run));
@@ -18,13 +19,30 @@ pub const RIPEMD160: PrecompileWithAddress = PrecompileWithAddress(
 /// - [Solidity Documentation on Mathematical and Cryptographic Functions](https://docs.soliditylang.org/en/develop/units-and-global-variables.html#mathematical-and-cryptographic-functions)
 /// - [Address 0x02](https://etherscan.io/address/0000000000000000000000000000000000000002)
 pub fn sha256_run(input: &Bytes, gas_limit: u64) -> PrecompileResult {
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-start: sha256");
+
     let cost = calc_linear_cost_u32(input.len(), 60, 12);
-    if cost > gas_limit {
+    let res = if cost > gas_limit {
         Err(Error::OutOfGas.into())
     } else {
-        let output = sha2::Sha256::digest(input);
-        Ok(PrecompileOutput::new(cost, output.to_vec().into()))
-    }
+        let output = if zk_op::contains_operation(&ZkOperation::Sha256) {
+            zk_op::ZKVM_OPERATOR
+                .get()
+                .unwrap()
+                .sha256_run(input.as_ref())
+                .unwrap()
+                .into()
+        } else {
+            sha2::Sha256::digest(input).to_vec()
+        };
+
+        Ok(PrecompileOutput::new(cost, output.into()))
+    };
+
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-end: sha256");
+    res
 }
 
 /// Computes the RIPEMD-160 hash of the input data.

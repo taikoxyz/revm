@@ -30,6 +30,8 @@ pub struct InnerEvmContext<DB: Database> {
     /// Used as temporary value holder to store L1 block info.
     #[cfg(feature = "optimism")]
     pub l1_block_info: Option<crate::optimism::L1BlockInfo>,
+    #[cfg(feature = "taiko")]
+    pub l1_block_info: Option<crate::taiko::L1BlockInfo>,
 }
 
 impl<DB: Database + Clone> Clone for InnerEvmContext<DB>
@@ -44,6 +46,8 @@ where
             error: self.error.clone(),
             #[cfg(feature = "optimism")]
             l1_block_info: self.l1_block_info.clone(),
+            #[cfg(feature = "taiko")]
+            l1_block_info: self.l1_block_info.clone(),
         }
     }
 }
@@ -57,6 +61,8 @@ impl<DB: Database> InnerEvmContext<DB> {
             error: Ok(()),
             #[cfg(feature = "optimism")]
             l1_block_info: None,
+            #[cfg(feature = "taiko")]
+            l1_block_info: None,
         }
     }
 
@@ -69,6 +75,8 @@ impl<DB: Database> InnerEvmContext<DB> {
             db,
             error: Ok(()),
             #[cfg(feature = "optimism")]
+            l1_block_info: None,
+            #[cfg(feature = "taiko")]
             l1_block_info: None,
         }
     }
@@ -84,6 +92,8 @@ impl<DB: Database> InnerEvmContext<DB> {
             db,
             error: Ok(()),
             #[cfg(feature = "optimism")]
+            l1_block_info: self.l1_block_info,
+            #[cfg(feature = "taiko")]
             l1_block_info: self.l1_block_info,
         }
     }
