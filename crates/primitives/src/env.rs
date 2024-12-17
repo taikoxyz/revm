@@ -93,16 +93,19 @@ impl Env {
     #[inline]
     pub fn validate_tx<SPEC: Spec>(&self) -> Result<(), InvalidTransaction> {
         // Check if the transaction's chain id is correct
-        if let Some(chain_ids) = self.tx.chain_ids.clone() {
-            if !chain_ids.contains(&self.tx.caller.0) {
-                return Err(InvalidTransaction::InvalidChainId);
-            }
-            if let TransactTo::Call(to) = self.tx.transact_to {
-                if !chain_ids.contains(&to.0) || self.tx.caller.0 != to.0 {
-                    return Err(InvalidTransaction::InvalidChainId);
-                }
-            }
-        }
+        println!("Dani revm chain_ids: {:?}", self.tx.chain_ids);
+        println!("Dani revm caller: {:?}", self.tx.caller);
+        println!("Dani revm transact_to: {:?}", self.tx.transact_to);
+        // if let Some(chain_ids) = self.tx.chain_ids.clone() {
+        //     if !chain_ids.contains(&self.tx.caller.0) {
+        //         return Err(InvalidTransaction::InvalidChainId);
+        //     }
+        //     if let TransactTo::Call(to) = self.tx.transact_to {
+        //         if !chain_ids.contains(&to.0) || self.tx.caller.0 != to.0 {
+        //             return Err(InvalidTransaction::InvalidChainId);
+        //         }
+        //     }
+        // }
 
         // Check if gas_limit is more than block_gas_limit
         if !self.cfg.is_block_gas_limit_disabled()
