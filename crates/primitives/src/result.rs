@@ -198,8 +198,8 @@ impl<DBError> From<InvalidTransaction> for EVMError<DBError> {
 }
 
 impl<DBError> From<InvalidHeader> for EVMError<DBError> {
-    fn from(value: InvalidHeader) -> Self {
-        Self::Header(value)
+    fn from(invalid: InvalidHeader) -> Self {
+        EVMError::Header(invalid)
     }
 }
 
@@ -316,6 +316,10 @@ pub enum InvalidTransaction {
     /// Optimism-specific transaction validation error.
     #[cfg(feature = "optimism")]
     OptimismError(OptimismInvalidTransaction),
+
+    /// Anchor check failed
+    #[cfg(feature = "taiko")]
+    InvalidAnchorTransaction,
 }
 
 #[cfg(feature = "std")]
@@ -398,6 +402,10 @@ impl fmt::Display for InvalidTransaction {
             Self::EmptyAuthorizationList => write!(f, "empty authorization list"),
             #[cfg(feature = "optimism")]
             Self::OptimismError(op_error) => op_error.fmt(f),
+            #[cfg(feature = "taiko")]
+            Self::InvalidAnchorTransaction => {
+                write!(f, "Invalid Anchor transaction.")
+            }
         }
     }
 }

@@ -421,7 +421,7 @@ date: 20.1.2022
 
 # v3 tag
 
-* revm: v1.0.0 
+* revm: v1.0.0
 * revme: v0.1.0
 
 # v2 tag

@@ -1,3 +1,4 @@
+use crate::zk_op::{self, ZkOperation};
 use crate::{
     utilities::{bool_to_bytes32, right_pad},
     Address, Error, Precompile, PrecompileResult, PrecompileWithAddress,
@@ -123,40 +124,74 @@ pub fn new_g1_point(px: Fq, py: Fq) -> Result<G1, Error> {
 }
 
 pub fn run_add(input: &[u8], gas_cost: u64, gas_limit: u64) -> PrecompileResult {
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-start: bn-add");
+
     if gas_cost > gas_limit {
         return Err(Error::OutOfGas.into());
     }
 
-    let input = right_pad::<ADD_INPUT_LEN>(input);
+    let output = if zk_op::contains_operation(&ZkOperation::Bn128Add) {
+        zk_op::ZKVM_OPERATOR
+            .get()
+            .unwrap()
+            .bn128_run_add(input)
+            .unwrap()
+    } else {
+        let input = right_pad::<ADD_INPUT_LEN>(input);
 
-    let p1 = read_point(&input[..64])?;
-    let p2 = read_point(&input[64..])?;
+        let p1 = read_point(&input[..64])?;
+        let p2 = read_point(&input[64..])?;
 
-    let mut output = [0u8; 64];
-    if let Some(sum) = AffineG1::from_jacobian(p1 + p2) {
-        sum.x().to_big_endian(&mut output[..32]).unwrap();
-        sum.y().to_big_endian(&mut output[32..]).unwrap();
-    }
+        let mut output = [0u8; 64];
+        if let Some(sum) = AffineG1::from_jacobian(p1 + p2) {
+            sum.x().to_big_endian(&mut output[..32]).unwrap();
+            sum.y().to_big_endian(&mut output[32..]).unwrap();
+        }
+
+        output
+    };
+
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-end: bn-add");
+
     Ok(PrecompileOutput::new(gas_cost, output.into()))
 }
 
 pub fn run_mul(input: &[u8], gas_cost: u64, gas_limit: u64) -> PrecompileResult {
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-start: bn-mul");
+
     if gas_cost > gas_limit {
         return Err(Error::OutOfGas.into());
     }
 
-    let input = right_pad::<MUL_INPUT_LEN>(input);
+    let output = if zk_op::contains_operation(&ZkOperation::Bn128Mul) {
+        zk_op::ZKVM_OPERATOR
+            .get()
+            .unwrap()
+            .bn128_run_mul(input)
+            .unwrap()
+    } else {
+        let input = right_pad::<MUL_INPUT_LEN>(input);
 
-    let p = read_point(&input[..64])?;
+        let p = read_point(&input[..64])?;
 
-    // `Fr::from_slice` can only fail when the length is not 32.
-    let fr = bn::Fr::from_slice(&input[64..96]).unwrap();
+        // `Fr::from_slice` can only fail when the length is not 32.
+        let fr = bn::Fr::from_slice(&input[64..96]).unwrap();
 
-    let mut output = [0u8; 64];
-    if let Some(mul) = AffineG1::from_jacobian(p * fr) {
-        mul.x().to_big_endian(&mut output[..32]).unwrap();
-        mul.y().to_big_endian(&mut output[32..]).unwrap();
-    }
+        let mut output = [0u8; 64];
+        if let Some(mul) = AffineG1::from_jacobian(p * fr) {
+            mul.x().to_big_endian(&mut output[..32]).unwrap();
+            mul.y().to_big_endian(&mut output[32..]).unwrap();
+        }
+
+        output
+    };
+
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-end: bn-mul");
+
     Ok(PrecompileOutput::new(gas_cost, output.into()))
 }
 
@@ -166,6 +201,8 @@ pub fn run_pair(
     pair_base_cost: u64,
     gas_limit: u64,
 ) -> PrecompileResult {
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-start: bn-pair");
     let gas_used = (input.len() / PAIR_ELEMENT_LEN) as u64 * pair_per_point_cost + pair_base_cost;
     if gas_used > gas_limit {
         return Err(Error::OutOfGas.into());
@@ -175,7 +212,13 @@ pub fn run_pair(
         return Err(Error::Bn128PairLength.into());
     }
 
-    let success = if input.is_empty() {
+    let success = if zk_op::contains_operation(&ZkOperation::Bn128Pairing) {
+        zk_op::ZKVM_OPERATOR
+            .get()
+            .unwrap()
+            .bn128_run_pairing(input)
+            .unwrap()
+    } else if input.is_empty() {
         true
     } else {
         let elements = input.len() / PAIR_ELEMENT_LEN;
@@ -218,6 +261,9 @@ pub fn run_pair(
 
         mul == Gt::one()
     };
+    #[cfg(feature = "sp1-cycle-tracker")]
+    println!("cycle-tracker-end: bn-pair");
+
     Ok(PrecompileOutput::new(gas_used, bool_to_bytes32(success)))
 }
 

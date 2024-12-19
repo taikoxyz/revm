@@ -83,16 +83,17 @@ portable = ["revm-precompile/portable", "revm-interpreter/portable"]
 
 test-utils = []
 
-optimism = ["revm-interpreter/optimism", "revm-precompile/optimism"]
-# Optimism default handler enabled Optimism handler register by default in EvmBuilder.
-optimism-default-handler = [
-    "optimism",
-    "revm-precompile/optimism-default-handler",
-    "revm-interpreter/optimism-default-handler",
+optimism = []
+taiko = ["revm-interpreter/taiko", "revm-precompile/taiko"]
+# taiko default handler enabled taiko handler register by default in EvmBuilder.
+taiko-default-handler = [
+    "taiko",
+    "revm-precompile/taiko-default-handler",
+    "revm-interpreter/taiko-default-handler",
 ]
-negate-optimism-default-handler = [
-    "revm-precompile/negate-optimism-default-handler",
-    "revm-interpreter/negate-optimism-default-handler",
+negate-taiko-default-handler = [
+    "revm-precompile/negate-taiko-default-handler",
+    "revm-interpreter/negate-taiko-default-handler",
 ]
 
 ethersdb = ["std", "dep:tokio", "dep:ethers-providers", "dep:ethers-core"]
@@ -128,6 +129,8 @@ c-kzg = ["revm-precompile/c-kzg"]
 # `kzg-rs` is not audited but useful for `no_std` environment, use it with causing and default to `c-kzg` if possible.
 kzg-rs = ["revm-precompile/kzg-rs"]
 blst = ["revm-precompile/blst"]
+
+sp1-cycle-tracker = ["revm-precompile/sp1-cycle-tracker"]
 
 [[example]]
 name = "fork_ref_transact"
