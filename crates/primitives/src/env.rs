@@ -642,8 +642,6 @@ impl Default for TxEnv {
             blob_hashes: Vec::new(),
             max_fee_per_blob_gas: None,
             authorization_list: None,
-            #[cfg(feature = "optimism")]
-            optimism: OptimismFields::default(),
             #[cfg(feature = "taiko")]
             taiko: TaikoFields::default(),
         }

@@ -37,15 +37,14 @@ auto_impl = "1.2"
 bitvec = { version = "1", default-features = false, features = ["alloc"] }
 bitflags = { version = "2.6.0", default-features = false }
 
+# For setting the CfgEnv KZGSettings. Enabled by c-kzg flag.
+c-kzg = { version = "1.0.3", default-features = false, optional = true, features = [
+    "ethereum_kzg_settings",
+] }
+
 
 # Optionally use `kzg-rs` for a pure Rust implementation of KZG.
 kzg-rs = { version = "0.2.3", default-features = false, optional = true }
-c-kzg = { git = "https://github.com/brechtpd/c-kzg-4844", branch = "for-alpha7", default-features = false, optional = true, features = [
-    "preload-kzg-settings",
-    "no-threads",
-] }
-once_cell = { version = "1.19", default-features = false, optional = true }
-derive_more = { version = "0.99", optional = true }
 
 # utility
 enumn = "0.1"
@@ -118,7 +117,7 @@ optional_beneficiary_reward = []
 rand = ["alloy-primitives/rand"]
 
 # See comments in `revm-precompile`
-c-kzg = ["dep:c-kzg", "dep:once_cell", "dep:derive_more"]
+c-kzg = ["dep:c-kzg"]
 # `kzg-rs` is not audited but useful for `no_std` environment.
 #   use it with causing and default to `c-kzg` if possible!
 kzg-rs = ["dep:kzg-rs"]

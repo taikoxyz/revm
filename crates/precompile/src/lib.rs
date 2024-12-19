@@ -295,10 +295,6 @@ impl PrecompileSpecId {
             CANCUN => Self::CANCUN,
             PRAGUE | OSAKA => Self::PRAGUE,
             LATEST => Self::LATEST,
-            #[cfg(feature = "optimism")]
-            BEDROCK | REGOLITH | CANYON => Self::BERLIN,
-            #[cfg(feature = "optimism")]
-            ECOTONE | FJORD | GRANITE | HOLOCENE => Self::CANCUN,
             #[cfg(feature = "taiko")]
             KATLA | HEKLA | ONTAKE => Self::BERLIN,
         }
