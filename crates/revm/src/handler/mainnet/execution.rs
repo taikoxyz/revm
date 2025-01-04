@@ -80,7 +80,7 @@ pub fn call_return<EXT, DB: Database>(
     frame: Box<CallFrame>,
     interpreter_result: InterpreterResult,
 ) -> Result<CallOutcome, EVMError<DB::Error>> {
-    println!("mainnet::call_return");
+    //println!("mainnet::call_return");
     context
         .evm
         .call_return(&interpreter_result, frame.frame_data.checkpoint);

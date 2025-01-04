@@ -106,7 +106,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
             // The start of a smart contract execution after all initial checks have passed
             if stack_frame.is_call() {
                 let input = stack_frame.interpreter().contract.input.clone();
-                println!("-> contract: {:?}, input: {}", stack_frame.interpreter().contract.target_address, input);
+                // println!("-> contract: {:?}, input: {}", stack_frame.interpreter().contract.target_address, input);
                 // TODO: Do something
             }
 
@@ -122,10 +122,10 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
             let exec = &mut self.handler.execution;
             let frame_or_result = match next_action.clone() {
                 InterpreterAction::Call { inputs } => {
-                    println!(">>> Call: {:?}", inputs);
+                    //println!(">>> Call: {:?}", inputs);
                     // We have to record xcalls, except those done to the parent chain (those will still execute locally)
                     let is_xcall =  inputs.target_address.0 != stack_frame.frame_data().interpreter.chain_id && inputs.target_address.0 != self.context.evm.env.cfg.parent_chain_id.unwrap_or_default();
-                    println!("chain {} -> {} (is xcall: {})", inputs.target_address.0, stack_frame.frame_data().interpreter.chain_id, is_xcall);
+                    println!("chain {} -> {} (is xcall: {})", stack_frame.frame_data().interpreter.chain_id, inputs.target_address.0, is_xcall);
 
                     if is_xcall && self.context.evm.env.tx.xcalls.is_some() {
                         let xcalls = self.context.evm.env.tx.xcalls.as_ref().unwrap();
