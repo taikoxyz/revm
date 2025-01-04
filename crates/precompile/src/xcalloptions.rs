@@ -15,8 +15,6 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
         return Err(Error::XCallOptionsInvalidInputLength.into());
     }
 
-    println!("A");
-
     // Read the input data
     let version = u16::from_be_bytes(input[0..2].try_into().unwrap());
     let chain_id = u64::from_be_bytes(input[2..10].try_into().unwrap());
@@ -26,14 +24,10 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
     let block_hash: Option<revm_primitives::FixedBytes<32>> = Some(input[51..83].try_into().unwrap());
     let proof = &input[83..];
 
-    println!("B");
-
     // Check the version
     if version != 1 {
         return Err(Error::XCallOptionsInvalidVersion.into());
     }
-
-    println!("C");
 
     if !sandbox {
         // env.tx.caller is the Signer of the transaction
@@ -43,8 +37,6 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
             return Err(Error::XCallOptionsInvalidOrigin.into());
         }
     }
-
-    println!("D");
 
     // Set the call options
     *call_options = Some(CallOptions {
