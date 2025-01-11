@@ -173,7 +173,6 @@ fn return_inner(interpreter: &mut Interpreter, instruction_result: InstructionRe
             output,
             gas: interpreter.gas,
             result: instruction_result,
-            // TODO(Cecilia): only precompile is allowed to return call options but we will see.
             call_options: None,
         },
     };
