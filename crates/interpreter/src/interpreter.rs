@@ -77,6 +77,7 @@ impl Default for Interpreter {
 impl Interpreter {
     /// Create new interpreter
     pub fn new(contract: Contract, gas_limit: u64, is_static: bool, chain_id: u64, sandboxed: bool) -> Self {
+        println!("Interpreter::new IS_STATIC: {} SANDBOXED {}", is_static, sandboxed);
         if !contract.bytecode.is_execution_ready() {
             panic!("Contract is not execution ready {:?}", contract.bytecode);
         }
@@ -131,7 +132,7 @@ impl Interpreter {
             0,
             false,
             1,
-            false
+            false,
         )
     }
 
@@ -391,6 +392,7 @@ impl Interpreter {
     where
         FN: Fn(&mut Interpreter, &mut H),
     {
+        println!("Interpreter::run");
         self.next_action = InterpreterAction::None;
         self.shared_memory = shared_memory;
         // main loop
@@ -409,6 +411,7 @@ impl Interpreter {
                 // return empty bytecode
                 output: Bytes::new(),
                 gas: self.gas,
+                call_options: None,
             },
         }
     }
@@ -431,6 +434,8 @@ pub struct InterpreterResult {
     pub output: Bytes,
     /// The gas usage information.
     pub gas: Gas,
+
+    pub call_options: Option<CallOptions>,
 }
 
 impl InterpreterResult {
@@ -440,6 +445,22 @@ impl InterpreterResult {
             result,
             output,
             gas,
+            call_options: None,
+        }
+    }
+
+    /// Returns a new `InterpreterResult` with the given values and call options.
+    pub fn new_with_options(
+        result: InstructionResult,
+        output: Bytes,
+        gas: Gas,
+        call_options: Option<CallOptions>,
+    ) -> Self {
+        Self {
+            result,
+            output,
+            gas,
+            call_options,
         }
     }
 

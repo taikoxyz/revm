@@ -1,4 +1,5 @@
 use crate::{Address, Bytecode, HashMap, SpecId, B256, KECCAK_EMPTY, U256};
+use alloy_primitives::Bytes;
 use bitflags::bitflags;
 use core::hash::{Hash, Hasher};
 
@@ -17,9 +18,81 @@ pub type TransientStorage = HashMap<(ChainAddress, U256), U256>;
 /// An account's Storage is a mapping from 256-bit integer keys to [EvmStorageSlot]s.
 pub type EvmStorage = HashMap<U256, EvmStorageSlot>;
 
+/// Data needed for each xcall
+#[derive(Debug, Clone, PartialEq, Eq, Default, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct XCallData {
+    /// The input
+    pub input: XCallInput,
+    /// The output
+    pub output: XCallOutput,
+}
+
+/// XCallOutput data.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct XCallOutput {
+    /// The result of the instruction execution.
+    pub result: u8,
+    /// The output of the instruction execution.
+    pub output: Bytes,
+    /// The gas usage information.
+    pub gas: u64,
+}
+
+/// XCallInput data.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct XCallInput {
+    /// The call data of the call.
+    pub input: Bytes,
+    /// The return memory offset where the output of the call is written.
+    ///
+    /// In EOF, this range is invalid as EOF calls do not write output to memory.
+    //pub return_memory_offset: Range<usize>,
+    /// The gas limit of the call.
+    pub gas_limit: u64,
+    /// The account address of bytecode that is going to be executed.
+    ///
+    /// Previously `context.code_address`.
+    pub bytecode_address: ChainAddress,
+    /// Target address, this account storage is going to be modified.
+    ///
+    /// Previously `context.address`.
+    pub target_address: ChainAddress,
+    /// This caller is invoking the call.
+    ///
+    /// Previously `context.caller`.
+    pub caller: ChainAddress,
+    /// Call value.
+    ///
+    /// NOTE: This value may not necessarily be transferred from caller to callee, see [`CallValue`].
+    ///
+    /// Previously `transfer.value` or `context.apparent_value`.
+    //pub value: CallValue,
+    /// The call scheme.
+    ///
+    /// Previously `context.scheme`.
+    //pub scheme: CallScheme,
+    /// Whether the call is a static call, or is initiated inside a static call.
+    pub is_static: bool,
+    /// Whether the call is initiated from EOF bytecode.
+    pub is_eof: bool,
+}
+
 impl Default for ChainAddress {
     fn default() -> Self {
         ChainAddress(1, Address::default())
+    }
+}
+
+pub trait OnChain {
+    fn on_chain(&self, chain_id: u64) -> ChainAddress;
+}
+
+impl OnChain for Address {
+    fn on_chain(&self, chain_id: u64) -> ChainAddress {
+        ChainAddress(chain_id, *self)
     }
 }
 

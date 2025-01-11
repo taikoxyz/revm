@@ -89,6 +89,7 @@ impl<ExtDB: DatabaseRef> CacheDB<ExtDB> {
     ///
     /// If the account was not found in the cache, it will be loaded from the underlying database.
     pub fn load_account(&mut self, address: ChainAddress) -> Result<&mut DbAccount, ExtDB::Error> {
+        println!("load_account address: {:?}", address);
         let db = &self.db;
         match self.accounts.entry(address) {
             Entry::Occupied(entry) => Ok(entry.into_mut()),
@@ -170,6 +171,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
     type Error = ExtDB::Error;
 
     fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
+        //println!("CachedDB: basic {:?}", address);
         let basic = match self.accounts.entry(address) {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => entry.insert(
@@ -186,6 +188,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
     }
 
     fn code_by_hash(&mut self, chain_id: u64, code_hash: B256) -> Result<Bytecode, Self::Error> {
+        //println!("CachedDB:code_by_hash chain_id: {:?}, code_hash: {:?}", chain_id, code_hash);
         match self.contracts.entry(code_hash) {
             Entry::Occupied(entry) => Ok(entry.get().clone()),
             Entry::Vacant(entry) => {
@@ -199,6 +202,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
     ///
     /// It is assumed that account is already loaded.
     fn storage(&mut self, address: ChainAddress, index: U256) -> Result<U256, Self::Error> {
+        //println!("CachedDB:storage address: {:?}, index: {:?}", address, index);
         match self.accounts.entry(address) {
             Entry::Occupied(mut acc_entry) => {
                 let acc_entry = acc_entry.get_mut();
@@ -236,6 +240,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
     }
 
     fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error> {
+        println!("block_hash chain_id: {:?}, number: {:?}", chain_id, number);
         match self.block_hashes.entry((chain_id, U256::from(number))) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {

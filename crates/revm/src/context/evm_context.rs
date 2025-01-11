@@ -1,5 +1,6 @@
 use revm_interpreter::CallValue;
 use revm_precompile::PrecompileErrors;
+use crate::primitives::CallOptions;
 
 use super::inner_evm_context::InnerEvmContext;
 use crate::{
@@ -114,10 +115,13 @@ impl<DB: Database> EvmContext<DB> {
         address: &ChainAddress,
         input_data: &Bytes,
         gas: Gas,
+        caller: ChainAddress,
     ) -> Result<Option<InterpreterResult>, EVMError<DB::Error>> {
+        println!("call_precompile {:?}", address);
+        let mut call_options = None;
         let Some(outcome) =
             self.precompiles
-                .call(&address.1, input_data, gas.limit(), &mut self.inner)
+                .call(&address.1, input_data, gas.limit(), &mut self.inner, caller, &mut call_options)
         else {
             return Ok(None);
         };
@@ -126,13 +130,15 @@ impl<DB: Database> EvmContext<DB> {
             result: InstructionResult::Return,
             gas,
             output: Bytes::new(),
+            call_options: None,
         };
 
         match outcome {
             Ok(output) => {
                 if result.gas.record_cost(output.gas_used) {
                     result.result = InstructionResult::Return;
-                    result.output = output.bytes;
+                    result.output = output.bytes.clone();
+                    result.call_options = call_options;
                 } else {
                     result.result = InstructionResult::PrecompileOOG;
                 }
@@ -157,12 +163,15 @@ impl<DB: Database> EvmContext<DB> {
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
         let gas = Gas::new(inputs.gas_limit);
 
+        println!("make_call_frame {:?}", inputs.bytecode_address);
+
         let return_result = |instruction_result: InstructionResult| {
             Ok(FrameOrResult::new_call_result(
                 InterpreterResult {
                     result: instruction_result,
                     gas,
                     output: Bytes::new(),
+                    call_options: None,
                 },
                 inputs.return_memory_offset.clone(),
             ))
@@ -205,17 +214,21 @@ impl<DB: Database> EvmContext<DB> {
             _ => {}
         };
 
-        if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas)? {
+        // Only place that sets the Call Options
+        //println!("make_call_frame *==> call_precompile {:?}", inputs.input);
+        if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas, inputs.caller)? {
             if matches!(result.result, return_ok!()) {
                 self.journaled_state.checkpoint_commit();
             } else {
                 self.journaled_state.checkpoint_revert(checkpoint);
             }
+            // Pass out the Call Options in CallOutcome
             Ok(FrameOrResult::new_call_result(
                 result,
                 inputs.return_memory_offset.clone(),
             ))
         } else {
+            //println!("make_call_frame: load_code");
             let account = self
                 .inner
                 .journaled_state
@@ -273,6 +286,7 @@ impl<DB: Database> EvmContext<DB> {
                     result: e,
                     gas: Gas::new(inputs.gas_limit),
                     output: Bytes::new(),
+                    call_options: None,
                 },
                 None,
             ))
@@ -371,6 +385,7 @@ impl<DB: Database> EvmContext<DB> {
                     result: e,
                     gas: Gas::new(inputs.gas_limit),
                     output: Bytes::new(),
+                    call_options: None,
                 },
                 None,
             ))
