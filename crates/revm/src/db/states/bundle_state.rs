@@ -643,7 +643,14 @@ impl BundleState {
         let mut accounts = Vec::with_capacity(state_len);
         let mut storage = Vec::with_capacity(state_len);
 
+        // To keep track of all chains in the changeset
+        let mut chain_ids = HashSet::new();
+
         for (address, account) in self.state {
+            // Keep track of each chain used
+            chain_ids.insert(address.0);
+            let address = address.1;
+
             // append account info if it is changed.
             let was_destroyed = account.was_destroyed();
             if is_value_known.is_not_known() || account.is_info_changed() {
@@ -688,7 +695,16 @@ impl BundleState {
             .into_iter()
             // remove empty bytecodes
             .filter(|((_, b), _)| *b != KECCAK_EMPTY)
+            // remove chain id
+            .map(|a| {
+                chain_ids.insert(a.0.0);
+                (a.0.1, a.1)
+            })
             .collect::<Vec<_>>();
+
+        // Check if we created a valid state chain set for a single chain
+        assert_eq!(chain_ids.len(), 1, "state changeset contains state of multiple chains: {:?}", chain_ids);
+
         StateChangeset {
             accounts,
             storage,
