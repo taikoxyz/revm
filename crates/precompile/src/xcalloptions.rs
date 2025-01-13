@@ -8,7 +8,7 @@ pub const XCALLOPTIONS: PrecompileWithAddress = PrecompileWithAddress(
 
 /// Sets the xcall options
 fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddress, call_options: &mut Option<CallOptions>) -> PrecompileResult {
-    println!("  xcalloptions_run: {}, {:?}", input.len(), input);
+    //println!("  xcalloptions_run: {}, {:?}", input.len(), input);
 
     // Verify input length.
     if input.len() < 83 {
@@ -33,7 +33,7 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
         // env.tx.caller is the Signer of the transaction
         // caller is the address of the contract that is calling the precompile
         if tx_origin != env.tx.caller.1 || msg_sender != caller.1 {
-            println!("  tx_origin: {:?}, env.tx.caller.1: {:?}, msg_sender: {:?}, caller.1: {:?}", tx_origin, env.tx.caller.1, msg_sender, caller.1);
+            //println!("  tx_origin: {:?}, env.tx.caller.1: {:?}, msg_sender: {:?}, caller.1: {:?}", tx_origin, env.tx.caller.1, msg_sender, caller.1);
             return Err(Error::XCallOptionsInvalidOrigin.into());
         }
     }
@@ -47,7 +47,7 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
         block_hash,
         proof: proof.to_vec(),
     });
-    println!("  CallOptions: {:?}", call_options);
+    //println!("  CallOptions: {:?}", call_options);
 
     Ok(PrecompileOutput::new(0, Bytes::new()))
 }

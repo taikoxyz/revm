@@ -98,7 +98,7 @@ pub fn output<EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     result: FrameResult,
 ) -> Result<ResultAndState, EVMError<DB::Error>> {
-    println!("mainnet::output");
+    //println!("mainnet::output");
     context.evm.take_error()?;
     // used gas with refund calculated.
     let gas_refunded = result.gas().refunded() as u64;
