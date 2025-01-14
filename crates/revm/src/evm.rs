@@ -77,7 +77,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
     /// Runs main call loop.
     #[inline]
     pub fn run_the_loop(&mut self, first_frame: Frame) -> Result<FrameResult, EVMError<DB::Error>> {
-        println!("EVM:run_the_loop: exaust the frame stack");
+        //println!("EVM:run_the_loop: exaust the frame stack");
         let mut call_stack: Vec<Frame> = Vec::with_capacity(1025);
         call_stack.push(first_frame);
 
@@ -97,7 +97,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
         let mut pending_xcalls: HashMap<u64, usize> = HashMap::new();
         let mut xcall_idx = 0usize;
         loop {
-            println!("loop: {}", cnt);
+            //println!("loop: {}", cnt);
             cnt += 1;
 
             // TODO(Brecht): Potential issue when revert happens after setting the options?
@@ -125,7 +125,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                     //println!(">>> Call: {:?}", inputs);
                     // We have to record xcalls, except those done to the parent chain (those will still execute locally)
                     let is_xcall =  inputs.target_address.0 != stack_frame.frame_data().interpreter.chain_id && inputs.target_address.0 != self.context.evm.env.cfg.parent_chain_id.unwrap_or_default();
-                    println!("chain {} -> {} (is xcall: {})", stack_frame.frame_data().interpreter.chain_id, inputs.target_address.0, is_xcall);
+                    //println!("chain {} -> {} (is xcall: {})", stack_frame.frame_data().interpreter.chain_id, inputs.target_address.0, is_xcall);
 
                     if is_xcall && self.context.evm.env.tx.xcalls.is_some() {
                         let xcalls = self.context.evm.env.tx.xcalls.as_ref().unwrap();
@@ -180,24 +180,24 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                         match &res {
                             FrameOrResult::Frame(_) => {
                                 if is_xcall {
-                                    println!("pending xcall at: {}", call_stack.len());
+                                    //println!("pending xcall at: {}", call_stack.len());
                                     pending_xcalls.insert(call_stack.len() as u64, pending_xcall_idx);
                                 }
                             }
                             FrameOrResult::Result(FrameResult::Call(outcome)) => {
-                                println!("call done: {:?}", outcome);
+                                //println!("call done: {:?}", outcome);
                                 if let Some(&xcall_idx) = pending_xcalls.get(&(self.context.evm.journaled_state.depth())) {
-                                    println!("xcall: {:?}", xcall_idx);
+                                    //println!("xcall: {:?}", xcall_idx);
                                     // return_call
                                     let xcall = &mut self.context.evm.journaled_state.xcalls[xcall_idx];
                                     xcall.output.output = outcome.result.output.clone();
                                     xcall.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
                                 } else {
-                                    println!("outcome: {:?}", outcome);
+                                    //println!("outcome: {:?}", outcome);
                                 }
                             }
                             _ => {
-                                println!("uncatched frame result");
+                                //println!("uncatched frame result");
                             }
                         };
                         res
@@ -235,10 +235,10 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                 InterpreterAction::None => unreachable!("InterpreterAction::None is not expected"),
             };
 
-            println!("  loop ==> frame_or_result: {:?}", match frame_or_result {
-                FrameOrResult::Frame(_) => "Frame",
-                FrameOrResult::Result(_) => "Result",
-            });
+            // println!("  loop ==> frame_or_result: {:?}", match frame_or_result {
+            //     FrameOrResult::Frame(_) => "Frame",
+            //     FrameOrResult::Result(_) => "Result",
+            // });
 
             // handle result
             match frame_or_result {
@@ -261,15 +261,15 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                             // return_call
                             call_options = outcome.call_options.clone();
 
-                            println!("call done [{}] with return: {:?}", depth, outcome);
+                            //println!("call done [{}] with return: {:?}", depth, outcome);
                             //println!("pending xcalls: {:?}", pending_xcalls);
                             if let Some(&xcall_idx) = pending_xcalls.get(&ctx.evm.journaled_state.depth()) {
-                                println!("xcall: {:?}", xcall_idx);
+                                //println!("xcall: {:?}", xcall_idx);
                                 let xcall = &mut ctx.evm.journaled_state.xcalls[xcall_idx];
                                 xcall.output.output = outcome.result.output.clone();
                                 xcall.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
                             } else {
-                                println!("outcome uncatched: {:?}", outcome);
+                                //println!("outcome uncatched: {:?}", outcome);
                             }
 
                             exec.insert_call_outcome(ctx, stack_frame, &mut shared_memory, outcome)?
@@ -446,7 +446,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
     /// Transact pre-verified transaction.
     fn transact_preverified_inner(&mut self, initial_gas_spend: u64) -> EVMResult<DB::Error> {
-        println!("EVM:transact_preverified_inner");
+        //println!("EVM:transact_preverified_inner");
         let spec_id = self.spec_id();
         let ctx = &mut self.context;
         let pre_exec = self.handler.pre_execution();
@@ -472,7 +472,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         let exec = self.handler.execution();
         // call inner handling of call/create
 
-        println!("first_frame_or_result from transact_to {:?}", ctx.evm.env.tx.transact_to);
+        //println!("first_frame_or_result from transact_to {:?}", ctx.evm.env.tx.transact_to);
         let first_frame_or_result = match ctx.evm.env.tx.transact_to {
             TransactTo::Call(_) => exec.call(
                 ctx,

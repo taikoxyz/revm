@@ -23,7 +23,7 @@ pub fn execute_frame<SPEC: Spec, EXT, DB: Database>(
     instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
     context: &mut Context<EXT, DB>,
 ) -> Result<InterpreterAction, EVMError<DB::Error>> {
-    println!("mainnet::execute_frame");
+    //println!("mainnet::execute_frame");
     let interpreter = frame.interpreter_mut();
     let memory = mem::replace(shared_memory, EMPTY_SHARED_MEMORY);
     let next_action = match instruction_tables {
@@ -42,7 +42,7 @@ pub fn last_frame_return<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     frame_result: &mut FrameResult,
 ) -> Result<(), EVMError<DB::Error>> {
-    println!("mainnet::last_frame_return");
+    //println!("mainnet::last_frame_return");
     let instruction_result = frame_result.interpreter_result().result;
     let gas = frame_result.gas_mut();
     let remaining = gas.remaining();
@@ -70,7 +70,7 @@ pub fn call<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     inputs: Box<CallInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
-    println!("mainnet::call ==> make_call_frame");
+    //println!("mainnet::call ==> make_call_frame");
     context.evm.make_call_frame(&inputs)
 }
 
@@ -112,7 +112,7 @@ pub fn create<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     inputs: Box<CreateInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
-    println!("mainnet::create");
+    //println!("mainnet::create");
     context.evm.make_create_frame(SPEC::SPEC_ID, &inputs)
 }
 
@@ -122,7 +122,7 @@ pub fn create_return<SPEC: Spec, EXT, DB: Database>(
     frame: Box<CreateFrame>,
     mut interpreter_result: InterpreterResult,
 ) -> Result<CreateOutcome, EVMError<DB::Error>> {
-    println!("mainnet::create_return");
+    //println!("mainnet::create_return");
     context.evm.create_return::<SPEC>(
         &mut interpreter_result,
         ChainAddress(frame.frame_data.interpreter.chain_id, frame.created_address),
@@ -140,7 +140,7 @@ pub fn insert_create_outcome<EXT, DB: Database>(
     frame: &mut Frame,
     outcome: CreateOutcome,
 ) -> Result<(), EVMError<DB::Error>> {
-    println!("mainnet::insert_create_outcome");
+    //println!("mainnet::insert_create_outcome");
     context.evm.take_error()?;
     frame
         .frame_data_mut()
@@ -155,7 +155,7 @@ pub fn eofcreate<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     inputs: Box<EOFCreateInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
-    println!("mainnet::eofcreate");
+    //println!("mainnet::eofcreate");
     context.evm.make_eofcreate_frame(SPEC::SPEC_ID, &inputs)
 }
 
@@ -165,7 +165,7 @@ pub fn eofcreate_return<SPEC: Spec, EXT, DB: Database>(
     frame: Box<EOFCreateFrame>,
     mut interpreter_result: InterpreterResult,
 ) -> Result<CreateOutcome, EVMError<DB::Error>> {
-    println!("mainnet::eofcreate_return");
+    //println!("mainnet::eofcreate_return");
     context.evm.eofcreate_return::<SPEC>(
         &mut interpreter_result,
         ChainAddress(frame.frame_data.interpreter.chain_id, frame.created_address),
@@ -183,7 +183,7 @@ pub fn insert_eofcreate_outcome<EXT, DB: Database>(
     frame: &mut Frame,
     outcome: CreateOutcome,
 ) -> Result<(), EVMError<DB::Error>> {
-    println!("mainnet::insert_eofcreate_outcome");
+    //println!("mainnet::insert_eofcreate_outcome");
     core::mem::replace(&mut context.evm.error, Ok(()))?;
     frame
         .frame_data_mut()
@@ -211,6 +211,7 @@ mod tests {
                 result: instruction_result,
                 output: Bytes::new(),
                 gas,
+                call_options: None,
             },
             0..0,
             None
