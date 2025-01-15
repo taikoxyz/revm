@@ -257,7 +257,7 @@ impl FrameOrResult {
         checkpoint: JournalCheckpoint,
         interpreter: Interpreter,
     ) -> Self {
-        println!("FrameOrResult::new_call_frame");
+        //println!("FrameOrResult::new_call_frame");
         Self::Frame(Frame::new_call(
             return_memory_range,
             checkpoint,

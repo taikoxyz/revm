@@ -124,7 +124,7 @@ impl<DB: Database> ContextPrecompiles<DB> {
         caller: ChainAddress,
         call_options: &mut Option<CallOptions>,
     ) -> Option<PrecompileResult> {
-        println!("ContextPrecompiles::call {:?}", address);
+        //println!("ContextPrecompiles::call {:?}", address);
         Some(match self.inner {
             PrecompilesCow::StaticRef(p) => p.get(address)?.call_ref(bytes, gas_limit, &evmctx.env, caller, call_options),
             PrecompilesCow::Owned(ref mut owned) => match owned.get_mut(address)? {

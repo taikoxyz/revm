@@ -117,7 +117,7 @@ impl<DB: Database> EvmContext<DB> {
         gas: Gas,
         caller: ChainAddress,
     ) -> Result<Option<InterpreterResult>, EVMError<DB::Error>> {
-        println!("call_precompile {:?}", address);
+        //println!("call_precompile {:?}", address);
         let mut call_options = None;
         let Some(outcome) =
             self.precompiles
@@ -163,7 +163,7 @@ impl<DB: Database> EvmContext<DB> {
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
         let gas = Gas::new(inputs.gas_limit);
 
-        println!("make_call_frame {:?}", inputs.bytecode_address);
+        //println!("make_call_frame {:?}", inputs.bytecode_address);
 
         let return_result = |instruction_result: InstructionResult| {
             Ok(FrameOrResult::new_call_result(

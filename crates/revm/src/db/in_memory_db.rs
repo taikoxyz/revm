@@ -89,7 +89,7 @@ impl<ExtDB: DatabaseRef> CacheDB<ExtDB> {
     ///
     /// If the account was not found in the cache, it will be loaded from the underlying database.
     pub fn load_account(&mut self, address: ChainAddress) -> Result<&mut DbAccount, ExtDB::Error> {
-        println!("load_account address: {:?}", address);
+        //println!("load_account address: {:?}", address);
         let db = &self.db;
         match self.accounts.entry(address) {
             Entry::Occupied(entry) => Ok(entry.into_mut()),
@@ -240,7 +240,7 @@ impl<ExtDB: DatabaseRef> Database for CacheDB<ExtDB> {
     }
 
     fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error> {
-        println!("block_hash chain_id: {:?}, number: {:?}", chain_id, number);
+        //println!("block_hash chain_id: {:?}, number: {:?}", chain_id, number);
         match self.block_hashes.entry((chain_id, U256::from(number))) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {

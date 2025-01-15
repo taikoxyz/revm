@@ -157,8 +157,7 @@ pub fn return_contract<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &
             output,
             gas: interpreter.gas,
             result,
-            // TODO(Cecilia): only precompile is allowed to return call options but we will see.
-            call_options: None 
+            call_options: None
         },
     };
 }
@@ -415,7 +414,7 @@ pub fn create<const IS_CREATE2: bool, H: Host + ?Sized, SPEC: Spec>(
 }
 
 pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    println!("contract::call");
+    //println!("contract::call");
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
 
@@ -472,7 +471,7 @@ pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &
 }
 
 pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    println!("contract::call_code");
+    //println!("contract::call_code");
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
 
@@ -525,7 +524,7 @@ pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, ho
 }
 
 pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    println!("contract::delegate_call");
+    //println!("contract::delegate_call");
     check!(interpreter, HOMESTEAD);
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
@@ -571,7 +570,7 @@ pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter
 }
 
 pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    println!("contract::static_call");
+    //println!("contract::static_call");
     check!(interpreter, BYZANTIUM);
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
@@ -615,16 +614,15 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
     interpreter.instruction_result = InstructionResult::CallOrCreate;
 }
 
-/// Apply call options to the interpreter.
-/// This is after the PREVIOUS call into precompile return the CallOptions.
-/// User sets the `delegate` and `code` flags in the next call after context switching.
+/// Collects call options for this CAL
+/// This consumes the data from the PREVIOUS call into the XCALLOPTIONS precompile.
 pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H, to: Address, delegate: bool, code: bool) -> CallTargets {
-    println!("apply_call_options {:?}", interpreter.call_options);
+    //println!("apply_call_options {:?}", interpreter.call_options);
     let (call_options, to) = match interpreter.call_options.clone() {
         Some(mut call_options) => {
             if !call_options.sandbox {
                 // Already checked in precompiles but let's do it again
-                if call_options.msg_sender.1 != interpreter.contract.target_address.1 
+                if call_options.msg_sender.1 != interpreter.contract.target_address.1
                     || call_options.tx_origin.1 != host.env().tx.caller.1
                 {
                     interpreter.instruction_result = InstructionResult::Stop;
@@ -649,26 +647,22 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
                     msg_sender: interpreter.contract.target_address,
                     block_hash: None,
                     proof: Vec::new(),
-                }, 
+                },
                 ChainAddress(interpreter.chain_id, to)
             )
         }
     };
 
-    println!("call targets {:?}",
-        CallTargets {
-            target_address: if delegate || code { call_options.msg_sender } else { to },
-            caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender },
-            bytecode_address: if delegate { to.1.on_chain(call_options.chain_id) } else { to },
-        }
-    );
+    let call_targets = CallTargets {
+        target_address: if delegate || code { call_options.msg_sender } else { to },
+        caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender },
+        bytecode_address: if delegate { to.1.on_chain(call_options.chain_id) } else { to },
+    };
+
+    //println!("call targets {:?}", call_targets);
 
     // Consume the values
     interpreter.call_options = None;
 
-    CallTargets {
-        target_address: if delegate || code { call_options.msg_sender } else { to },
-        caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender},
-        bytecode_address: if delegate { to.1.on_chain(call_options.chain_id) } else { to },
-    }
+    call_targets
 }

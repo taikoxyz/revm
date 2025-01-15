@@ -1,5 +1,5 @@
 use super::RevertToSlot;
-use revm_interpreter::primitives::{AccountInfo, Address, Bytecode, ChainAddress, B256, U256};
+use revm_interpreter::primitives::{AccountInfo, Address, Bytecode, B256, U256};
 use std::vec::Vec;
 
 /// accounts/storages/contracts for inclusion into database.
@@ -11,33 +11,11 @@ use std::vec::Vec;
 #[derive(Clone, Debug, Default)]
 pub struct StateChangeset {
     /// Vector of **not** sorted accounts information.
-    pub accounts: Vec<(ChainAddress, Option<AccountInfo>)>,
+    pub accounts: Vec<(Address, Option<AccountInfo>)>,
     /// Vector of **not** sorted storage.
     pub storage: Vec<PlainStorageChangeset>,
     /// Vector of contracts by bytecode hash. **not** sorted.
-    pub contracts: Vec<((u64, B256), Bytecode)>,
-}
-
-impl StateChangeset {
-    pub fn filter_for_chain(&mut self, chain_id: u64) {
-        // multiple Txs has multiple reverts per ChainAddress, 
-        // filter out account chainges and storage changes for given chain_id
-        self.accounts = self
-            .accounts
-            .drain(..)
-            .filter(|(chain, _)| chain.0 == chain_id)
-            .collect();
-        self.storage = self
-            .storage
-            .drain(..)
-            .filter(|change| change.address.0 == chain_id)
-            .collect();
-        self.contracts = self
-            .contracts
-            .drain(..)
-            .filter(|((chain, _), _)| *chain == chain_id)
-            .collect();
-    }
+    pub contracts: Vec<(B256, Bytecode)>,
 }
 
 /// Plain storage changeset. Used to apply storage changes of plain state to
@@ -45,7 +23,7 @@ impl StateChangeset {
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct PlainStorageChangeset {
     /// Address of account
-    pub address: ChainAddress,
+    pub address: Address,
     /// Wipe storage,
     pub wipe_storage: bool,
     /// Storage key value pairs.
@@ -56,7 +34,7 @@ pub struct PlainStorageChangeset {
 #[derive(Clone, Debug, PartialEq, Eq, Default)]
 pub struct PlainStorageRevert {
     /// Address of account
-    pub address: ChainAddress,
+    pub address: Address,
     /// Is storage wiped in this revert. Wiped flag is set on
     /// first known selfdestruct and would require clearing the
     /// state of this storage from database (And moving it to revert).
@@ -74,7 +52,7 @@ pub struct PlainStateReverts {
     /// Vector of account with removed contracts bytecode
     ///
     /// Note: If AccountInfo is None means that account needs to be removed.
-    pub accounts: Vec<Vec<(ChainAddress, Option<AccountInfo>)>>,
+    pub accounts: Vec<Vec<(Address, Option<AccountInfo>)>>,
     /// Vector of storage with its address.
     pub storage: Vec<Vec<PlainStorageRevert>>,
 }
@@ -87,30 +65,7 @@ impl PlainStateReverts {
             storage: Vec::with_capacity(capacity),
         }
     }
-
-    pub fn filter_for_chain(&mut self, chain_id: u64) {
-        // multiple Txs has multiple reverts per ChainAddress, 
-        // filter out account chainges and storage changes for given chain_id
-        self.accounts = self
-            .accounts
-            .drain(..)
-            .map(|inner| {
-                inner.into_iter()
-                    .filter(|(chain, _)| chain.0 == chain_id)
-                    .collect()
-            })
-            .collect();
-        self.storage = self
-            .storage
-            .drain(..)
-            .map(|inner| {
-                inner.into_iter()
-                    .filter(|revert| revert.address.0 == chain_id)
-                    .collect()
-            })
-            .collect(); 
-    }
 }
 
 /// Storage reverts
-pub type StorageRevert = Vec<Vec<(ChainAddress, bool, Vec<(U256, RevertToSlot)>)>>;
+pub type StorageRevert = Vec<Vec<(Address, bool, Vec<(U256, RevertToSlot)>)>>;

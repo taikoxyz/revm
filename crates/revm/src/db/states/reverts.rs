@@ -3,9 +3,9 @@ use super::{
     StorageWithOriginalValues,
 };
 use core::ops::{Deref, DerefMut};
-use revm_interpreter::primitives::{AccountInfo, Address, HashMap, U256};
+use revm_interpreter::primitives::{AccountInfo, HashMap, U256};
 use crate::primitives::ChainAddress;
-use std::vec::Vec;
+use std::{collections::HashSet, vec::Vec};
 
 /// Contains reverts of multiple account in multiple transitions (Transitions as a block).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -48,12 +48,19 @@ impl Reverts {
     ///
     /// Note that account are sorted by address.
     pub fn to_plain_state_reverts(&self) -> PlainStateReverts {
+        // To keep track of all chains in the changeset
+        let mut chain_ids = HashSet::new();
+
         let mut state_reverts = PlainStateReverts::with_capacity(self.0.len());
         for reverts in &self.0 {
             // pessimistically pre-allocate assuming _all_ accounts changed.
             let mut accounts = Vec::with_capacity(reverts.len());
             let mut storage = Vec::with_capacity(reverts.len());
-            for (address, revert_account) in reverts {
+            for (address, revert_account) in reverts.into_iter() {
+                // Keep track of each chain used
+                chain_ids.insert(address.0);
+
+                let address = &address.1;
                 match &revert_account.account {
                     AccountInfoRevert::RevertTo(acc) => {
                         // cloning is cheap, because account info has 3 small
@@ -78,6 +85,10 @@ impl Reverts {
             state_reverts.accounts.push(accounts);
             state_reverts.storage.push(storage);
         }
+
+        // Check if we created a valid state chain set for a single chain
+        assert_eq!(chain_ids.len(), 1, "state changeset contains state of multiple chains: {:?}", chain_ids);
+
         state_reverts
     }
 
