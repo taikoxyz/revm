@@ -44,14 +44,14 @@ impl<ExtDB: Default> Default for CacheDB<ExtDB> {
 
 impl<ExtDB> CacheDB<ExtDB> {
     pub fn new(db: ExtDB) -> Self {
-        let mut contracts = HashMap::new();
+        let mut contracts = HashMap::default();
         contracts.insert(KECCAK_EMPTY, Bytecode::default());
         contracts.insert(B256::ZERO, Bytecode::default());
         Self {
-            accounts: HashMap::new(),
+            accounts: HashMap::default(),
             contracts,
             logs: Vec::default(),
-            block_hashes: HashMap::new(),
+            block_hashes: HashMap::default(),
             db,
         }
     }
@@ -366,12 +366,33 @@ impl AccountState {
 ///
 /// Any other address will return an empty account.
 #[derive(Debug, Default, Clone)]
-pub struct BenchmarkDB(pub Bytecode, B256);
+pub struct BenchmarkDB {
+    pub bytecode: Bytecode,
+    pub hash: B256,
+    pub target: Address,
+    pub caller: Address,
+}
 
 impl BenchmarkDB {
+    /// Create a new benchmark database with the given bytecode.
     pub fn new_bytecode(bytecode: Bytecode) -> Self {
         let hash = bytecode.hash_slow();
-        Self(bytecode, hash)
+        Self {
+            bytecode,
+            hash,
+            target: Address::ZERO,
+            caller: Address::with_last_byte(1),
+        }
+    }
+
+    /// Change the caller address for the benchmark.
+    pub fn with_caller(self, caller: Address) -> Self {
+        Self { caller, ..self }
+    }
+
+    /// Change the target address for the benchmark.
+    pub fn with_target(self, target: Address) -> Self {
+        Self { target, ..self }
     }
 }
 
@@ -379,15 +400,15 @@ impl Database for BenchmarkDB {
     type Error = Infallible;
     /// Get basic account information.
     fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
-        if address.1 == Address::ZERO {
+        if address.1 == self.target {
             return Ok(Some(AccountInfo {
                 nonce: 1,
                 balance: U256::from(10000000),
-                code: Some(self.0.clone()),
-                code_hash: self.1,
+                code: Some(self.bytecode.clone()),
+                code_hash: self.hash,
             }));
         }
-        if address.1 == Address::with_last_byte(1) {
+        if address.1 == self.caller {
             return Ok(Some(AccountInfo {
                 nonce: 0,
                 balance: U256::from(10000000),
@@ -417,7 +438,7 @@ impl Database for BenchmarkDB {
 #[cfg(test)]
 mod tests {
     use super::{CacheDB, EmptyDB};
-    use crate::primitives::{db::SyncDatabase as Database, AccountInfo, Address, ChainAddress, U256};
+    use crate::primitives::{db::SyncDatabase as Database, AccountInfo, Address, ChainAddress, HashMap, U256};
 
     #[test]
     fn test_insert_account_storage() {
@@ -465,7 +486,7 @@ mod tests {
 
         let mut new_state = CacheDB::new(init_state);
         new_state
-            .replace_account_storage(account, [(key1, value1)].into())
+            .replace_account_storage(account, HashMap::from_iter([(key1, value1)]))
             .unwrap();
 
         assert_eq!(new_state.basic(account).unwrap().unwrap().nonce, nonce);

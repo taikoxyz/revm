@@ -207,9 +207,6 @@ impl Env {
                 return Err(InvalidTransaction::EmptyAuthorizationList);
             }
 
-            // Check validity of authorization_list
-            auth_list.is_valid(self.tx.caller.0)?;
-
             // Check if other fields are unset.
             if self.tx.max_fee_per_blob_gas.is_some() || !self.tx.blob_hashes.is_empty() {
                 return Err(InvalidTransaction::AuthorizationListInvalidFields);
@@ -355,7 +352,7 @@ impl CfgEnv {
         self.parent_chain_id = Some(parent_chain_id);
         self
     }
-    
+
     pub fn with_chain_id(mut self, chain_id: u64) -> Self {
         self.chain_id = chain_id;
         self

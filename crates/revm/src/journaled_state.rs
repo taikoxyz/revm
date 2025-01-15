@@ -63,7 +63,7 @@ impl JournaledState {
     /// And will not take into account if account is not existing or empty.
     pub fn new(spec: SpecId, warm_preloaded_addresses: HashSet<ChainAddress>) -> JournaledState {
         Self {
-            state: HashMap::new(),
+            state: HashMap::default(),
             transient_storage: TransientStorage::default(),
             logs: Vec::new(),
             journal: vec![vec![]],
@@ -108,7 +108,7 @@ impl JournaledState {
     /// Clears the JournaledState. Preserving only the spec.
     pub fn clear(&mut self) {
         let spec = self.spec;
-        *self = Self::new(spec, HashSet::new());
+        *self = Self::new(spec, HashSet::default());
     }
 
     /// Does cleanup and returns modified state.
