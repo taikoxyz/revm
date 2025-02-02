@@ -4,6 +4,7 @@ use std::vec::Vec;
 use crate::primitives::ChainAddress;
 
 #[derive(Clone, Default, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TransitionState {
     /// Block state account with account state
     pub transitions: HashMap<ChainAddress, TransitionAccount>,

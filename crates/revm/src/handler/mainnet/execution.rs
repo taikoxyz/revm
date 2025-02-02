@@ -211,6 +211,7 @@ mod tests {
                 result: instruction_result,
                 output: Bytes::new(),
                 gas,
+                call_options: None,
             },
             0..0,
             None
