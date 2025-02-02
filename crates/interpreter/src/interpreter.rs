@@ -434,7 +434,7 @@ pub struct InterpreterResult {
     pub output: Bytes,
     /// The gas usage information.
     pub gas: Gas,
-
+    /// The call options that were set
     pub call_options: Option<CallOptions>,
 }
 

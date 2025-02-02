@@ -312,6 +312,7 @@ impl BundleBuilder {
             state,
             contracts: self.contracts,
             reverts: Reverts::new(reverts_map.into_values().collect()),
+            transitions: Vec::new(),
             state_size,
             reverts_size,
         }
@@ -405,6 +406,8 @@ pub struct BundleState {
     /// Note: Inside vector is *not* sorted by address.
     /// But it is unique by address.
     pub reverts: Reverts,
+    /// All transitions
+    pub transitions: Vec<TransitionState>,
     /// The size of the plain state in the bundle state.
     pub state_size: usize,
     /// The size of reverts in the bundle state.
@@ -490,6 +493,7 @@ impl BundleState {
             state,
             contracts: contracts.into_iter().collect(),
             reverts: Reverts::new(reverts),
+            transitions: Vec::new(),
             state_size,
             reverts_size,
         }
@@ -542,6 +546,7 @@ impl BundleState {
             state,
             contracts,
             reverts: Reverts::new(reverts),
+            transitions: Vec::new(),
             state_size,
             reverts_size,
         }
@@ -589,6 +594,9 @@ impl BundleState {
         transitions: TransitionState,
         retention: BundleRetention,
     ) {
+        // Add it to the transitions
+        self.transitions.push(transitions.clone());
+
         let include_reverts = retention.includes_reverts();
         // pessimistically pre-allocate assuming _all_ accounts changed.
         let reverts_capacity = if include_reverts {
@@ -831,6 +839,8 @@ impl BundleState {
     ///
     /// Returns true if the state was reverted.
     pub fn revert_latest(&mut self) -> bool {
+        self.transitions.pop();
+
         // revert the latest recorded state
         if let Some(reverts) = self.reverts.pop() {
             for (address, revert_account) in reverts.into_iter() {
