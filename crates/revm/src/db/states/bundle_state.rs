@@ -542,11 +542,24 @@ impl BundleState {
                     .collect::<Vec<_>>()
             })
             .collect::<Vec<_>>();
+        let mut transitions = self.transitions.clone();
+        for transition in transitions.iter_mut() {
+            transition.transitions = transition.transitions
+                .iter()
+                .filter_map(|(address, account)| {
+                    if address.0 == chain_id {
+                        Some((*address, account.clone()))
+                    } else {
+                        None
+                    }
+                })
+                .collect();
+        }
         Self {
             state,
             contracts,
             reverts: Reverts::new(reverts),
-            transitions: Vec::new(),
+            transitions,
             state_size,
             reverts_size,
         }
