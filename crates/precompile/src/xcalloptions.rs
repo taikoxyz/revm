@@ -1,3 +1,5 @@
+use core::str::FromStr;
+
 use revm_primitives::{address, Address, Bytes, CallOptions, ChainAddress, Env, PrecompileOutput, StatefulPrecompile};
 use crate::{Error, Precompile, PrecompileResult, PrecompileWithAddress, CtxPrecompileFn};
 
@@ -49,5 +51,5 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
     });
     println!("  CallOptions: {:?}", call_options);
 
-    Ok(PrecompileOutput::new(0, Bytes::new()))
+    Ok(PrecompileOutput::new(0, Bytes::from_static(&[0x6c, 0x54, 0x13, 0x30])))
 }
