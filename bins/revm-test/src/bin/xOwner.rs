@@ -14,11 +14,11 @@ sol! {
     contract Owner {
 
         address private owner;
-    
-    
+
+
         // event for EVM logging
         event OwnerSet(address indexed oldOwner, address indexed newOwner);
-    
+
         /**
          * @dev Change owner
          * @param newOwner address of new owner
@@ -28,26 +28,26 @@ sol! {
             emit OwnerSet(owner, newOwner);
             owner = newOwner;
         }
-    
+
         function changeOwnerL1(address newOwner) public {
             EVM.xCallOnL1();
             this.changeOwner(newOwner);
         }
-    
-    
+
+
         /**
-         * @dev Return owner address 
+         * @dev Return owner address
          * @return address of owner
          */
         function getOwner() external view returns (address) {
             return owner;
         }
-    
+
         function getOwnerL1() external view returns (address) {
             EVM.xCallOnL1();
             return this.getOwner();
         }
-    
+
     }
 }
 
@@ -62,7 +62,7 @@ fn main() {
     let owner = address!("2222000000000000000000000000000000000000");
     let new_owner = address!("3333000000000000000000000000000000000000");
 
-    
+
     let a_user = ChainAddress(A, address!("1000000000000000000000000000000000000000"));
     let b_user = ChainAddress(B, address!("1000000000000000000000000000000000000000"));
 
@@ -89,6 +89,9 @@ fn main() {
     let mut do_transact = | addr: ChainAddress, op: Vec<u8> | -> ExecutionResult {
         println!("\n\n");
         let mut evm = Evm::builder()
+            .modify_cfg_env(|c| {
+                c.xchain = true;
+            })
             .modify_tx_env(|tx| {
                 tx.caller = addr;
                 tx.transact_to = TransactTo::Call(deployment.on_chain(addr.0));
