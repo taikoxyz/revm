@@ -342,6 +342,8 @@ pub struct CfgEnv {
     pub disable_beneficiary_reward: bool,
     /// Chain ID of the parent chain
     pub parent_chain_id: Option<u64>,
+    /// Enable cross chain functionality
+    pub xchain: bool,
 }
 
 impl CfgEnv {
@@ -355,9 +357,14 @@ impl CfgEnv {
         self.parent_chain_id = Some(parent_chain_id);
         self
     }
-    
+
     pub fn with_chain_id(mut self, chain_id: u64) -> Self {
         self.chain_id = chain_id;
+        self
+    }
+
+    pub fn with_xchain(mut self) -> Self {
+        self.xchain = true;
         self
     }
 
@@ -427,6 +434,7 @@ impl Default for CfgEnv {
         Self {
             chain_id: 1,
             parent_chain_id: None,
+            xchain: false,
             perf_analyse_created_bytecodes: AnalysisKind::default(),
             limit_contract_code_size: None,
             #[cfg(any(feature = "c-kzg", feature = "kzg-rs"))]

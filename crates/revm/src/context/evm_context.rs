@@ -1,5 +1,5 @@
 use revm_interpreter::CallValue;
-use revm_precompile::PrecompileErrors;
+use revm_precompile::{xcalloptions::XCALLOPTIONS, PrecompileErrors};
 use crate::primitives::CallOptions;
 
 use super::inner_evm_context::InnerEvmContext;
@@ -118,6 +118,13 @@ impl<DB: Database> EvmContext<DB> {
         caller: ChainAddress,
     ) -> Result<Option<InterpreterResult>, EVMError<DB::Error>> {
         //println!("call_precompile {:?}", address);
+
+        // Disable XCALLOPTIONS functionality when xchain is disabled
+        // TODO(Brecht): address is still set warm!
+        if address.1 == *XCALLOPTIONS.address() && !self.env.cfg.xchain {
+            return Ok(None);
+        }
+
         let mut call_options = None;
         let Some(outcome) =
             self.precompiles

@@ -143,6 +143,9 @@ fn main() {
     let mut do_transact = |addr: ChainAddress, op: Vec<u8>| -> ExecutionResult {
         println!("\n\n");
         let mut evm = Evm::builder()
+            .modify_cfg_env(|c| {
+                c.xchain = true;
+            })
             .modify_tx_env(|tx| {
                 tx.caller = addr;
                 tx.transact_to = TransactTo::Call(ChainAddress(addr.0, deployment));
