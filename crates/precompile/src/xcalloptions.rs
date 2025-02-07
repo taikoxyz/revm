@@ -51,6 +51,5 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
     });
     //println!("  CallOptions: {:?}", call_options);
 
-    Ok(PrecompileOutput::new(0, Bytes::new()))
-    //Ok(PrecompileOutput::new(0, Bytes::from_static(&[0x6c, 0x54, 0x13, 0x30])))
+    Ok(PrecompileOutput::new(0, Bytes::from_static(&[0x6c, 0x54, 0x13, 0x30])))
 }

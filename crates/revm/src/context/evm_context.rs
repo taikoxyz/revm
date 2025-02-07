@@ -121,10 +121,10 @@ impl<DB: Database> EvmContext<DB> {
 
         // Disable XCALLOPTIONS functionality when xchain is disabled
         // TODO(Brecht): address is still set warm!
-        // if address.1 == *XCALLOPTIONS.address() && !self.env.cfg.xchain {
-        //     println!("Skipping XCALLOPTIONS precompile!");
-        //     return Ok(None);
-        // }
+        if address.1 == *XCALLOPTIONS.address() && !self.env.cfg.xchain {
+            println!("Skipping XCALLOPTIONS precompile!");
+            return Ok(None);
+        }
 
         let mut call_options = None;
         let Some(outcome) =
