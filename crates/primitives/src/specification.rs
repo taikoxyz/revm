@@ -61,7 +61,8 @@ pub enum SpecId {
     KATLA = 17,
     HEKLA = 18,
     ONTAKE = 19,
-    CANCUN = 20,
+    PACAYA = 20,
+    CANCUN = 21,
     PRAGUE = 22,
     #[default]
     LATEST = u8::MAX,
@@ -144,6 +145,8 @@ impl From<SpecId> for &'static str {
             SpecId::HEKLA => "Hekla",
             #[cfg(feature = "taiko")]
             SpecId::ONTAKE => "Ontake",
+            #[cfg(feature = "taiko")]
+            SpecId::PACAYA => "Pacaya",
             SpecId::LATEST => "Latest",
         }
     }
@@ -200,6 +203,8 @@ spec!(KATLA, KatlaSpec);
 spec!(HEKLA, HeklaSpec);
 #[cfg(feature = "taiko")]
 spec!(ONTAKE, OntakeSpec);
+#[cfg(feature = "taiko")]
+spec!(PACAYA, PacayaSpec);
 
 #[macro_export]
 macro_rules! spec_to_generic {
@@ -279,6 +284,11 @@ macro_rules! spec_to_generic {
                 use $crate::OntakeSpec as SPEC;
                 $e
             }
+            #[cfg(feature = "taiko")]
+            $crate::SpecId::PACAYA => {
+                use $crate::PacayaSpec as SPEC;
+                $e
+            }
         }
     }};
 }
@@ -317,6 +327,8 @@ mod tests {
         spec_to_generic!(HEKLA, assert_eq!(SPEC::SPEC_ID, HEKLA));
         #[cfg(feature = "taiko")]
         spec_to_generic!(ONTAKE, assert_eq!(SPEC::SPEC_ID, ONTAKE));
+        #[cfg(feature = "taiko")]
+        spec_to_generic!(PACAYA, assert_eq!(SPEC::SPEC_ID, PACAYA));
     }
 }
 
