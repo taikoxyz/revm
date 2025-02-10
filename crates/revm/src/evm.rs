@@ -9,7 +9,7 @@ use crate::{
     },
     primitives::{
         specification::SpecId, BlockEnv, Bytes, CfgEnv, ChainAddress, EVMError, EVMResult, EnvWithHandlerCfg,
-        ExecutionResult, HandlerCfg, ResultAndState, TransactTo, TxEnv, TxKind, EOF_MAGIC_BYTES, XCallData, XCallInput, XCallOutput,
+        ExecutionResult, HandlerCfg, ResultAndState, TransactTo, TxEnv, TxKind, EOF_MAGIC_BYTES, XCallData, XCallInput, XCallOutput, JournalEntry,
     },
     Context, ContextWithHandlerCfg, Frame, FrameOrResult, FrameResult,
 };
@@ -81,6 +81,9 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
         let mut call_stack: Vec<Frame> = Vec::with_capacity(1025);
         call_stack.push(first_frame);
 
+        let chain_id = self.context.evm.env().tx.caller.0;
+        self.context.evm.journaled_state.state_changes.push(JournalEntry::TxBegin { chain_id });
+
         #[cfg(feature = "memory_limit")]
         let mut shared_memory =
             SharedMemory::new_with_memory_limit(self.context.evm.env.cfg.memory_limit);
@@ -124,42 +127,45 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                 InterpreterAction::Call { inputs } => {
                     //println!(">>> Call: {:?}", inputs);
                     // We have to record xcalls, except those done to the parent chain (those will still execute locally)
-                    let is_xcall =  inputs.target_address.0 != stack_frame.frame_data().interpreter.chain_id && inputs.target_address.0 != self.context.evm.env.cfg.parent_chain_id.unwrap_or_default();
-                    //println!("chain {} -> {} (is xcall: {})", stack_frame.frame_data().interpreter.chain_id, inputs.target_address.0, is_xcall);
+                    let is_xcall =  inputs.target_address.0 != stack_frame.frame_data().interpreter.chain_id;
+                    println!("chain {} -> {} (is xcall: {})", stack_frame.frame_data().interpreter.chain_id, inputs.target_address.0, is_xcall);
 
-                    if is_xcall && self.context.evm.env.tx.xcalls.is_some() {
-                        let xcalls = self.context.evm.env.tx.xcalls.as_ref().unwrap();
-                        let gas = Gas::new(inputs.gas_limit);
-                        let return_result = |instruction_result: InstructionResult| {
-                            FrameOrResult::new_call_result(
-                                InterpreterResult {
-                                    result: instruction_result,
-                                    gas,
-                                    output: Bytes::new(),
-                                    call_options: None,
-                                },
-                                inputs.return_memory_offset.clone(),
-                            )
-                        };
-                        // Check depth
-                        if self.context.evm.journaled_state.depth() > CALL_STACK_LIMIT {
-                            return_result(InstructionResult::CallTooDeep)
-                        } else {
-                            let xcall = &xcalls[xcall_idx];
-                            xcall_idx += 1;
-                            FrameOrResult::new_call_result(
-                                InterpreterResult {
-                                    result: InstructionResult::Return,
-                                    gas: Gas::new(xcall.gas),
-                                    output: Bytes::from(xcall.output.clone()),
-                                    call_options: None,
-                                },
-                                inputs.return_memory_offset.clone(),
-                            )
-                        }
-                    } else {
+                    // if is_xcall && self.context.evm.env.tx.xcalls.is_some() {
+                    //     let xcalls = self.context.evm.env.tx.xcalls.as_ref().unwrap();
+                    //     let gas = Gas::new(inputs.gas_limit);
+                    //     let return_result = |instruction_result: InstructionResult| {
+                    //         FrameOrResult::new_call_result(
+                    //             InterpreterResult {
+                    //                 result: instruction_result,
+                    //                 gas,
+                    //                 output: Bytes::new(),
+                    //                 call_options: None,
+                    //             },
+                    //             inputs.return_memory_offset.clone(),
+                    //         )
+                    //     };
+                    //     // Check depth
+                    //     if self.context.evm.journaled_state.depth() > CALL_STACK_LIMIT {
+                    //         return_result(InstructionResult::CallTooDeep)
+                    //     } else {
+                    //         let xcall = &xcalls[xcall_idx];
+                    //         xcall_idx += 1;
+                    //         FrameOrResult::new_call_result(
+                    //             InterpreterResult {
+                    //                 result: InstructionResult::Return,
+                    //                 gas: Gas::new(xcall.gas),
+                    //                 output: Bytes::from(xcall.output.clone()),
+                    //                 call_options: None,
+                    //             },
+                    //             inputs.return_memory_offset.clone(),
+                    //         )
+                    //     }
+                    // } else {
                         // Insert the xcall before the call is made, because the call might do more calls
-                        let pending_xcall_idx = self.context.evm.journaled_state.xcall(XCallData {
+                        let pending_xcall_idx = self.context.evm.journaled_state.xcall(
+                            inputs.caller.0,
+                            inputs.target_address.0,
+                            XCallData {
                             input: XCallInput {
                                 input: inputs.clone().input,
                                 gas_limit: inputs.clone().gas_limit,
@@ -179,29 +185,35 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                         let res = exec.call(&mut self.context, inputs.clone())?;
                         match &res {
                             FrameOrResult::Frame(_) => {
-                                if is_xcall {
+                                //if is_xcall {
                                     //println!("pending xcall at: {}", call_stack.len());
                                     pending_xcalls.insert(call_stack.len() as u64, pending_xcall_idx);
-                                }
+                                //}
                             }
                             FrameOrResult::Result(FrameResult::Call(outcome)) => {
                                 //println!("call done: {:?}", outcome);
-                                if let Some(&xcall_idx) = pending_xcalls.get(&(self.context.evm.journaled_state.depth())) {
+                                let depth = self.context.evm.journaled_state.depth();
+                                //if let Some(&xcall_idx) = pending_xcalls.get(&depth) {
                                     //println!("xcall: {:?}", xcall_idx);
                                     // return_call
-                                    let xcall = &mut self.context.evm.journaled_state.xcalls[xcall_idx];
-                                    xcall.output.output = outcome.result.output.clone();
-                                    xcall.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
-                                } else {
-                                    //println!("outcome: {:?}", outcome);
-                                }
+                                    let xcall: &mut JournalEntry = &mut self.context.evm.journaled_state.state_changes[pending_xcall_idx];
+                                    if let JournalEntry::CallBegin { depth, from_chain_id, to_chain_id, data, delta } = xcall {
+                                        data.output.output = outcome.result.output.clone();
+                                        data.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
+                                    }
+
+                                    self.context.evm.journaled_state.state_changes.push(JournalEntry::CallEnd { depth: depth as usize });
+                                // } else {
+                                //     //println!("outcome: {:?}", outcome);
+                                //     println!("uncatched outcome A");
+                                // }
                             }
                             _ => {
-                                //println!("uncatched frame result");
+                                println!("uncatched frame result");
                             }
                         };
                         res
-                    }
+                    //}
                 }
                 InterpreterAction::Create { inputs } => exec.create(&mut self.context, inputs)?,
                 InterpreterAction::EOFCreate { inputs } => {
@@ -263,13 +275,19 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
 
                             //println!("call done [{}] with return: {:?}", depth, outcome);
                             //println!("pending xcalls: {:?}", pending_xcalls);
-                            if let Some(&xcall_idx) = pending_xcalls.get(&ctx.evm.journaled_state.depth()) {
+                            let depth = ctx.evm.journaled_state.depth();
+                            if let Some(&xcall_idx) = pending_xcalls.get(&depth) {
+                                //println!("outcome catched: {:?}", outcome);
                                 //println!("xcall: {:?}", xcall_idx);
-                                let xcall = &mut ctx.evm.journaled_state.xcalls[xcall_idx];
-                                xcall.output.output = outcome.result.output.clone();
-                                xcall.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
+                                let xcall = &mut ctx.evm.journaled_state.state_changes[xcall_idx];
+                                if let JournalEntry::CallBegin { depth, from_chain_id, to_chain_id, data, delta } = xcall {
+                                    data.output.output = outcome.result.output.clone();
+                                    data.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
+                                }
+
+                                ctx.evm.journaled_state.state_changes.push(JournalEntry::CallEnd { depth: depth as usize });
                             } else {
-                                //println!("outcome uncatched: {:?}", outcome);
+                                //println!("outcome uncatched 2: {:?}", outcome);
                             }
 
                             exec.insert_call_outcome(ctx, stack_frame, &mut shared_memory, outcome)?

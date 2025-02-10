@@ -1,4 +1,4 @@
-use crate::{Address, Bytecode, HashMap, SpecId, B256, KECCAK_EMPTY, U256};
+use crate::{Address, Bytecode, HashMap, SpecId, StateChanges, B256, KECCAK_EMPTY, U256};
 use alloy_primitives::Bytes;
 use bitflags::bitflags;
 use core::hash::{Hash, Hasher};
@@ -79,6 +79,189 @@ pub struct XCallInput {
     /// Whether the call is initiated from EOF bytecode.
     pub is_eof: bool,
 }
+
+/// Journal entries that are used to track changes to the state and are used to revert it.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum JournalEntry {
+    /// Used to mark account that is warm inside EVM in regards to EIP-2929 AccessList.
+    /// Action: We will add Account to state.
+    /// Revert: we will remove account from state.
+    AccountWarmed { address: ChainAddress },
+    /// Mark account to be destroyed and journal balance to be reverted
+    /// Action: Mark account and transfer the balance
+    /// Revert: Unmark the account and transfer balance back
+    AccountDestroyed {
+        address: ChainAddress,
+        target: ChainAddress,
+        was_destroyed: bool, // if account had already been destroyed before this journal entry
+        had_balance: U256,
+    },
+    /// Loading account does not mean that account will need to be added to MerkleTree (touched).
+    /// Only when account is called (to execute contract or transfer balance) only then account is made touched.
+    /// Action: Mark account touched
+    /// Revert: Unmark account touched
+    AccountTouched { address: ChainAddress },
+    /// Transfer balance between two accounts
+    /// Action: Transfer balance
+    /// Revert: Transfer balance back
+    BalanceTransfer {
+        from: ChainAddress,
+        to: ChainAddress,
+        balance: U256,
+    },
+    /// Increment nonce
+    /// Action: Increment nonce by one
+    /// Revert: Decrement nonce by one
+    NonceChange {
+        address: ChainAddress, //geth has nonce value,
+    },
+    /// Create account:
+    /// Actions: Mark account as created
+    /// Revert: Unmart account as created and reset nonce to zero.
+    AccountCreated { address: ChainAddress },
+    /// Entry used to track storage changes
+    /// Action: Storage change
+    /// Revert: Revert to previous value
+    StorageChanged {
+        address: ChainAddress,
+        key: U256,
+        new: U256,
+        had_value: U256,
+    },
+    /// Entry used to track storage warming introduced by EIP-2929.
+    /// Action: Storage warmed
+    /// Revert: Revert to cold state
+    StorageWarmed { address: ChainAddress, key: U256 },
+    /// It is used to track an EIP-1153 transient storage change.
+    /// Action: Transient storage changed.
+    /// Revert: Revert to previous value.
+    TransientStorageChange {
+        address: ChainAddress,
+        key: U256,
+        had_value: U256,
+    },
+    /// Code changed
+    /// Action: Account code changed
+    /// Revert: Revert to previous bytecode.
+    CodeChange { address: ChainAddress },
+    /// Call begin
+    CallBegin { depth: usize, from_chain_id: u64, to_chain_id: u64, data: XCallData, delta: bool },
+    /// Call end
+    CallEnd { depth: usize },
+    /// Tx begin
+    TxBegin { chain_id: u64 },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateDiffStorageSlot {
+    key: U256,
+    value: U256,
+}
+
+/// Journal entries that are used to track changes to the state and are used to revert it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum StateDiffEntry {
+    /// Call end
+    Diff { state: HashMap<ChainAddress, HashMap<U256, U256>> },
+    /// Call start
+    XCall { calls: Vec<XCallData> },
+}
+
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateDiff {
+    /// entries
+    pub entries: Vec<StateDiffEntry>,
+    pub outputs: Vec<XCallData>,
+}
+
+
+pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) -> StateDiff {
+    let mut entries = Vec::new();
+    let mut outputs = Vec::new();
+    // (depth, chain_id, native)
+    let mut call_stack: Vec<(usize, u64, bool)> = Vec::new();
+    for state_change in state_changes.entries.iter() {
+        match state_change {
+            JournalEntry::StorageChanged {
+                address,
+                key,
+                new,
+                had_value,
+            } => {
+                // Only track the delta's when on the selected chain and we're not on the native chain
+                if address.0 == selected_chain_id && !call_stack.last().unwrap().2 {
+                    assert_eq!(call_stack.last().unwrap().1, selected_chain_id);
+                    if entries.len() == 0 || !matches!(entries.last().unwrap(), StateDiffEntry::Diff { state: _ }) {
+                        entries.push(StateDiffEntry::Diff { state: HashMap::new() });
+                    }
+
+                    if let StateDiffEntry::Diff { state } = entries.last_mut().unwrap() {
+                        if !state.contains_key(address) {
+                            state.insert(*address, HashMap::new());
+                        }
+                        let account = state.get_mut(address).unwrap();
+                        account.insert(*key, *new);
+                    }
+                }
+            },
+            JournalEntry::CallBegin {
+                depth,
+                from_chain_id,
+                to_chain_id,
+                data,
+                delta,
+            } => {
+                // Only need to care when we do calls between chains
+                if data.input.target_address.0 != data.input.caller.0 {
+                    // L1 -> L2: only when we are on native L1
+                    if data.input.caller.0 == selected_chain_id && call_stack.last().unwrap().2 {
+                        outputs.push(data.clone());
+                    }
+
+                    // L2 -> L1: only when an actual call is requested in XCALLOPTIONS
+                    if data.input.target_address.0 == selected_chain_id && false {
+                        if entries.len() == 0 || !matches!(entries.last().unwrap(), StateDiffEntry::XCall { calls: _ }) {
+                            entries.push(StateDiffEntry::XCall { calls: Vec::new() });
+                        }
+
+                        if let StateDiffEntry::XCall { calls } = entries.last_mut().unwrap() {
+                            calls.push(data.clone());
+                        }
+                    }
+
+                    // Add the call to the call stack
+                    call_stack.push((*depth, data.input.target_address.0, *delta));
+                }
+            },
+            JournalEntry::CallEnd {
+                depth,
+            } => {
+                // Remove the call to the call stack
+                if call_stack.last().unwrap().0 == *depth {
+                    call_stack.pop();
+                }
+            },
+            JournalEntry::TxBegin {
+                chain_id,
+            } => {
+                // Start the call stack on the source chain
+                assert!(call_stack.len() == 0);
+                call_stack.push((0, *chain_id, *chain_id == selected_chain_id))
+            },
+            _ => {}
+        }
+    }
+    StateDiff {
+        entries,
+        outputs,
+    }
+}
+
 
 impl Default for ChainAddress {
     fn default() -> Self {

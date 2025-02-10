@@ -70,7 +70,7 @@ pub fn call<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     inputs: Box<CallInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
-    //println!("mainnet::call ==> make_call_frame");
+    //println!("mainnet::call ==> make_call_frame {} -> {}", inputs.caller.0, inputs.target_address.0);
     context.evm.make_call_frame(&inputs)
 }
 

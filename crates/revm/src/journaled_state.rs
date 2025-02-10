@@ -4,7 +4,7 @@ use crate::{
     interpreter::{AccountLoad, InstructionResult, SStoreResult, SelfDestructResult, StateLoad},
     primitives::{
         db::SyncDatabase as Database, hash_map::Entry, Account, Address, Bytecode, EVMError, EvmState,
-        EvmStorageSlot, HashMap, HashSet, Log, SpecId, SpecId::*, TransientStorage, B256,
+        EvmStorageSlot, HashMap, HashSet, JournalEntry, Log, SpecId, SpecId::*, TransientStorage, B256,
         KECCAK_EMPTY, PRECOMPILE3, U256,
     },
 };
@@ -27,7 +27,7 @@ pub struct JournaledState {
     /// Emitted logs.
     pub logs: Vec<Log>,
     /// xcalls done as part of this tx.
-    pub xcalls: Vec<XCallData>,
+    pub state_changes: Vec<JournalEntry>,
     /// The current call stack depth.
     pub depth: usize,
     /// The journal of state changes, one for each call.
@@ -70,7 +70,7 @@ impl JournaledState {
             depth: 0,
             spec,
             warm_preloaded_addresses,
-            xcalls: Vec::new(),
+            state_changes: Vec::new(),
         }
     }
 
@@ -115,7 +115,7 @@ impl JournaledState {
     ///
     /// This resets the [JournaledState] to its initial state in [Self::new]
     #[inline]
-    pub fn finalize(&mut self) -> (EvmState, Vec<Log>, Vec<XCallData>) {
+    pub fn finalize(&mut self) -> (EvmState, Vec<Log>, Vec<JournalEntry>) {
         let Self {
             state,
             transient_storage,
@@ -125,17 +125,19 @@ impl JournaledState {
             // kept, see [Self::new]
             spec: _,
             warm_preloaded_addresses: _,
-            xcalls,
+            state_changes,
         } = self;
+
+        //println!("changes: [{}] {:?}", state_changes.len(), state_changes);
 
         *transient_storage = TransientStorage::default();
         *journal = vec![vec![]];
         *depth = 0;
         let state = mem::take(state);
         let logs = mem::take(logs);
-        let xcalls = mem::take(xcalls);
+        let state_changes = mem::take(state_changes);
 
-        (state, logs, xcalls)
+        (state, logs, state_changes)
     }
 
     /// Returns the _loaded_ [Account] for the given address.
@@ -270,7 +272,7 @@ impl JournaledState {
         spec_id: SpecId,
     ) -> Result<JournalCheckpoint, InstructionResult> {
         // Enter subroutine
-        let checkpoint = self.checkpoint();
+        let checkpoint = self.checkpoint(caller.0, address.0);
 
         // Newly created account is present, as we just loaded it.
         let account = self.state.get_mut(&address).unwrap();
@@ -398,6 +400,7 @@ impl JournaledState {
                 JournalEntry::StorageChanged {
                     address,
                     key,
+                    new,
                     had_value,
                 } => {
                     state
@@ -427,26 +430,29 @@ impl JournaledState {
                     acc.info.code_hash = KECCAK_EMPTY;
                     acc.info.code = None;
                 }
+                _ => {}
             }
         }
     }
 
     /// Makes a checkpoint that in case of Revert can bring back state to this point.
     #[inline]
-    pub fn checkpoint(&mut self) -> JournalCheckpoint {
+    pub fn checkpoint(&mut self, from_chain_id: u64, to_chain_id: u64) -> JournalCheckpoint {
         let checkpoint = JournalCheckpoint {
             log_i: self.logs.len(),
-            xcall_i: self.xcalls.len(),
+            state_changes_i: self.state_changes.len(),
             journal_i: self.journal.len(),
         };
         self.depth += 1;
         self.journal.push(Default::default());
+        //self.state_changes.push(JournalEntry::CallBegin { depth: self.depth, from_chain_id, to_chain_id });
         checkpoint
     }
 
     /// Commit the checkpoint.
     #[inline]
     pub fn checkpoint_commit(&mut self) {
+        //self.state_changes.push(JournalEntry::CallEnd { depth: self.depth });
         self.depth -= 1;
     }
 
@@ -473,7 +479,7 @@ impl JournaledState {
             });
 
         self.logs.truncate(checkpoint.log_i);
-        self.xcalls.truncate(checkpoint.xcall_i);
+        self.state_changes.truncate(checkpoint.state_changes_i);
         self.journal.truncate(checkpoint.journal_i);
     }
 
@@ -763,8 +769,12 @@ impl JournaledState {
             .push(JournalEntry::StorageChanged {
                 address,
                 key,
+                new,
                 had_value: present.data,
             });
+
+        self.state_changes.push(self.journal.last().unwrap().last().unwrap().clone());
+
         // insert value into present state.
         slot.present_value = new;
         Ok(StateLoad::new(
@@ -838,83 +848,18 @@ impl JournaledState {
 
     /// push xcall into subroutine
     #[inline]
-    pub fn xcall(&mut self, xcall: XCallData) -> usize {
-        self.xcalls.push(xcall);
-        self.xcalls.len() - 1
+    pub fn xcall(&mut self, from_chain_id: u64, to_chain_id: u64, xcall: XCallData) -> usize {
+        self.state_changes.push(JournalEntry::CallBegin { depth: self.depth() as usize, from_chain_id, to_chain_id, data: xcall.clone(), delta: false });
+        self.state_changes.len() - 1
     }
 }
 
-/// Journal entries that are used to track changes to the state and are used to revert it.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub enum JournalEntry {
-    /// Used to mark account that is warm inside EVM in regards to EIP-2929 AccessList.
-    /// Action: We will add Account to state.
-    /// Revert: we will remove account from state.
-    AccountWarmed { address: ChainAddress },
-    /// Mark account to be destroyed and journal balance to be reverted
-    /// Action: Mark account and transfer the balance
-    /// Revert: Unmark the account and transfer balance back
-    AccountDestroyed {
-        address: ChainAddress,
-        target: ChainAddress,
-        was_destroyed: bool, // if account had already been destroyed before this journal entry
-        had_balance: U256,
-    },
-    /// Loading account does not mean that account will need to be added to MerkleTree (touched).
-    /// Only when account is called (to execute contract or transfer balance) only then account is made touched.
-    /// Action: Mark account touched
-    /// Revert: Unmark account touched
-    AccountTouched { address: ChainAddress },
-    /// Transfer balance between two accounts
-    /// Action: Transfer balance
-    /// Revert: Transfer balance back
-    BalanceTransfer {
-        from: ChainAddress,
-        to: ChainAddress,
-        balance: U256,
-    },
-    /// Increment nonce
-    /// Action: Increment nonce by one
-    /// Revert: Decrement nonce by one
-    NonceChange {
-        address: ChainAddress, //geth has nonce value,
-    },
-    /// Create account:
-    /// Actions: Mark account as created
-    /// Revert: Unmart account as created and reset nonce to zero.
-    AccountCreated { address: ChainAddress },
-    /// Entry used to track storage changes
-    /// Action: Storage change
-    /// Revert: Revert to previous value
-    StorageChanged {
-        address: ChainAddress,
-        key: U256,
-        had_value: U256,
-    },
-    /// Entry used to track storage warming introduced by EIP-2929.
-    /// Action: Storage warmed
-    /// Revert: Revert to cold state
-    StorageWarmed { address: ChainAddress, key: U256 },
-    /// It is used to track an EIP-1153 transient storage change.
-    /// Action: Transient storage changed.
-    /// Revert: Revert to previous value.
-    TransientStorageChange {
-        address: ChainAddress,
-        key: U256,
-        had_value: U256,
-    },
-    /// Code changed
-    /// Action: Account code changed
-    /// Revert: Revert to previous bytecode.
-    CodeChange { address: ChainAddress },
-}
 
 /// SubRoutine checkpoint that will help us to go back from this
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct JournalCheckpoint {
     log_i: usize,
-    xcall_i: usize,
+    state_changes_i: usize,
     journal_i: usize,
 }

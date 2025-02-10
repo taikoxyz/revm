@@ -2,8 +2,8 @@ use crate::{
     db::SyncDatabase as Database,
     handler::register::EvmHandler,
     interpreter::{opcode, InstructionResult, Interpreter},
-    primitives::EVMError,
-    Context, FrameOrResult, FrameResult, Inspector, JournalEntry,
+    primitives::{JournalEntry, EVMError},
+    Context, FrameOrResult, FrameResult, Inspector,
 };
 use core::cell::RefCell;
 use revm_interpreter::opcode::DynInstruction;

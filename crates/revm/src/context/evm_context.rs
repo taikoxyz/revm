@@ -197,7 +197,7 @@ impl<DB: Database> EvmContext<DB> {
             .load_account_delegated(inputs.bytecode_address, &mut self.inner.db)?;
 
         // Create subroutine checkpoint
-        let checkpoint = self.journaled_state.checkpoint();
+        let checkpoint = self.journaled_state.checkpoint(inputs.caller.0, inputs.target_address.0);
 
         // Touch address. For "EIP-158 State Clear", this will erase empty accounts.
         match inputs.value {

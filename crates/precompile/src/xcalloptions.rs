@@ -45,7 +45,7 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
         chain_id,
         sandbox,
         tx_origin: ChainAddress(chain_id, tx_origin),
-        msg_sender: ChainAddress(chain_id, msg_sender),
+        msg_sender: ChainAddress(caller.0, msg_sender),
         block_hash,
         proof: proof.to_vec(),
     });
