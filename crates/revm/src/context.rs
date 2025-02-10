@@ -204,6 +204,6 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
     }
 
     fn xcall(&mut self, xcall: XCallData) {
-        self.evm.journaled_state.xcall(xcall);
+        self.evm.journaled_state.xcall(0, 0, xcall);
     }
 }

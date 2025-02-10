@@ -631,7 +631,6 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
             // In delegate call, the caller & target address remains on the same chain
             // Otherwise set to the other chain.
             let to = if delegate {
-                call_options.msg_sender.0 = interpreter.chain_id;
                 ChainAddress(interpreter.chain_id, to)
             } else {
                 ChainAddress(call_options.chain_id, to)
