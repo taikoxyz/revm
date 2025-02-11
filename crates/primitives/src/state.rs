@@ -247,26 +247,27 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                 assert!(call_stack.len() == 0);
                 call_stack.push((0, tx.caller.0, tx.caller.0 == selected_chain_id));
 
-                let to = tx.transact_to.to().unwrap().clone();
-                if tx.transact_to.to().unwrap().0 == selected_chain_id {
-                    entries.push(StateDiffEntry::XCall {
-                        call: XCallData {
-                            input: XCallInput {
-                                input: tx.data.clone(),
-                                gas_limit: tx.gas_limit,
-                                bytecode_address: to,
-                                target_address: to,
-                                caller: tx.caller,
-                                is_static: false,
-                                is_eof: false,
+                if let Some(to) = tx.transact_to.to() {
+                    if tx.transact_to.to().unwrap().0 == selected_chain_id {
+                        entries.push(StateDiffEntry::XCall {
+                            call: XCallData {
+                                input: XCallInput {
+                                    input: tx.data.clone(),
+                                    gas_limit: tx.gas_limit,
+                                    bytecode_address: *to,
+                                    target_address: *to,
+                                    caller: tx.caller,
+                                    is_static: false,
+                                    is_eof: false,
+                                },
+                                output: XCallOutput {
+                                    result: 0,
+                                    output: Bytes::new(),
+                                    gas: 0,
+                                }
                             },
-                            output: XCallOutput {
-                                result: 0,
-                                output: Bytes::new(),
-                                gas: 0,
-                            }
-                         },
-                    });
+                        });
+                    }
                 }
             },
             _ => {}
