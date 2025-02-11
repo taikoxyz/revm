@@ -29,7 +29,6 @@ pub struct BundleBuilder {
     revert_storage: HashMap<(u64, ChainAddress), Vec<(U256, U256)>>,
 
     contracts: HashMap<(u64, B256), Bytecode>,
-    state_diffs: Vec<StateDiff>,
 }
 
 /// Option for [`BundleState`] when converting it to the plain state.
@@ -66,7 +65,6 @@ impl Default for BundleBuilder {
             revert_account: HashMap::new(),
             revert_storage: HashMap::new(),
             contracts: HashMap::new(),
-            state_diffs: Vec::new(),
         }
     }
 }

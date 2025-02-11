@@ -81,8 +81,8 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
         let mut call_stack: Vec<Frame> = Vec::with_capacity(1025);
         call_stack.push(first_frame);
 
-        let chain_id = self.context.evm.env().tx.caller.0;
-        self.context.evm.journaled_state.state_changes.push(JournalEntry::TxBegin { chain_id });
+        let tx = self.context.evm.env().tx.clone();
+        self.context.evm.journaled_state.state_changes.push(JournalEntry::TxBegin { tx });
 
         #[cfg(feature = "memory_limit")]
         let mut shared_memory =

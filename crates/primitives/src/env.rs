@@ -551,7 +551,7 @@ impl Default for BlockEnv {
 }
 
 /// The transaction environment.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TxEnv {
     /// Caller aka Author aka transaction signer.

@@ -1,4 +1,4 @@
-use crate::{Address, Bytecode, HashMap, SpecId, StateChanges, B256, KECCAK_EMPTY, U256};
+use crate::{Address, Bytecode, HashMap, SpecId, StateChanges, TxEnv, B256, KECCAK_EMPTY, U256};
 use alloy_primitives::Bytes;
 use bitflags::bitflags;
 use core::hash::{Hash, Hasher};
@@ -150,7 +150,7 @@ pub enum JournalEntry {
     /// Call end
     CallEnd { depth: usize },
     /// Tx begin
-    TxBegin { chain_id: u64 },
+    TxBegin { tx: TxEnv },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,7 +167,7 @@ pub enum StateDiffEntry {
     /// Call end
     Diff { state: HashMap<ChainAddress, HashMap<U256, U256>> },
     /// Call start
-    XCall { calls: Vec<XCallData> },
+    XCall { call: XCallData },
 }
 
 
@@ -225,13 +225,7 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
 
                     // L2 -> L1: only when an actual call is requested in XCALLOPTIONS
                     if data.input.target_address.0 == selected_chain_id && false {
-                        if entries.len() == 0 || !matches!(entries.last().unwrap(), StateDiffEntry::XCall { calls: _ }) {
-                            entries.push(StateDiffEntry::XCall { calls: Vec::new() });
-                        }
-
-                        if let StateDiffEntry::XCall { calls } = entries.last_mut().unwrap() {
-                            calls.push(data.clone());
-                        }
+                        entries.push(StateDiffEntry::XCall { call: data.clone() });
                     }
 
                     // Add the call to the call stack
@@ -247,11 +241,33 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                 }
             },
             JournalEntry::TxBegin {
-                chain_id,
+                tx,
             } => {
                 // Start the call stack on the source chain
                 assert!(call_stack.len() == 0);
-                call_stack.push((0, *chain_id, *chain_id == selected_chain_id))
+                call_stack.push((0, tx.caller.0, tx.caller.0 == selected_chain_id));
+
+                let to = tx.transact_to.to().unwrap().clone();
+                if tx.transact_to.to().unwrap().0 == selected_chain_id {
+                    entries.push(StateDiffEntry::XCall {
+                        call: XCallData {
+                            input: XCallInput {
+                                input: tx.data.clone(),
+                                gas_limit: tx.gas_limit,
+                                bytecode_address: to,
+                                target_address: to,
+                                caller: tx.caller,
+                                is_static: false,
+                                is_eof: false,
+                            },
+                            output: XCallOutput {
+                                result: 0,
+                                output: Bytes::new(),
+                                gas: 0,
+                            }
+                         },
+                    });
+                }
             },
             _ => {}
         }
