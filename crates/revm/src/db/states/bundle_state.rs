@@ -317,7 +317,6 @@ impl BundleBuilder {
             transitions: Vec::new(),
             state_size,
             reverts_size,
-            state_diffs: self.state_diffs.clone(),
         }
     }
 
@@ -415,8 +414,6 @@ pub struct BundleState {
     pub state_size: usize,
     /// The size of reverts in the bundle state.
     pub reverts_size: usize,
-    /// state diffs
-    pub state_diffs: Vec<StateDiff>,
 }
 
 impl BundleState {
@@ -445,7 +442,6 @@ impl BundleState {
             >,
         >,
         contracts: impl IntoIterator<Item = ((u64, B256), Bytecode)>,
-        state_diffs: Vec<StateDiff>,
     ) -> Self {
         // Create state from iterator.
         let mut state_size = 0;
@@ -502,7 +498,6 @@ impl BundleState {
             transitions: Vec::new(),
             state_size,
             reverts_size,
-            state_diffs,
         }
     }
 
@@ -569,7 +564,6 @@ impl BundleState {
             transitions,
             state_size,
             reverts_size,
-            state_diffs: self.state_diffs.clone(),
         }
     }
 
@@ -861,7 +855,6 @@ impl BundleState {
     /// Returns true if the state was reverted.
     pub fn revert_latest(&mut self) -> bool {
         self.transitions.pop();
-        self.state_diffs.pop();
 
         // revert the latest recorded state
         if let Some(reverts) = self.reverts.pop() {
@@ -1025,7 +1018,6 @@ mod tests {
                 (account2(), Some(None), vec![]),
             ]],
             vec![],
-            vec![],
         )
     }
 
@@ -1054,7 +1046,6 @@ mod tests {
                 })),
                 vec![(slot1(), U256::from(10))],
             )]],
-            vec![],
             vec![],
         )
     }
