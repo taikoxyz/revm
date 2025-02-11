@@ -7,7 +7,7 @@ use super::{
 use core::{mem, ops::RangeInclusive};
 use revm_interpreter::primitives::{
     hash_map::{self, Entry},
-    AccountInfo, Address, Bytecode, HashMap, HashSet, B256, KECCAK_EMPTY, U256,
+    AccountInfo, Address, Bytecode, HashMap, HashSet, B256, KECCAK_EMPTY, U256, StateDiff,
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
@@ -29,6 +29,7 @@ pub struct BundleBuilder {
     revert_storage: HashMap<(u64, ChainAddress), Vec<(U256, U256)>>,
 
     contracts: HashMap<(u64, B256), Bytecode>,
+    state_diffs: Vec<StateDiff>,
 }
 
 /// Option for [`BundleState`] when converting it to the plain state.
@@ -65,6 +66,7 @@ impl Default for BundleBuilder {
             revert_account: HashMap::new(),
             revert_storage: HashMap::new(),
             contracts: HashMap::new(),
+            state_diffs: Vec::new(),
         }
     }
 }
@@ -315,6 +317,7 @@ impl BundleBuilder {
             transitions: Vec::new(),
             state_size,
             reverts_size,
+            state_diffs: self.state_diffs.clone(),
         }
     }
 
@@ -412,6 +415,8 @@ pub struct BundleState {
     pub state_size: usize,
     /// The size of reverts in the bundle state.
     pub reverts_size: usize,
+    /// state diffs
+    pub state_diffs: Vec<StateDiff>,
 }
 
 impl BundleState {
@@ -440,6 +445,7 @@ impl BundleState {
             >,
         >,
         contracts: impl IntoIterator<Item = ((u64, B256), Bytecode)>,
+        state_diffs: Vec<StateDiff>,
     ) -> Self {
         // Create state from iterator.
         let mut state_size = 0;
@@ -496,6 +502,7 @@ impl BundleState {
             transitions: Vec::new(),
             state_size,
             reverts_size,
+            state_diffs,
         }
     }
 
@@ -562,6 +569,7 @@ impl BundleState {
             transitions,
             state_size,
             reverts_size,
+            state_diffs: self.state_diffs.clone(),
         }
     }
 
@@ -853,6 +861,7 @@ impl BundleState {
     /// Returns true if the state was reverted.
     pub fn revert_latest(&mut self) -> bool {
         self.transitions.pop();
+        self.state_diffs.pop();
 
         // revert the latest recorded state
         if let Some(reverts) = self.reverts.pop() {
@@ -1016,6 +1025,7 @@ mod tests {
                 (account2(), Some(None), vec![]),
             ]],
             vec![],
+            vec![],
         )
     }
 
@@ -1044,6 +1054,7 @@ mod tests {
                 })),
                 vec![(slot1(), U256::from(10))],
             )]],
+            vec![],
             vec![],
         )
     }
