@@ -20,7 +20,7 @@ pub struct ResultAndState {
     pub state: EvmState,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StateChanges {
     /// Entries
@@ -107,6 +107,15 @@ impl ExecutionResult {
             Self::Success { gas_used, .. }
             | Self::Revert { gas_used, .. }
             | Self::Halt { gas_used, .. } => gas_used,
+        }
+    }
+
+
+    /// Returns the state changes if execution is successful, or an empty change list otherwise.
+    pub fn state_changes(&self) -> StateChanges {
+        match self {
+            Self::Success { state_changes, .. } => state_changes.clone(),
+            _ => StateChanges::default(),
         }
     }
 }
