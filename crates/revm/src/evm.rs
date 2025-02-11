@@ -128,7 +128,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                     //println!(">>> Call: {:?}", inputs);
                     // We have to record xcalls, except those done to the parent chain (those will still execute locally)
                     let is_xcall =  inputs.target_address.0 != stack_frame.frame_data().interpreter.chain_id;
-                    println!("chain {} -> {} (is xcall: {})", stack_frame.frame_data().interpreter.chain_id, inputs.target_address.0, is_xcall);
+                    //println!("chain {} -> {} (is xcall: {})", stack_frame.frame_data().interpreter.chain_id, inputs.target_address.0, is_xcall);
 
                     // if is_xcall && self.context.evm.env.tx.xcalls.is_some() {
                     //     let xcalls = self.context.evm.env.tx.xcalls.as_ref().unwrap();
