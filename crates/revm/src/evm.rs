@@ -84,7 +84,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
 
         let tx = self.context.evm.env().tx.clone();
 
-        if !self.cfg().xchain && tx.caller.1 != address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") && !tx.transact_to.is_create() {
+        if !self.cfg().xchain && tx.caller.1 != address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") && tx.caller.1 != address!("8943545177806ED17B9F23F0a21ee5948eCaa776") && !tx.transact_to.is_create() {
             return Ok(
                 FrameResult::Call(CallOutcome {
                     result: InterpreterResult::new(InstructionResult::Return, Bytes::new(), Gas::new(0)),
