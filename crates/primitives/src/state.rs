@@ -33,7 +33,7 @@ pub struct XCallData {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct XCallOutput {
     /// The result of the instruction execution.
-    pub result: u8,
+    pub revert: bool,
     /// The output of the instruction execution.
     pub output: Bytes,
     /// The gas usage information.
@@ -261,7 +261,7 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                                     is_eof: false,
                                 },
                                 output: XCallOutput {
-                                    result: 0,
+                                    revert: false,
                                     output: Bytes::new(),
                                     gas: 0,
                                 }

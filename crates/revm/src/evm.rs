@@ -182,7 +182,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                                 is_eof: inputs.clone().is_eof,
                             },
                             output: XCallOutput {
-                                result: 0,
+                                revert: true,
                                 output: Bytes::new(),
                                 gas: 0,
                             }
@@ -206,6 +206,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                                     if let JournalEntry::CallBegin { depth, from_chain_id, to_chain_id, data, delta } = xcall {
                                         data.output.output = outcome.result.output.clone();
                                         data.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
+                                        data.output.revert = outcome.result.is_revert();
                                     }
 
                                     self.context.evm.journaled_state.state_changes.push(JournalEntry::CallEnd { depth: depth as usize });
