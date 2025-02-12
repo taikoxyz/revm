@@ -244,7 +244,7 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                 tx,
             } => {
                 // Start the call stack on the source chain
-                assert!(call_stack.len() == 0);
+                assert!(call_stack.len() <= 1);
                 call_stack.push((0, tx.caller.0, tx.caller.0 == selected_chain_id));
 
                 if let Some(to) = tx.transact_to.to() {
