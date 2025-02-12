@@ -724,7 +724,7 @@ impl BundleState {
             .collect::<Vec<_>>();
 
         // Check if we created a valid state chain set for a single chain
-        assert_eq!(chain_ids.len(), 1, "state changeset contains state of multiple chains: {:?}", chain_ids);
+        assert!(chain_ids.len() <= 1, "state changeset contains state of multiple chains: {:?}", chain_ids);
 
         StateChangeset {
             accounts,
