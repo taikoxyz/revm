@@ -69,7 +69,7 @@ pub struct XCallInput {
     /// NOTE: This value may not necessarily be transferred from caller to callee, see [`CallValue`].
     ///
     /// Previously `transfer.value` or `context.apparent_value`.
-    //pub value: CallValue,
+    pub value: U256,
     /// The call scheme.
     ///
     /// Previously `context.scheme`.
@@ -261,6 +261,7 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                                     caller: tx.caller,
                                     is_static: false,
                                     is_eof: false,
+                                    value: tx.value,
                                 },
                                 output: XCallOutput {
                                     revert: false,
