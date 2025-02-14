@@ -245,6 +245,8 @@ impl JournaledState {
                 balance,
             });
 
+        self.state_changes.push(self.journal.last().unwrap().last().unwrap().clone());
+
         Ok(None)
     }
 
