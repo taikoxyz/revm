@@ -1,7 +1,8 @@
-use crate::{Address, Bytecode, HashMap, SpecId, StateChanges, TxEnv, B256, KECCAK_EMPTY, U256};
+use crate::{Address, Bytecode, HashMap, SpecId, StateChanges, TxEnv, B256, KECCAK_EMPTY, U256, I256};
 use alloy_primitives::Bytes;
 use bitflags::bitflags;
 use core::hash::{Hash, Hasher};
+use std::io::Read;
 
 /// Chain specific address
 ///
@@ -165,11 +166,20 @@ pub struct StateDiffStorageSlot {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum StateDiffEntry {
     /// Call end
-    Diff { state: HashMap<ChainAddress, HashMap<U256, U256>> },
+    Diff { accounts: HashMap<ChainAddress, StateDiffAccount> },
     /// Call start
     XCall { call: XCallData },
 }
 
+/// Journal entries that are used to track changes to the state and are used to revert it.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateDiffAccount {
+    /// storage changes
+    storage: HashMap<U256, U256>,
+    /// ETH balance change
+    balance_delta: I256,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -196,16 +206,46 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                 // Only track the delta's when on the selected chain and we're not on the native chain
                 if address.0 == selected_chain_id && !call_stack.last().unwrap().2 {
                     assert_eq!(call_stack.last().unwrap().1, selected_chain_id);
-                    if entries.len() == 0 || !matches!(entries.last().unwrap(), StateDiffEntry::Diff { state: _ }) {
-                        entries.push(StateDiffEntry::Diff { state: HashMap::new() });
+                    if entries.len() == 0 || !matches!(entries.last().unwrap(), StateDiffEntry::Diff { accounts: _ }) {
+                        entries.push(StateDiffEntry::Diff { accounts: HashMap::new() });
                     }
 
-                    if let StateDiffEntry::Diff { state } = entries.last_mut().unwrap() {
-                        if !state.contains_key(address) {
-                            state.insert(*address, HashMap::new());
+                    if let StateDiffEntry::Diff { accounts } = entries.last_mut().unwrap() {
+                        if !accounts.contains_key(address) {
+                            accounts.insert(*address, StateDiffAccount::default());
                         }
-                        let account = state.get_mut(address).unwrap();
-                        account.insert(*key, *new);
+                        let account = accounts.get_mut(address).unwrap();
+                        account.storage.insert(*key, *new);
+                    }
+                }
+            },
+            JournalEntry::BalanceTransfer {
+                from,
+                to,
+                balance,
+            } => {
+                // Track ETH balance changes when not on native chain
+                if (from.0 == selected_chain_id || to.0 == selected_chain_id) && !call_stack.last().unwrap().2 {
+                    assert_eq!(call_stack.last().unwrap().1, selected_chain_id);
+                    if entries.len() == 0 || !matches!(entries.last().unwrap(), StateDiffEntry::Diff { accounts: _ }) {
+                        entries.push(StateDiffEntry::Diff { accounts: HashMap::new() });
+                    }
+
+                    if let StateDiffEntry::Diff { accounts } = entries.last_mut().unwrap() {
+                        if from.0 == selected_chain_id {
+                            if !accounts.contains_key(from) {
+                                accounts.insert(*from, StateDiffAccount::default());
+                            }
+                            let account = accounts.get_mut(from).unwrap();
+                            account.balance_delta -= I256::from_limbs(*balance.as_limbs());
+                        }
+                        if to.0 == selected_chain_id {
+                            if !accounts.contains_key(to) {
+                                accounts.insert(*to, StateDiffAccount::default());
+                            }
+                            let account = accounts.get_mut(to).unwrap();
+                            account.balance_delta += I256::from_limbs(*balance.as_limbs());
+                        }
                     }
                 }
             },
