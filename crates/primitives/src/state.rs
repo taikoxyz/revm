@@ -177,8 +177,8 @@ pub enum StateDiffEntry {
 pub struct StateDiffAccount {
     /// storage changes
     pub storage: HashMap<U256, U256>,
-    /// ETH balance change
-    pub balance_delta: I256,
+    // ETH balance change
+    //pub balance_delta: I256,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -237,14 +237,14 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                                 accounts.insert(*from, StateDiffAccount::default());
                             }
                             let account = accounts.get_mut(from).unwrap();
-                            account.balance_delta -= I256::from_limbs(*balance.as_limbs());
+                            //account.balance_delta -= I256::from_limbs(*balance.as_limbs());
                         }
                         if to.0 == selected_chain_id {
                             if !accounts.contains_key(to) {
                                 accounts.insert(*to, StateDiffAccount::default());
                             }
                             let account = accounts.get_mut(to).unwrap();
-                            account.balance_delta += I256::from_limbs(*balance.as_limbs());
+                            //account.balance_delta += I256::from_limbs(*balance.as_limbs());
                         }
                     }
                 }
