@@ -228,7 +228,7 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
             } => {
                 // Track ETH balance changes when not on native chain
                 // Also ignore if the callstack is empty, that means the ETH is sent in the tx itself and will be part of the call
-                if call_stack.len() > 0 && (from.0 == selected_chain_id || to.0 == selected_chain_id) && !call_stack.last().unwrap().2 {
+                if call_stack.len() > 0 && (from.0 == selected_chain_id && to.0 == selected_chain_id) && !call_stack.last().unwrap().2 {
                     //assert_eq!(call_stack.last().unwrap().1, selected_chain_id);
                     if entries.len() == 0 || !matches!(entries.last().unwrap(), StateDiffEntry::Diff { accounts: _ }) {
                         entries.push(StateDiffEntry::Diff { accounts: HashMap::new() });
