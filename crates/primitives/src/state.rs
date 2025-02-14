@@ -177,8 +177,10 @@ pub enum StateDiffEntry {
 pub struct StateDiffAccount {
     /// storage changes
     pub storage: HashMap<U256, U256>,
-    // ETH balance change
-    //pub balance_delta: I256,
+    /// ETH balance change
+    pub balance_delta: U256,
+    /// ETH blaance negative
+    pub balance_negative: bool,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
@@ -237,6 +239,16 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                                 accounts.insert(*from, StateDiffAccount::default());
                             }
                             let account = accounts.get_mut(from).unwrap();
+                            if !account.balance_negative {
+                                if account.balance_delta < *balance {
+                                    account.balance_delta = *balance - account.balance_delta;
+                                    account.balance_negative = true;
+                                } else {
+                                    account.balance_delta -= *balance;
+                                }
+                            } else {
+                                account.balance_delta += *balance;
+                            }
                             //account.balance_delta -= I256::from_limbs(*balance.as_limbs());
                         }
                         if to.0 == selected_chain_id {
@@ -244,6 +256,16 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                                 accounts.insert(*to, StateDiffAccount::default());
                             }
                             let account = accounts.get_mut(to).unwrap();
+                            if !account.balance_negative {
+                                account.balance_delta += *balance;
+                            } else {
+                                if account.balance_delta < *balance {
+                                    account.balance_delta = *balance - account.balance_delta;
+                                    account.balance_negative = false;
+                                } else {
+                                    account.balance_delta -= *balance;
+                                }
+                            }
                             //account.balance_delta += I256::from_limbs(*balance.as_limbs());
                         }
                     }
