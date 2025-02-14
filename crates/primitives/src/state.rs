@@ -176,9 +176,9 @@ pub enum StateDiffEntry {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StateDiffAccount {
     /// storage changes
-    storage: HashMap<U256, U256>,
+    pub storage: HashMap<U256, U256>,
     /// ETH balance change
-    balance_delta: I256,
+    pub balance_delta: I256,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
