@@ -216,7 +216,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                                     //println!("xcall: {:?}", xcall_idx);
                                     // return_call
                                     let xcall: &mut JournalEntry = &mut self.context.evm.journaled_state.state_changes[pending_xcall_idx];
-                                    if let JournalEntry::CallBegin { depth, from_chain_id, to_chain_id, data, delta } = xcall {
+                                    if let JournalEntry::CallBegin { depth, from_chain_id, to_chain_id, data, call } = xcall {
                                         data.output.output = outcome.result.output.clone();
                                         data.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
                                         data.output.revert = outcome.result.is_revert();
@@ -300,7 +300,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                                 //println!("outcome catched: {:?}", outcome);
                                 //println!("xcall: {:?}", xcall_idx);
                                 let xcall = &mut ctx.evm.journaled_state.state_changes[xcall_idx];
-                                if let JournalEntry::CallBegin { depth, from_chain_id, to_chain_id, data, delta } = xcall {
+                                if let JournalEntry::CallBegin { depth, from_chain_id, to_chain_id, data, call } = xcall {
                                     data.output.output = outcome.result.output.clone();
                                     data.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
                                     data.output.revert = outcome.result.is_revert();

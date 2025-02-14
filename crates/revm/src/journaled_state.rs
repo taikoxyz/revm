@@ -851,7 +851,7 @@ impl JournaledState {
     /// push xcall into subroutine
     #[inline]
     pub fn xcall(&mut self, from_chain_id: u64, to_chain_id: u64, xcall: XCallData) -> usize {
-        self.state_changes.push(JournalEntry::CallBegin { depth: self.depth() as usize, from_chain_id, to_chain_id, data: xcall.clone(), delta: false });
+        self.state_changes.push(JournalEntry::CallBegin { depth: self.depth() as usize, from_chain_id, to_chain_id, data: xcall.clone(), call: false });
         self.state_changes.len() - 1
     }
 }

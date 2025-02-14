@@ -147,7 +147,7 @@ pub enum JournalEntry {
     /// Revert: Revert to previous bytecode.
     CodeChange { address: ChainAddress },
     /// Call begin
-    CallBegin { depth: usize, from_chain_id: u64, to_chain_id: u64, data: XCallData, delta: bool },
+    CallBegin { depth: usize, from_chain_id: u64, to_chain_id: u64, data: XCallData, call: bool },
     /// Call end
     CallEnd { depth: usize },
     /// Tx begin
@@ -228,7 +228,14 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
             } => {
                 // Track ETH balance changes when not on native chain
                 // Also ignore if the callstack is empty, that means the ETH is sent in the tx itself and will be part of the call
-                if call_stack.len() > 0 && (from.0 == selected_chain_id && to.0 == selected_chain_id) && !call_stack.last().unwrap().2 {
+
+                // L2 -> L1: to.0 == selected_chain_id && !call_stack.last().unwrap().2
+                // L1 <> L1 (from.0 == selected_chain_id && to.0 == selected_chain_id) && !call_stack.last().unwrap().2
+                // L1 -> L2 (from.0 == selected_chain_id) && !call_stack.last().unwrap().2
+                if call_stack.len() > 0 && (
+                    (to.0 == selected_chain_id && !call_stack.last().unwrap().2) ||
+                    ((from.0 == selected_chain_id && to.0 == selected_chain_id) && !call_stack.last().unwrap().2) ||
+                    (call_stack.len() > 1 && from.0 == selected_chain_id && !call_stack.get(call_stack.len() - 2).unwrap().2)) {
                     //assert_eq!(call_stack.last().unwrap().1, selected_chain_id);
                     if entries.len() == 0 || !matches!(entries.last().unwrap(), StateDiffEntry::Diff { accounts: _ }) {
                         entries.push(StateDiffEntry::Diff { accounts: HashMap::new() });
@@ -277,7 +284,7 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                 from_chain_id,
                 to_chain_id,
                 data,
-                delta,
+                call,
             } => {
                 // Only need to care when we do calls between chains
                 if data.input.target_address.0 != data.input.caller.0 {
@@ -287,12 +294,12 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                     }
 
                     // L2 -> L1: only when an actual call is requested in XCALLOPTIONS
-                    if data.input.target_address.0 == selected_chain_id && false {
+                    if data.input.target_address.0 == selected_chain_id && *call {
                         entries.push(StateDiffEntry::XCall { call: data.clone() });
                     }
 
                     // Add the call to the call stack
-                    call_stack.push((*depth, data.input.target_address.0, *delta));
+                    call_stack.push((*depth, data.input.target_address.0, *call));
                 }
             },
             JournalEntry::CallEnd {
