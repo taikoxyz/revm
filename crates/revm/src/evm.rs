@@ -1,4 +1,5 @@
 use revm_interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult};
+use revm_precompile::Address;
 
 use crate::{
     builder::{EvmBuilder, HandlerStage, SetGenericStage},
@@ -9,7 +10,7 @@ use crate::{
     },
     primitives::{
         specification::SpecId, BlockEnv, Bytes, CfgEnv, ChainAddress, EVMError, EVMResult, EnvWithHandlerCfg,
-        ExecutionResult, HandlerCfg, ResultAndState, TransactTo, TxEnv, TxKind, EOF_MAGIC_BYTES, XCallData, XCallInput, XCallOutput, JournalEntry, hex, Bytecode,
+        ExecutionResult, HandlerCfg, ResultAndState, TransactTo, TxEnv, TxKind, EOF_MAGIC_BYTES, XCallData, XCallInput, XCallOutput, JournalEntry, hex, Bytecode, U256,
     },
     Context, ContextWithHandlerCfg, Frame, FrameOrResult, FrameResult,
 };
@@ -508,7 +509,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
         //println!("first_frame_or_result from transact_to {:?}", ctx.evm.env.tx.transact_to);
         let first_frame_or_result = match ctx.evm.env.tx.transact_to {
-            TransactTo::Call(_) => {
+            TransactTo::Call(to) => {
                 // TODO(Brecht)
                 let tx = &ctx.evm.env.tx;
                 if !xchain && tx.transact_to.is_call() && !(tx.caller.1 == address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") && tx.transact_to.to().cloned().unwrap_or_default().1 == address!("9fCF7D13d10dEdF17d0f24C62f0cf4ED462f65b7")) {
@@ -517,7 +518,9 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
                     //     call_options: None,
                     //     memory_offset: 0..0,
                     // }))
-                    let tx_env = TxEnv::default();
+                    let mut tx_env = tx.clone();
+                    tx_env.transact_to = TransactTo::Call(ChainAddress(to.0, Address::ZERO));
+                    tx_env.value = U256::ZERO;
                     exec.call(
                         ctx,
                         CallInputs::new_boxed(&tx_env, gas_limit).unwrap(),
