@@ -512,11 +512,16 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
                 // TODO(Brecht)
                 let tx = &ctx.evm.env.tx;
                 if !xchain && tx.transact_to.is_call() && !(tx.caller.1 == address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") && tx.transact_to.to().cloned().unwrap_or_default().1 == address!("9fCF7D13d10dEdF17d0f24C62f0cf4ED462f65b7")) {
-                    FrameOrResult::Result(FrameResult::Call(CallOutcome {
-                        result: InterpreterResult::new(InstructionResult::Return, Bytes::new(), Gas::new(0)),
-                        call_options: None,
-                        memory_offset: 0..0,
-                    }))
+                    // FrameOrResult::Result(FrameResult::Call(CallOutcome {
+                    //     result: InterpreterResult::new(InstructionResult::Stop, Bytes::new(), Gas::new(0)),
+                    //     call_options: None,
+                    //     memory_offset: 0..0,
+                    // }))
+                    let tx_env = TxEnv::default();
+                    exec.call(
+                        ctx,
+                        CallInputs::new_boxed(&tx_env, gas_limit).unwrap(),
+                    )?
                 } else {
                     exec.call(
                         ctx,
