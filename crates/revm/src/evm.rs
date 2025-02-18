@@ -84,17 +84,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
 
         let tx = self.context.evm.env().tx.clone();
 
-        // TODO(Brecht)
-        if !self.cfg().xchain && tx.transact_to.is_call() && !(tx.caller.1 == address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") && tx.transact_to.to().cloned().unwrap_or_default().1 == address!("9fCF7D13d10dEdF17d0f24C62f0cf4ED462f65b7")) {
-            return Ok(
-                FrameResult::Call(CallOutcome {
-                    result: InterpreterResult::new(InstructionResult::Return, Bytes::new(), Gas::new(0)),
-                    call_options: None,
-                    memory_offset: 0..0,
-                })
-            );
-        }
-
+        // TODO(Brecht): real account abstraction
         if !self.cfg().xchain && tx.caller.1 == address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") {
             for item in tx.access_list.iter() {
                 // yolo account abstraction
@@ -491,6 +481,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
     fn transact_preverified_inner(&mut self, initial_gas_spend: u64) -> EVMResult<DB::Error> {
         //println!("EVM:transact_preverified_inner");
         let spec_id = self.spec_id();
+        let xchain = self.cfg().xchain;
         let ctx = &mut self.context;
         let pre_exec = self.handler.pre_execution();
 
@@ -517,10 +508,22 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
         //println!("first_frame_or_result from transact_to {:?}", ctx.evm.env.tx.transact_to);
         let first_frame_or_result = match ctx.evm.env.tx.transact_to {
-            TransactTo::Call(_) => exec.call(
-                ctx,
-                CallInputs::new_boxed(&ctx.evm.env.tx, gas_limit).unwrap(),
-            )?,
+            TransactTo::Call(_) => {
+                // TODO(Brecht)
+                let tx = &ctx.evm.env.tx;
+                if !xchain && tx.transact_to.is_call() && !(tx.caller.1 == address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") && tx.transact_to.to().cloned().unwrap_or_default().1 == address!("9fCF7D13d10dEdF17d0f24C62f0cf4ED462f65b7")) {
+                    FrameOrResult::Result(FrameResult::Call(CallOutcome {
+                        result: InterpreterResult::new(InstructionResult::Return, Bytes::new(), Gas::new(0)),
+                        call_options: None,
+                        memory_offset: 0..0,
+                    }))
+                } else {
+                    exec.call(
+                        ctx,
+                        CallInputs::new_boxed(&ctx.evm.env.tx, gas_limit).unwrap(),
+                    )?
+                }
+            },
             TransactTo::Create => {
                 // if first byte of data is magic 0xEF00, then it is EOFCreate.
                 if spec_id.is_enabled_in(SpecId::PRAGUE_EOF)
