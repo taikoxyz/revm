@@ -193,6 +193,8 @@ pub struct StateDiff {
 
 
 pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) -> StateDiff {
+    println!("state changes: {:?}", state_changes);
+
     let mut entries = Vec::new();
     let mut outputs = Vec::new();
     // (depth, chain_id, native)
@@ -205,6 +207,10 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                 new,
                 had_value,
             } => {
+                if call_stack.is_empty() {
+                    continue;
+                }
+
                 // Only track the delta's when on the selected chain and we're not on the native chain
                 if address.0 == selected_chain_id && !call_stack.last().unwrap().2 {
                     assert_eq!(call_stack.last().unwrap().1, selected_chain_id);
@@ -286,6 +292,10 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                 data,
                 call,
             } => {
+                if call_stack.is_empty() {
+                    continue;
+                }
+
                 // Only need to care when we do calls between chains
                 if data.input.target_address.0 != data.input.caller.0 {
                     // L1 -> L2: only when we are on native L1
@@ -305,6 +315,10 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
             JournalEntry::CallEnd {
                 depth,
             } => {
+                if call_stack.is_empty() {
+                    continue;
+                }
+
                 // Remove the call to the call stack
                 if call_stack.last().unwrap().0 == *depth {
                     call_stack.pop();
