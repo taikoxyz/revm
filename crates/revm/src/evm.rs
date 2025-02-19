@@ -95,8 +95,6 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
             }
         }
 
-        self.context.evm.journaled_state.state_changes.push(JournalEntry::TxBegin { tx });
-
         #[cfg(feature = "memory_limit")]
         let mut shared_memory =
             SharedMemory::new_with_memory_limit(self.context.evm.env.cfg.memory_limit);
@@ -511,13 +509,8 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         let first_frame_or_result = match ctx.evm.env.tx.transact_to {
             TransactTo::Call(to) => {
                 // TODO(Brecht)
-                let tx = &ctx.evm.env.tx;
+                let tx = ctx.evm.env.tx.clone();
                 if !xchain && tx.transact_to.is_call() && !(tx.caller.1 == address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") && tx.transact_to.to().cloned().unwrap_or_default().1 == address!("9fCF7D13d10dEdF17d0f24C62f0cf4ED462f65b7")) {
-                    // FrameOrResult::Result(FrameResult::Call(CallOutcome {
-                    //     result: InterpreterResult::new(InstructionResult::Stop, Bytes::new(), Gas::new(0)),
-                    //     call_options: None,
-                    //     memory_offset: 0..0,
-                    // }))
                     let mut tx_env = tx.clone();
                     tx_env.transact_to = TransactTo::Call(ChainAddress(to.0, Address::ZERO));
                     tx_env.value = U256::ZERO;
@@ -526,6 +519,8 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
                         CallInputs::new_boxed(&tx_env, gas_limit).unwrap(),
                     )?
                 } else {
+                    ctx.evm.journaled_state.state_changes.push(JournalEntry::TxBegin { tx });
+
                     exec.call(
                         ctx,
                         CallInputs::new_boxed(&ctx.evm.env.tx, gas_limit).unwrap(),
