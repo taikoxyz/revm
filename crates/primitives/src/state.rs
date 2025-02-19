@@ -193,8 +193,6 @@ pub struct StateDiff {
 
 
 pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) -> StateDiff {
-    println!("state changes: {:?}", state_changes);
-
     let mut entries = Vec::new();
     let mut outputs = Vec::new();
     // (depth, chain_id, native)
