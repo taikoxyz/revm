@@ -188,9 +188,8 @@ pub struct StateDiffAccount {
 pub struct StateDiff {
     /// entries
     pub entries: Vec<StateDiffEntry>,
-    pub outputs: Vec<XCallData>,
+    pub outputs: Vec<(usize, XCallData)>,
 }
-
 
 pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) -> StateDiff {
     let mut entries = Vec::new();
@@ -298,7 +297,14 @@ pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) ->
                 if data.input.target_address.0 != data.input.caller.0 {
                     // L1 -> L2: only when we are on native L1
                     if data.input.caller.0 == selected_chain_id && call_stack.last().unwrap().2 {
-                        outputs.push(data.clone());
+                        // Check for which call we have to make this output available
+                        let xcall_idx = entries
+                            .iter()
+                            .filter(|entry| matches!(entry, StateDiffEntry::XCall { .. }))
+                            .count();
+                        assert!(xcall_idx > 0, "unexpected xcall idx");
+
+                        outputs.push((xcall_idx - 1, data.clone()));
                     }
 
                     // L2 -> L1: only when an actual call is requested in XCALLOPTIONS
