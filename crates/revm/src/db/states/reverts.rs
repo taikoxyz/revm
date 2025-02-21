@@ -3,16 +3,17 @@ use super::{
     StorageWithOriginalValues,
 };
 use core::ops::{Deref, DerefMut};
-use revm_interpreter::primitives::{AccountInfo, Address, HashMap, U256};
-use std::vec::Vec;
+use revm_interpreter::primitives::{AccountInfo, HashMap, U256};
+use crate::primitives::ChainAddress;
+use std::{collections::HashSet, vec::Vec};
 
 /// Contains reverts of multiple account in multiple transitions (Transitions as a block).
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct Reverts(Vec<Vec<(Address, AccountRevert)>>);
+pub struct Reverts(Vec<Vec<(ChainAddress, AccountRevert)>>);
 
 impl Deref for Reverts {
-    type Target = Vec<Vec<(Address, AccountRevert)>>;
+    type Target = Vec<Vec<(ChainAddress, AccountRevert)>>;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -27,7 +28,7 @@ impl DerefMut for Reverts {
 
 impl Reverts {
     /// Create new reverts
-    pub fn new(reverts: Vec<Vec<(Address, AccountRevert)>>) -> Self {
+    pub fn new(reverts: Vec<Vec<(ChainAddress, AccountRevert)>>) -> Self {
         Self(reverts)
     }
 
@@ -47,12 +48,19 @@ impl Reverts {
     ///
     /// Note that account are sorted by address.
     pub fn into_plain_state_reverts(mut self) -> PlainStateReverts {
+        // To keep track of all chains in the changeset
+        let mut chain_ids = HashSet::new();
+
         let mut state_reverts = PlainStateReverts::with_capacity(self.0.len());
         for reverts in self.0.drain(..) {
             // pessimistically pre-allocate assuming _all_ accounts changed.
             let mut accounts = Vec::with_capacity(reverts.len());
             let mut storage = Vec::with_capacity(reverts.len());
             for (address, revert_account) in reverts.into_iter() {
+                // Keep track of each chain used
+                chain_ids.insert(address.0);
+
+                let address = address.1;
                 match revert_account.account {
                     AccountInfoRevert::RevertTo(acc) => accounts.push((address, Some(acc))),
                     AccountInfoRevert::DeleteIt => accounts.push((address, None)),
@@ -69,6 +77,10 @@ impl Reverts {
             state_reverts.accounts.push(accounts);
             state_reverts.storage.push(storage);
         }
+
+        // Check if we created a valid state chain set for a single chain
+        assert!(chain_ids.len() <= 1, "state changeset contains state of multiple chains: {:?}", chain_ids);
+
         state_reverts
     }
 }

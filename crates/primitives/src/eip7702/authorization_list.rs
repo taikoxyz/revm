@@ -7,7 +7,7 @@ use core::{fmt, ops::Deref};
 use std::{boxed::Box, vec::Vec};
 
 /// Authorization list for EIP-7702 transaction type.
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AuthorizationList {
     Signed(Vec<SignedAuthorization>),

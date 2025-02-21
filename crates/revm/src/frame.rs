@@ -1,6 +1,6 @@
 use crate::{
     interpreter::Interpreter,
-    primitives::{Address, Output},
+    primitives::{Address, Output, CallOptions},
     JournalCheckpoint,
 };
 use core::ops::Range;
@@ -257,6 +257,7 @@ impl FrameOrResult {
         checkpoint: JournalCheckpoint,
         interpreter: Interpreter,
     ) -> Self {
+        //println!("FrameOrResult::new_call_frame");
         Self::Frame(Frame::new_call(
             return_memory_range,
             checkpoint,
@@ -290,8 +291,9 @@ impl FrameOrResult {
         memory_offset: Range<usize>,
     ) -> Self {
         FrameOrResult::Result(FrameResult::Call(CallOutcome {
-            result: interpreter_result,
+            result: interpreter_result.clone(),
             memory_offset,
+            call_options: interpreter_result.call_options,
         }))
     }
 }

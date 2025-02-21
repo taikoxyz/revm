@@ -1,5 +1,5 @@
 use crate::{
-    db::{Database, DatabaseRef, EmptyDB, WrapDatabaseRef},
+    db::{SyncDatabase as Database, SyncDatabaseRef as DatabaseRef, EmptyDB, WrapDatabaseRef},
     handler::register,
     primitives::{
         BlockEnv, CfgEnv, CfgEnvWithHandlerCfg, Env, EnvWithHandlerCfg, HandlerCfg, SpecId, TxEnv,
@@ -444,7 +444,7 @@ mod test {
         inspector::inspector_handle_register,
         inspectors::NoOpInspector,
         primitives::{
-            address, AccountInfo, Address, Bytecode, Bytes, PrecompileResult, TxKind, U256,
+            address, AccountInfo, Address, Bytecode, Bytes, ChainAddress, PrecompileResult, TransactTo, TxKind, U256,
         },
         Context, ContextPrecompile, ContextStatefulPrecompile, Evm, InMemoryDB, InnerEvmContext,
     };
@@ -460,9 +460,10 @@ mod test {
 
     #[test]
     fn simple_add_stateful_instruction() {
+        let chain_id = 1;
         let code = Bytecode::new_raw([0xED, 0x00].into());
         let code_hash = code.hash_slow();
-        let to_addr = address!("ffffffffffffffffffffffffffffffffffffffff");
+        let to_addr = ChainAddress(chain_id, address!("ffffffffffffffffffffffffffffffffffffffff"));
 
         // initialize the custom context and make sure it's zero
         let custom_context = CustomContext::default();
@@ -474,7 +475,7 @@ mod test {
             .modify_db(|db| {
                 db.insert_account_info(to_addr, AccountInfo::new(U256::ZERO, 0, code_hash, code))
             })
-            .modify_tx_env(|tx| tx.transact_to = TxKind::Call(to_addr))
+            .modify_tx_env(|tx| tx.transact_to = TransactTo::Call(to_addr))
             // we need to use handle register box to capture the custom context in the handle
             // register
             .append_handler_register_box(Box::new(move |handler| {
@@ -505,6 +506,7 @@ mod test {
 
     #[test]
     fn simple_add_instruction() {
+        let chain_id = 1;
         const CUSTOM_INSTRUCTION_COST: u64 = 133;
         const INITIAL_TX_GAS: u64 = 21000;
         const EXPECTED_RESULT_GAS: u64 = INITIAL_TX_GAS + CUSTOM_INSTRUCTION_COST;
@@ -516,14 +518,14 @@ mod test {
 
         let code = Bytecode::new_raw([0xED, 0x00].into());
         let code_hash = code.hash_slow();
-        let to_addr = address!("ffffffffffffffffffffffffffffffffffffffff");
+        let to_addr = ChainAddress(chain_id, address!("ffffffffffffffffffffffffffffffffffffffff"));
 
         let mut evm = Evm::builder()
             .with_db(InMemoryDB::default())
             .modify_db(|db| {
                 db.insert_account_info(to_addr, AccountInfo::new(U256::ZERO, 0, code_hash, code))
             })
-            .modify_tx_env(|tx| tx.transact_to = TxKind::Call(to_addr))
+            .modify_tx_env(|tx| tx.transact_to = TransactTo::Call(to_addr))
             .append_handler_register(|handler| {
                 handler.instruction_table.insert(0xED, custom_instruction)
             })
@@ -600,7 +602,7 @@ mod test {
         let evm = evm.modify().with_spec_id(SpecId::FRONTIER).build();
         let _ = evm
             .modify()
-            .modify_tx_env(|tx| tx.chain_id = Some(2))
+            .modify_tx_env(|tx| tx.chain_ids = Some(vec![2]))
             .build();
     }
 

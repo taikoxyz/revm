@@ -1,15 +1,16 @@
 use revm_interpreter::CallValue;
-use revm_precompile::PrecompileErrors;
+use revm_precompile::{xcalloptions::XCALLOPTIONS, PrecompileErrors};
+use crate::primitives::CallOptions;
 
 use super::inner_evm_context::InnerEvmContext;
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     interpreter::{
         analysis::validate_eof, return_ok, CallInputs, Contract, CreateInputs, EOFCreateInputs,
         EOFCreateKind, Gas, InstructionResult, Interpreter, InterpreterResult,
     },
     primitives::{
-        keccak256, Address, Bytecode, Bytes, CreateScheme, EVMError, Env, Eof,
+        keccak256, Address, Bytecode, Bytes, ChainAddress, CreateScheme, EVMError, Env, Eof,
         SpecId::{self, *},
         B256, EOF_MAGIC_BYTES,
     },
@@ -99,11 +100,11 @@ impl<DB: Database> EvmContext<DB> {
 
     /// Sets precompiles
     #[inline]
-    pub fn set_precompiles(&mut self, precompiles: ContextPrecompiles<DB>) {
+    pub fn set_precompiles(&mut self, chain_id: u64, precompiles: ContextPrecompiles<DB>) {
         // set warm loaded addresses.
         self.journaled_state
             .warm_preloaded_addresses
-            .extend(precompiles.addresses_set());
+            .extend(precompiles.addresses_set().iter().map(|precompile| ChainAddress(chain_id, precompile.clone())));
         self.precompiles = precompiles;
     }
 
@@ -111,13 +112,24 @@ impl<DB: Database> EvmContext<DB> {
     #[inline]
     fn call_precompile(
         &mut self,
-        address: &Address,
+        address: &ChainAddress,
         input_data: &Bytes,
         gas: Gas,
+        caller: ChainAddress,
     ) -> Result<Option<InterpreterResult>, EVMError<DB::Error>> {
+        //println!("call_precompile {:?}", address);
+
+        // Disable XCALLOPTIONS functionality when xchain is disabled
+        // TODO(Brecht): address is still set warm!
+        if address.1 == *XCALLOPTIONS.address() && !self.env.cfg.xchain {
+            //println!("Skipping XCALLOPTIONS precompile!");
+            return Ok(None);
+        }
+
+        let mut call_options = None;
         let Some(outcome) =
             self.precompiles
-                .call(address, input_data, gas.limit(), &mut self.inner)
+                .call(&address.1, input_data, gas.limit(), &mut self.inner, caller, &mut call_options)
         else {
             return Ok(None);
         };
@@ -126,13 +138,15 @@ impl<DB: Database> EvmContext<DB> {
             result: InstructionResult::Return,
             gas,
             output: Bytes::new(),
+            call_options: None,
         };
 
         match outcome {
             Ok(output) => {
                 if result.gas.record_cost(output.gas_used) {
                     result.result = InstructionResult::Return;
-                    result.output = output.bytes;
+                    result.output = output.bytes.clone();
+                    result.call_options = call_options;
                 } else {
                     result.result = InstructionResult::PrecompileOOG;
                 }
@@ -157,12 +171,15 @@ impl<DB: Database> EvmContext<DB> {
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
         let gas = Gas::new(inputs.gas_limit);
 
+        //println!("make_call_frame {:?}", inputs.bytecode_address);
+
         let return_result = |instruction_result: InstructionResult| {
             Ok(FrameOrResult::new_call_result(
                 InterpreterResult {
                     result: instruction_result,
                     gas,
                     output: Bytes::new(),
+                    call_options: None,
                 },
                 inputs.return_memory_offset.clone(),
             ))
@@ -180,7 +197,7 @@ impl<DB: Database> EvmContext<DB> {
             .load_account_delegated(inputs.bytecode_address, &mut self.inner.db)?;
 
         // Create subroutine checkpoint
-        let checkpoint = self.journaled_state.checkpoint();
+        let checkpoint = self.journaled_state.checkpoint(inputs.caller.0, inputs.target_address.0);
 
         // Touch address. For "EIP-158 State Clear", this will erase empty accounts.
         match inputs.value {
@@ -205,17 +222,21 @@ impl<DB: Database> EvmContext<DB> {
             _ => {}
         };
 
-        if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas)? {
+        // Only place that sets the Call Options
+        //println!("make_call_frame *==> call_precompile {:?}", inputs.input);
+        if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas, inputs.caller)? {
             if matches!(result.result, return_ok!()) {
                 self.journaled_state.checkpoint_commit();
             } else {
                 self.journaled_state.checkpoint_revert(checkpoint);
             }
+            // Pass out the Call Options in CallOutcome
             Ok(FrameOrResult::new_call_result(
                 result,
                 inputs.return_memory_offset.clone(),
             ))
         } else {
+            //println!("make_call_frame: load_code");
             let account = self
                 .inner
                 .journaled_state
@@ -240,7 +261,7 @@ impl<DB: Database> EvmContext<DB> {
                 bytecode = self
                     .inner
                     .journaled_state
-                    .load_code(eip7702_bytecode.delegated_address, &mut self.inner.db)?
+                    .load_code(ChainAddress(inputs.bytecode_address.0, eip7702_bytecode.delegated_address), &mut self.inner.db)?
                     .info
                     .code
                     .clone()
@@ -253,7 +274,7 @@ impl<DB: Database> EvmContext<DB> {
             Ok(FrameOrResult::new_call_frame(
                 inputs.return_memory_offset.clone(),
                 checkpoint,
-                Interpreter::new(contract, gas.limit(), inputs.is_static),
+                Interpreter::new(contract, gas.limit(), inputs.is_static, inputs.target_address.0, false),
             ))
         }
     }
@@ -265,12 +286,15 @@ impl<DB: Database> EvmContext<DB> {
         spec_id: SpecId,
         inputs: &CreateInputs,
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
+        let chain_id = inputs.caller.0;
+
         let return_error = |e| {
             Ok(FrameOrResult::new_create_result(
                 InterpreterResult {
                     result: e,
                     gas: Gas::new(inputs.gas_limit),
                     output: Bytes::new(),
+                    call_options: None,
                 },
                 None,
             ))
@@ -305,10 +329,11 @@ impl<DB: Database> EvmContext<DB> {
         // Create address
         let mut init_code_hash = B256::ZERO;
         let created_address = match inputs.scheme {
-            CreateScheme::Create => inputs.caller.create(old_nonce),
+            // TODO: Brecht
+            CreateScheme::Create => inputs.caller.1.create(old_nonce),
             CreateScheme::Create2 { salt } => {
                 init_code_hash = keccak256(&inputs.init_code);
-                inputs.caller.create2(salt.to_be_bytes(), init_code_hash)
+                inputs.caller.1.create2(salt.to_be_bytes(), init_code_hash)
             }
         };
 
@@ -316,6 +341,9 @@ impl<DB: Database> EvmContext<DB> {
         if self.precompiles.contains(&created_address) {
             return return_error(InstructionResult::CreateCollision);
         }
+
+        // TODO: Brecht
+        let created_address = ChainAddress(chain_id, created_address);
 
         // warm load account.
         self.load_account(created_address)?;
@@ -346,9 +374,9 @@ impl<DB: Database> EvmContext<DB> {
         );
 
         Ok(FrameOrResult::new_create_frame(
-            created_address,
+            created_address.1,
             checkpoint,
-            Interpreter::new(contract, inputs.gas_limit, false),
+            Interpreter::new(contract, inputs.gas_limit, false, chain_id, false),
         ))
     }
 
@@ -365,10 +393,13 @@ impl<DB: Database> EvmContext<DB> {
                     result: e,
                     gas: Gas::new(inputs.gas_limit),
                     output: Bytes::new(),
+                    call_options: None,
                 },
                 None,
             ))
         };
+
+        let chain_id = inputs.caller.0;
 
         let (input, initcode, created_address) = match &inputs.kind {
             EOFCreateKind::Opcode {
@@ -396,7 +427,7 @@ impl<DB: Database> EvmContext<DB> {
                     .env
                     .tx
                     .nonce
-                    .map(|nonce| self.env.tx.caller.create(nonce));
+                    .map(|nonce| ChainAddress(chain_id, self.env.tx.caller.1.create(nonce))); // TODO: Brecht
 
                 (input, eof, nonce)
             }
@@ -422,10 +453,10 @@ impl<DB: Database> EvmContext<DB> {
         };
         let old_nonce = nonce - 1;
 
-        let created_address = created_address.unwrap_or_else(|| inputs.caller.create(old_nonce));
+        let created_address = created_address.unwrap_or_else(|| ChainAddress(chain_id, inputs.caller.1.create(old_nonce)));
 
         // created address is not allowed to be a precompile.
-        if self.precompiles.contains(&created_address) {
+        if self.precompiles.contains(&created_address.1) {
             return return_error(InstructionResult::CreateCollision);
         }
 
@@ -456,12 +487,12 @@ impl<DB: Database> EvmContext<DB> {
             inputs.value,
         );
 
-        let mut interpreter = Interpreter::new(contract, inputs.gas_limit, false);
+        let mut interpreter = Interpreter::new(contract, inputs.gas_limit, false, chain_id, false);
         // EOF init will enable RETURNCONTRACT opcode.
         interpreter.set_is_eof_init();
 
         Ok(FrameOrResult::new_eofcreate_frame(
-            created_address,
+            created_address.1,
             checkpoint,
             interpreter,
         ))
@@ -480,15 +511,16 @@ pub(crate) mod test_utils {
     };
 
     /// Mock caller address.
-    pub const MOCK_CALLER: Address = address!("0000000000000000000000000000000000000000");
+    pub const MOCK_CALLER: ChainAddress = ChainAddress(1, address!("0000000000000000000000000000000000000000"));
 
     /// Creates `CallInputs` that calls a provided contract address from the mock caller.
     pub fn create_mock_call_inputs(to: Address) -> CallInputs {
+        let chain_id = 1;
         CallInputs {
             input: Bytes::new(),
             gas_limit: 0,
-            bytecode_address: to,
-            target_address: to,
+            bytecode_address: ChainAddress(chain_id, to),
+            target_address: ChainAddress(chain_id, to),
             caller: MOCK_CALLER,
             value: CallValue::Transfer(U256::ZERO),
             scheme: revm_interpreter::CallScheme::Call,
@@ -603,7 +635,7 @@ mod tests {
             result.interpreter_result().result,
             InstructionResult::OutOfFunds
         );
-        let checkpointed = vec![vec![JournalEntry::AccountWarmed { address: contract }]];
+        let checkpointed = vec![vec![JournalEntry::AccountWarmed { address: call_inputs.bytecode_address }]];
         assert_eq!(evm_context.journaled_state.journal, checkpointed);
         assert_eq!(evm_context.journaled_state.depth, 0);
     }
@@ -625,13 +657,14 @@ mod tests {
 
     #[test]
     fn test_make_call_frame_succeeds() {
+        let chain_id = 1;
         let env = Env::default();
         let mut cdb = CacheDB::new(EmptyDB::default());
         let bal = U256::from(3_000_000_000_u128);
         let by = Bytecode::new_raw(Bytes::from(vec![0x60, 0x00, 0x60, 0x00]));
         let contract = address!("dead10000000000000000000000000000001dead");
         cdb.insert_account_info(
-            contract,
+            ChainAddress(chain_id, contract),
             crate::primitives::AccountInfo {
                 nonce: 0,
                 balance: bal,

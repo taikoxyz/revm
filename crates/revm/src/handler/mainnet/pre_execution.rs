@@ -5,10 +5,10 @@
 use crate::{
     precompile::PrecompileSpecId,
     primitives::{
-        db::Database,
-        eip7702, Account, Bytecode, EVMError, Env, Spec,
+        db::SyncDatabase as Database,
+        eip7702, Account, Bytecode, ChainAddress, EVMError, Env, Spec,
         SpecId::{CANCUN, PRAGUE, SHANGHAI},
-        TxKind, BLOCKHASH_STORAGE_ADDRESS, U256,
+        TransactTo, TxKind, BLOCKHASH_STORAGE_ADDRESS, U256,
     },
     Context, ContextPrecompiles,
 };
@@ -23,6 +23,7 @@ pub fn load_precompiles<SPEC: Spec, DB: Database>() -> ContextPrecompiles<DB> {
 #[inline]
 pub fn load_accounts<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
+    chain_id: u64,
 ) -> Result<(), EVMError<DB::Error>> {
     // set journaling state flag.
     context.evm.journaled_state.set_spec_id(SPEC::SPEC_ID);
@@ -45,11 +46,11 @@ pub fn load_accounts<SPEC: Spec, EXT, DB: Database>(
             .evm
             .journaled_state
             .warm_preloaded_addresses
-            .insert(BLOCKHASH_STORAGE_ADDRESS);
+            .insert(ChainAddress(chain_id, BLOCKHASH_STORAGE_ADDRESS));
     }
 
     // Load access list
-    context.evm.load_access_list()?;
+    context.evm.load_access_list(chain_id)?;
     Ok(())
 }
 
@@ -70,7 +71,7 @@ pub fn deduct_caller_inner<SPEC: Spec>(caller_account: &mut Account, env: &Env) 
     caller_account.info.balance = caller_account.info.balance.saturating_sub(gas_cost);
 
     // bump the nonce for calls. Nonce for CREATE will be bumped in `handle_create`.
-    if matches!(env.tx.transact_to, TxKind::Call(_)) {
+    if matches!(env.tx.transact_to, TransactTo::Call(_)) {
         // Nonce is already checked
         caller_account.info.nonce = caller_account.info.nonce.saturating_add(1);
     }
@@ -122,7 +123,7 @@ pub fn apply_eip7702_auth_list<SPEC: Spec, EXT, DB: Database>(
 
         // 2. Verify the chain id is either 0 or the chain's current ID.
         if !authorization.chain_id().is_zero()
-            && authorization.chain_id() != U256::from(context.evm.inner.env.cfg.chain_id)
+            && !context.evm.inner.env.tx.chain_ids.clone().unwrap_or_default().contains(&authorization.chain_id().as_limbs()[0])
         {
             continue;
         }
@@ -133,7 +134,7 @@ pub fn apply_eip7702_auth_list<SPEC: Spec, EXT, DB: Database>(
             .evm
             .inner
             .journaled_state
-            .load_code(authority, &mut context.evm.inner.db)?;
+            .load_code(ChainAddress(authorization.chain_id().as_limbs()[0], authority), &mut context.evm.inner.db)?;
 
         // 4. Verify the code of authority is either empty or already delegated.
         if let Some(bytecode) = &authority_acc.info.code {

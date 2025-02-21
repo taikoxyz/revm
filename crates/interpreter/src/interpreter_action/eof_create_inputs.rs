@@ -1,3 +1,5 @@
+use revm_primitives::ChainAddress;
+
 use crate::primitives::{Address, Bytes, Eof, TxEnv, U256};
 
 /// EOF create can be called from two places:
@@ -18,13 +20,13 @@ pub enum EOFCreateKind {
     Opcode {
         initcode: Eof,
         input: Bytes,
-        created_address: Address,
+        created_address: ChainAddress,
     },
 }
 
 impl EOFCreateKind {
     /// Returns created address
-    pub fn created_address(&self) -> Option<&Address> {
+    pub fn created_address(&self) -> Option<&ChainAddress> {
         match self {
             EOFCreateKind::Opcode {
                 created_address, ..
@@ -39,7 +41,7 @@ impl Default for EOFCreateKind {
         EOFCreateKind::Opcode {
             initcode: Eof::default(),
             input: Bytes::default(),
-            created_address: Address::default(),
+            created_address: ChainAddress::default(),
         }
     }
 }
@@ -49,7 +51,7 @@ impl Default for EOFCreateKind {
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct EOFCreateInputs {
     /// Caller of Eof Craate
-    pub caller: Address,
+    pub caller: ChainAddress,
     /// Values of ether transferred
     pub value: U256,
     /// Gas limit for the create call.
@@ -62,7 +64,7 @@ impl EOFCreateInputs {
     /// Create new EOF crate input from transaction that has concatenated eof init code and calldata.
     ///
     /// Legacy transaction still have optional nonce so we need to obtain it.
-    pub fn new(caller: Address, value: U256, gas_limit: u64, kind: EOFCreateKind) -> Self {
+    pub fn new(caller: ChainAddress, value: U256, gas_limit: u64, kind: EOFCreateKind) -> Self {
         //let (eof_init_code, input) = Eof::decode_dangling(tx.data.clone())?;
         EOFCreateInputs {
             caller,
@@ -86,8 +88,8 @@ impl EOFCreateInputs {
 
     /// Returns a new instance of EOFCreateInput.
     pub fn new_opcode(
-        caller: Address,
-        created_address: Address,
+        caller: ChainAddress,
+        created_address: ChainAddress,
         value: U256,
         eof_init_code: Eof,
         gas_limit: u64,

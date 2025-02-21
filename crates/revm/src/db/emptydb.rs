@@ -1,7 +1,7 @@
 use core::{convert::Infallible, fmt, marker::PhantomData};
 use revm_interpreter::primitives::{
-    db::{Database, DatabaseRef},
-    keccak256, AccountInfo, Address, Bytecode, B256, U256,
+    db::{SyncDatabase as Database, SyncDatabaseRef as DatabaseRef},
+    keccak256, AccountInfo, ChainAddress, Bytecode, B256, U256,
 };
 use std::string::ToString;
 
@@ -57,23 +57,23 @@ impl<E> Database for EmptyDBTyped<E> {
     type Error = E;
 
     #[inline]
-    fn basic(&mut self, address: Address) -> Result<Option<AccountInfo>, Self::Error> {
+    fn basic(&mut self, address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
         <Self as DatabaseRef>::basic_ref(self, address)
     }
 
     #[inline]
-    fn code_by_hash(&mut self, code_hash: B256) -> Result<Bytecode, Self::Error> {
-        <Self as DatabaseRef>::code_by_hash_ref(self, code_hash)
+    fn code_by_hash(&mut self, chain_id: u64, code_hash: B256) -> Result<Bytecode, Self::Error> {
+        <Self as DatabaseRef>::code_by_hash_ref(self, chain_id, code_hash)
     }
 
     #[inline]
-    fn storage(&mut self, address: Address, index: U256) -> Result<U256, Self::Error> {
+    fn storage(&mut self, address: ChainAddress, index: U256) -> Result<U256, Self::Error> {
         <Self as DatabaseRef>::storage_ref(self, address, index)
     }
 
     #[inline]
-    fn block_hash(&mut self, number: u64) -> Result<B256, Self::Error> {
-        <Self as DatabaseRef>::block_hash_ref(self, number)
+    fn block_hash(&mut self, chain_id: u64, number: u64) -> Result<B256, Self::Error> {
+        <Self as DatabaseRef>::block_hash_ref(self, chain_id, number)
     }
 }
 
@@ -81,22 +81,22 @@ impl<E> DatabaseRef for EmptyDBTyped<E> {
     type Error = E;
 
     #[inline]
-    fn basic_ref(&self, _address: Address) -> Result<Option<AccountInfo>, Self::Error> {
+    fn basic_ref(&self, _address: ChainAddress) -> Result<Option<AccountInfo>, Self::Error> {
         Ok(None)
     }
 
     #[inline]
-    fn code_by_hash_ref(&self, _code_hash: B256) -> Result<Bytecode, Self::Error> {
+    fn code_by_hash_ref(&self, _chain_id: u64, _code_hash: B256) -> Result<Bytecode, Self::Error> {
         Ok(Bytecode::default())
     }
 
     #[inline]
-    fn storage_ref(&self, _address: Address, _index: U256) -> Result<U256, Self::Error> {
+    fn storage_ref(&self, _address: ChainAddress, _index: U256) -> Result<U256, Self::Error> {
         Ok(U256::default())
     }
 
     #[inline]
-    fn block_hash_ref(&self, number: u64) -> Result<B256, Self::Error> {
+    fn block_hash_ref(&self, _chain_id: u64, number: u64) -> Result<B256, Self::Error> {
         Ok(keccak256(number.to_string().as_bytes()))
     }
 }
@@ -108,23 +108,24 @@ mod tests {
 
     #[test]
     fn conform_block_hash_calculation() {
+        let chain_id = 1;
         let db = EmptyDB::new();
         assert_eq!(
-            db.block_hash_ref(0u64),
+            db.block_hash_ref(chain_id, 0u64),
             Ok(b256!(
                 "044852b2a670ade5407e78fb2863c51de9fcb96542a07186fe3aeda6bb8a116d"
             ))
         );
 
         assert_eq!(
-            db.block_hash_ref(1u64),
+            db.block_hash_ref(chain_id, 1u64),
             Ok(b256!(
                 "c89efdaa54c0f20c7adf612882df0950f5a951637e0307cdcb4c672f298b8bc6"
             ))
         );
 
         assert_eq!(
-            db.block_hash_ref(100u64),
+            db.block_hash_ref(chain_id, 100u64),
             Ok(b256!(
                 "8c18210df0d9514f2d2e5d8ca7c100978219ee80d3968ad850ab5ead208287b3"
             ))

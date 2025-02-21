@@ -95,6 +95,9 @@ impl<'de> Deserialize<'de> for Interpreter {
         let instruction_pointer = unsafe { bytecode.as_ptr().add(program_counter) };
 
         Ok(Interpreter {
+            chain_id: 1,
+            is_sandboxed: false,
+            call_options: None,
             instruction_pointer,
             gas,
             contract,
@@ -118,7 +121,7 @@ mod tests {
 
     #[test]
     fn test_serde() {
-        let interp = Interpreter::new(Contract::default(), u64::MAX, false);
+        let interp = Interpreter::new(Contract::default(), u64::MAX, false, 1, false);
         let serialized = bincode::serialize(&interp).unwrap();
         let de: Interpreter = bincode::deserialize(&serialized).unwrap();
         assert_eq!(interp.program_counter(), de.program_counter());

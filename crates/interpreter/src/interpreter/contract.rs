@@ -1,4 +1,4 @@
-use revm_primitives::TxKind;
+use revm_primitives::{ChainAddress, TransactTo, TxKind};
 
 use super::analysis::to_analysed;
 use crate::{
@@ -18,12 +18,12 @@ pub struct Contract {
     /// Bytecode hash for legacy. For EOF this would be None.
     pub hash: Option<B256>,
     /// Target address of the account. Storage of this address is going to be modified.
-    pub target_address: Address,
+    pub target_address: ChainAddress,
     /// Address of the account the bytecode was loaded from. This can be different from target_address
     /// in the case of DELEGATECALL or CALLCODE
-    pub bytecode_address: Option<Address>,
+    pub bytecode_address: Option<ChainAddress>,
     /// Caller of the EVM.
-    pub caller: Address,
+    pub caller: ChainAddress,
     /// Value send to contract from transaction or from CALL opcodes.
     pub call_value: U256,
 }
@@ -35,9 +35,9 @@ impl Contract {
         input: Bytes,
         bytecode: Bytecode,
         hash: Option<B256>,
-        target_address: Address,
-        bytecode_address: Option<Address>,
-        caller: Address,
+        target_address: ChainAddress,
+        bytecode_address: Option<ChainAddress>,
+        caller: ChainAddress,
         call_value: U256,
     ) -> Self {
         let bytecode = to_analysed(bytecode);
@@ -57,12 +57,12 @@ impl Contract {
     #[inline]
     pub fn new_env(env: &Env, bytecode: Bytecode, hash: Option<B256>) -> Self {
         let contract_address = match env.tx.transact_to {
-            TxKind::Call(caller) => caller,
-            TxKind::Create => Address::ZERO,
+            TransactTo::Call(caller) => caller,
+            TransactTo::Create => ChainAddress(1, Address::ZERO),
         };
         let bytecode_address = match env.tx.transact_to {
-            TxKind::Call(caller) => Some(caller),
-            TxKind::Create => None,
+            TransactTo::Call(caller) => Some(caller),
+            TransactTo::Create => None,
         };
         Self::new(
             env.tx.data.clone(),
@@ -83,6 +83,7 @@ impl Contract {
         hash: Option<B256>,
         call_context: &CallInputs,
     ) -> Self {
+        //println!("Contract::new_with_context");
         Self::new(
             input,
             bytecode,

@@ -14,7 +14,7 @@ use crate::{
     FunctionStack, Gas, Host, InstructionResult, InterpreterAction,
 };
 use core::cmp::min;
-use revm_primitives::{Bytecode, Eof, U256};
+use revm_primitives::{Bytecode, CallOptions, Eof, U256};
 use std::borrow::ToOwned;
 use std::sync::Arc;
 
@@ -60,17 +60,24 @@ pub struct Interpreter {
     /// Set inside CALL or CREATE instructions and RETURN or REVERT instructions. Additionally those instructions will set
     /// InstructionResult to CallOrCreate/Return/Revert so we know the reason.
     pub next_action: InterpreterAction,
+    /// Booster: chain storage to use
+    pub chain_id: u64,
+    /// Booster: call options set using XCALLOPTIONS
+    pub call_options: Option<CallOptions>,
+    /// Booster: when running sandboxed, always revert the state changes done inside the call
+    pub is_sandboxed: bool,
 }
 
 impl Default for Interpreter {
     fn default() -> Self {
-        Self::new(Contract::default(), u64::MAX, false)
+        Self::new(Contract::default(), u64::MAX, false, 1, false)
     }
 }
 
 impl Interpreter {
     /// Create new interpreter
-    pub fn new(contract: Contract, gas_limit: u64, is_static: bool) -> Self {
+    pub fn new(contract: Contract, gas_limit: u64, is_static: bool, chain_id: u64, sandboxed: bool) -> Self {
+        //println!("Interpreter::new IS_STATIC: {} SANDBOXED {}", is_static, sandboxed);
         if !contract.bytecode.is_execution_ready() {
             panic!("Contract is not execution ready {:?}", contract.bytecode);
         }
@@ -90,6 +97,9 @@ impl Interpreter {
             shared_memory: EMPTY_SHARED_MEMORY,
             stack: Stack::new(),
             next_action: InterpreterAction::None,
+            chain_id,
+            call_options: None,
+            is_sandboxed: sandboxed,
         }
     }
 
@@ -107,17 +117,21 @@ impl Interpreter {
     /// Test related helper
     #[cfg(test)]
     pub fn new_bytecode(bytecode: Bytecode) -> Self {
+        use revm_primitives::ChainAddress;
+
         Self::new(
             Contract::new(
                 Bytes::new(),
                 bytecode,
                 None,
-                crate::primitives::Address::default(),
+                ChainAddress::default(),
                 None,
-                crate::primitives::Address::default(),
+                ChainAddress::default(),
                 U256::ZERO,
             ),
             0,
+            false,
+            1,
             false,
         )
     }
@@ -378,6 +392,7 @@ impl Interpreter {
     where
         FN: Fn(&mut Interpreter, &mut H),
     {
+        //println!("Interpreter::run");
         self.next_action = InterpreterAction::None;
         self.shared_memory = shared_memory;
         // main loop
@@ -396,6 +411,7 @@ impl Interpreter {
                 // return empty bytecode
                 output: Bytes::new(),
                 gas: self.gas,
+                call_options: None,
             },
         }
     }
@@ -418,6 +434,8 @@ pub struct InterpreterResult {
     pub output: Bytes,
     /// The gas usage information.
     pub gas: Gas,
+    /// The call options that were set
+    pub call_options: Option<CallOptions>,
 }
 
 impl InterpreterResult {
@@ -427,6 +445,22 @@ impl InterpreterResult {
             result,
             output,
             gas,
+            call_options: None,
+        }
+    }
+
+    /// Returns a new `InterpreterResult` with the given values and call options.
+    pub fn new_with_options(
+        result: InstructionResult,
+        output: Bytes,
+        gas: Gas,
+        call_options: Option<CallOptions>,
+    ) -> Self {
+        Self {
+            result,
+            output,
+            gas,
+            call_options,
         }
     }
 
@@ -473,7 +507,7 @@ mod tests {
 
     #[test]
     fn object_safety() {
-        let mut interp = Interpreter::new(Contract::default(), u64::MAX, false);
+        let mut interp = Interpreter::new(Contract::default(), u64::MAX, false, 1, false);
 
         let mut host = crate::DummyHost::default();
         let table: &InstructionTable<DummyHost> =

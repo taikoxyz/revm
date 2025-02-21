@@ -173,6 +173,7 @@ fn return_inner(interpreter: &mut Interpreter, instruction_result: InstructionRe
             output,
             gas: interpreter.gas,
             result: instruction_result,
+            call_options: None,
         },
     };
 }

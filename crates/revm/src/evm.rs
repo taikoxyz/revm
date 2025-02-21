@@ -1,18 +1,22 @@
+use revm_interpreter::{CallOutcome, Gas, InstructionResult, InterpreterResult};
+use revm_precompile::Address;
+
 use crate::{
     builder::{EvmBuilder, HandlerStage, SetGenericStage},
-    db::{Database, DatabaseCommit, EmptyDB},
+    db::{SyncDatabase as Database, DatabaseCommit, EmptyDB},
     handler::Handler,
     interpreter::{
         CallInputs, CreateInputs, EOFCreateInputs, Host, InterpreterAction, SharedMemory,
     },
     primitives::{
-        specification::SpecId, BlockEnv, CfgEnv, EVMError, EVMResult, EnvWithHandlerCfg,
-        ExecutionResult, HandlerCfg, ResultAndState, TxEnv, TxKind, EOF_MAGIC_BYTES,
+        specification::SpecId, BlockEnv, Bytes, CfgEnv, ChainAddress, EVMError, EVMResult, EnvWithHandlerCfg,
+        ExecutionResult, HandlerCfg, ResultAndState, TransactTo, TxEnv, TxKind, EOF_MAGIC_BYTES, XCallData, XCallInput, XCallOutput, JournalEntry, hex, Bytecode, U256,
     },
     Context, ContextWithHandlerCfg, Frame, FrameOrResult, FrameResult,
 };
-use core::fmt;
-use std::{boxed::Box, vec::Vec};
+use core::{fmt, future::pending};
+use std::{boxed::Box, collections::HashMap, vec::Vec};
+use crate::primitives::address;
 
 /// EVM call stack limit.
 pub const CALL_STACK_LIMIT: u64 = 1024;
@@ -75,8 +79,21 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
     /// Runs main call loop.
     #[inline]
     pub fn run_the_loop(&mut self, first_frame: Frame) -> Result<FrameResult, EVMError<DB::Error>> {
+        //println!("EVM:run_the_loop: exaust the frame stack");
         let mut call_stack: Vec<Frame> = Vec::with_capacity(1025);
         call_stack.push(first_frame);
+
+        let tx = self.context.evm.env().tx.clone();
+
+        // TODO(Brecht): real account abstraction
+        if !self.cfg().xchain && tx.caller.1 == address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") {
+            for item in tx.access_list.iter() {
+                // yolo account abstraction
+                let account_abstraction_code = hex!("60406080815260048036101561001e575b5050361561001c575f80fd5b005b5f3560e01c63a6d0ad610361001057602091826003193601126102225781359167ffffffffffffffff918284116102225736602385011215610222578382013593602493808611610238578560051b858861007a81840161024a565b8099815201918401019236841161022257868101915b8483106101795750505050505f5b845181101561001c57858160051b860101518681019060018060a01b0380835116925f808b88860196875187519283519301915af13d15610171573d906100ec6100e783610284565b61024a565b9182523d5f8d84013e5b1561014c5750917fcaf938de11c367272220bfd1d2baa99ca46665e7bc4d85f00adb51b90fe1fa9f9160019594935116925190519061014387519283928352888d840152888301906102a0565b0390a20161009e565b865162461bcd60e51b81528089018c905290819061016d90828c01906102a0565b0390fd5b6060906100f6565b823584811161022257820160609182602319833603011261022257875192830183811087821117610226578852898201358681116102225782013660438201121561022257604490808c01356101d16100e782610284565b9181835236848383010111610222578f909180855f940183860137830101528452820135926001600160a01b03841684036102225760648d9493859485840152013589820152815201920191610090565b5f80fd5b8a60418b634e487b7160e01b5f52525ffd5b84604185634e487b7160e01b5f52525ffd5b6040519190601f01601f1916820167ffffffffffffffff81118382101761027057604052565b634e487b7160e01b5f52604160045260245ffd5b67ffffffffffffffff811161027057601f01601f191660200190565b91908251928382525f5b8481106102ca575050825f602080949584010152601f8019910116010190565b6020818301810151848301820152016102aa56fea2646970667358221220838cbd59498426defca87a853e63f860529c6ac35b1d64c51b8db89a8b39827e64736f6c63430008180033");
+                let bytecode = Bytecode::new_legacy(Bytes::from(account_abstraction_code));
+                self.context.evm.journaled_state.set_code(ChainAddress(tx.caller.0, item.address), bytecode);
+            }
+        }
 
         #[cfg(feature = "memory_limit")]
         let mut shared_memory =
@@ -88,8 +105,25 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
 
         // Peek the last stack frame.
         let mut stack_frame = call_stack.last_mut().unwrap();
+        let mut call_options = None;
+        let mut cnt = 0;
 
+        let mut pending_xcalls: HashMap<u64, usize> = HashMap::new();
+        let mut xcall_idx = 0usize;
         loop {
+            //println!("loop: {}", cnt);
+            cnt += 1;
+
+            // TODO(Brecht): Potential issue when revert happens after setting the options?
+            stack_frame.interpreter_mut().call_options = std::mem::take(&mut call_options);
+
+            // The start of a smart contract execution after all initial checks have passed
+            if stack_frame.is_call() {
+                let input = stack_frame.interpreter().contract.input.clone();
+                // println!("-> contract: {:?}, input: {}", stack_frame.interpreter().contract.target_address, input);
+                // TODO: Do something
+            }
+
             // Execute the frame.
             let next_action =
                 self.handler
@@ -100,8 +134,100 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
             self.context.evm.take_error()?;
 
             let exec = &mut self.handler.execution;
-            let frame_or_result = match next_action {
-                InterpreterAction::Call { inputs } => exec.call(&mut self.context, inputs)?,
+            let frame_or_result = match next_action.clone() {
+                InterpreterAction::Call { inputs } => {
+                    //println!(">>> Call: {:?}", inputs);
+                    // We have to record xcalls, except those done to the parent chain (those will still execute locally)
+                    let is_xcall =  inputs.target_address.0 != stack_frame.frame_data().interpreter.chain_id;
+                    //println!("chain {} -> {} (is xcall: {})", stack_frame.frame_data().interpreter.chain_id, inputs.target_address.0, is_xcall);
+
+                    // if is_xcall && self.context.evm.env.tx.xcalls.is_some() {
+                    //     let xcalls = self.context.evm.env.tx.xcalls.as_ref().unwrap();
+                    //     let gas = Gas::new(inputs.gas_limit);
+                    //     let return_result = |instruction_result: InstructionResult| {
+                    //         FrameOrResult::new_call_result(
+                    //             InterpreterResult {
+                    //                 result: instruction_result,
+                    //                 gas,
+                    //                 output: Bytes::new(),
+                    //                 call_options: None,
+                    //             },
+                    //             inputs.return_memory_offset.clone(),
+                    //         )
+                    //     };
+                    //     // Check depth
+                    //     if self.context.evm.journaled_state.depth() > CALL_STACK_LIMIT {
+                    //         return_result(InstructionResult::CallTooDeep)
+                    //     } else {
+                    //         let xcall = &xcalls[xcall_idx];
+                    //         xcall_idx += 1;
+                    //         FrameOrResult::new_call_result(
+                    //             InterpreterResult {
+                    //                 result: InstructionResult::Return,
+                    //                 gas: Gas::new(xcall.gas),
+                    //                 output: Bytes::from(xcall.output.clone()),
+                    //                 call_options: None,
+                    //             },
+                    //             inputs.return_memory_offset.clone(),
+                    //         )
+                    //     }
+                    // } else {
+                        // Insert the xcall before the call is made, because the call might do more calls
+                        let pending_xcall_idx = self.context.evm.journaled_state.xcall(
+                            inputs.caller.0,
+                            inputs.target_address.0,
+                            XCallData {
+                            input: XCallInput {
+                                input: inputs.clone().input,
+                                gas_limit: inputs.clone().gas_limit,
+                                bytecode_address: inputs.clone().bytecode_address,
+                                target_address: inputs.clone().target_address,
+                                caller: inputs.clone().caller,
+                                is_static: inputs.clone().is_static,
+                                is_eof: inputs.clone().is_eof,
+                                value: inputs.call_value(),
+                            },
+                            output: XCallOutput {
+                                revert: true,
+                                output: Bytes::new(),
+                                gas: 0,
+                            }
+                        });
+
+                        let res = exec.call(&mut self.context, inputs.clone())?;
+                        match &res {
+                            FrameOrResult::Frame(_) => {
+                                //if is_xcall {
+                                    //println!("pending xcall at: {}", call_stack.len());
+                                    pending_xcalls.insert(call_stack.len() as u64, pending_xcall_idx);
+                                //}
+                            }
+                            FrameOrResult::Result(FrameResult::Call(outcome)) => {
+                                //println!("call done: {:?}", outcome);
+                                let depth = self.context.evm.journaled_state.depth();
+                                //if let Some(&xcall_idx) = pending_xcalls.get(&depth) {
+                                    //println!("xcall: {:?}", xcall_idx);
+                                    // return_call
+                                    let xcall: &mut JournalEntry = &mut self.context.evm.journaled_state.state_changes[pending_xcall_idx];
+                                    if let JournalEntry::CallBegin { depth, from_chain_id, to_chain_id, data, call } = xcall {
+                                        data.output.output = outcome.result.output.clone();
+                                        data.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
+                                        data.output.revert = outcome.result.is_revert();
+                                    }
+
+                                    self.context.evm.journaled_state.state_changes.push(JournalEntry::CallEnd { depth: depth as usize });
+                                // } else {
+                                //     //println!("outcome: {:?}", outcome);
+                                //     println!("uncatched outcome A");
+                                // }
+                            }
+                            _ => {
+                                println!("uncatched frame result");
+                            }
+                        };
+                        res
+                    //}
+                }
                 InterpreterAction::Create { inputs } => exec.create(&mut self.context, inputs)?,
                 InterpreterAction::EOFCreate { inputs } => {
                     exec.eofcreate(&mut self.context, inputs)?
@@ -133,6 +259,12 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                 }
                 InterpreterAction::None => unreachable!("InterpreterAction::None is not expected"),
             };
+
+            // println!("  loop ==> frame_or_result: {:?}", match frame_or_result {
+            //     FrameOrResult::Frame(_) => "Frame",
+            //     FrameOrResult::Result(_) => "Result",
+            // });
+
             // handle result
             match frame_or_result {
                 FrameOrResult::Frame(frame) => {
@@ -141,6 +273,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                     stack_frame = call_stack.last_mut().unwrap();
                 }
                 FrameOrResult::Result(result) => {
+                    let depth = call_stack.len();
                     let Some(top_frame) = call_stack.last_mut() else {
                         // Break the loop if there are no more frames.
                         return Ok(result);
@@ -151,6 +284,26 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                     match result {
                         FrameResult::Call(outcome) => {
                             // return_call
+                            call_options = outcome.call_options.clone();
+
+                            //println!("call done [{}] with return: {:?}", depth, outcome);
+                            //println!("pending xcalls: {:?}", pending_xcalls);
+                            let depth = ctx.evm.journaled_state.depth();
+                            if let Some(&xcall_idx) = pending_xcalls.get(&depth) {
+                                //println!("outcome catched: {:?}", outcome);
+                                //println!("xcall: {:?}", xcall_idx);
+                                let xcall = &mut ctx.evm.journaled_state.state_changes[xcall_idx];
+                                if let JournalEntry::CallBegin { depth, from_chain_id, to_chain_id, data, call } = xcall {
+                                    data.output.output = outcome.result.output.clone();
+                                    data.output.gas = outcome.result.gas.limit() - outcome.result.gas.remaining();
+                                    data.output.revert = outcome.result.is_revert();
+                                }
+
+                                ctx.evm.journaled_state.state_changes.push(JournalEntry::CallEnd { depth: depth as usize });
+                            } else {
+                                //println!("outcome uncatched 2: {:?}", outcome);
+                            }
+
                             exec.insert_call_outcome(ctx, stack_frame, &mut shared_memory, outcome)?
                         }
                         FrameResult::Create(outcome) => {
@@ -228,6 +381,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
     /// This function will validate the transaction.
     #[inline]
     pub fn transact(&mut self) -> EVMResult<DB::Error> {
+        //println!("transact");
         let initial_gas_spend = self.preverify_transaction_inner().map_err(|e| {
             self.clear();
             e
@@ -324,16 +478,21 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
     /// Transact pre-verified transaction.
     fn transact_preverified_inner(&mut self, initial_gas_spend: u64) -> EVMResult<DB::Error> {
+        //println!("EVM:transact_preverified_inner");
         let spec_id = self.spec_id();
+        let xchain = self.cfg().xchain;
         let ctx = &mut self.context;
         let pre_exec = self.handler.pre_execution();
 
         // load access list and beneficiary if needed.
-        pre_exec.load_accounts(ctx)?;
+        pre_exec.load_accounts(ctx, ctx.evm.env.tx.caller.0)?;
 
         // load precompiles
-        let precompiles = pre_exec.load_precompiles();
-        ctx.evm.set_precompiles(precompiles);
+        for chain_id in ctx.evm.env.tx.chain_ids.clone().unwrap_or(vec![ctx.evm.env.tx.caller.0]).into_iter() {
+            // TODO(Brecht): precompiles need to be aware of chain_id
+            let precompiles = pre_exec.load_precompiles();
+            ctx.evm.set_precompiles(chain_id, precompiles);
+        }
 
         // deduce caller balance with its limit.
         pre_exec.deduct_caller(ctx)?;
@@ -345,12 +504,30 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
 
         let exec = self.handler.execution();
         // call inner handling of call/create
+
+        //println!("first_frame_or_result from transact_to {:?}", ctx.evm.env.tx.transact_to);
         let first_frame_or_result = match ctx.evm.env.tx.transact_to {
-            TxKind::Call(_) => exec.call(
-                ctx,
-                CallInputs::new_boxed(&ctx.evm.env.tx, gas_limit).unwrap(),
-            )?,
-            TxKind::Create => {
+            TransactTo::Call(to) => {
+                // TODO(Brecht)
+                let tx = ctx.evm.env.tx.clone();
+                if !xchain && tx.transact_to.is_call() && !(tx.caller.1 == address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") && tx.transact_to.to().cloned().unwrap_or_default().1 == address!("9fCF7D13d10dEdF17d0f24C62f0cf4ED462f65b7")) {
+                    let mut tx_env = tx.clone();
+                    tx_env.transact_to = TransactTo::Call(ChainAddress(to.0, Address::ZERO));
+                    tx_env.value = U256::ZERO;
+                    exec.call(
+                        ctx,
+                        CallInputs::new_boxed(&tx_env, gas_limit).unwrap(),
+                    )?
+                } else {
+                    ctx.evm.journaled_state.state_changes.push(JournalEntry::TxBegin { tx });
+
+                    exec.call(
+                        ctx,
+                        CallInputs::new_boxed(&ctx.evm.env.tx, gas_limit).unwrap(),
+                    )?
+                }
+            },
+            TransactTo::Create => {
                 // if first byte of data is magic 0xEF00, then it is EOFCreate.
                 if spec_id.is_enabled_in(SpecId::PRAGUE_EOF)
                     && ctx.env().tx.data.starts_with(&EOF_MAGIC_BYTES)
@@ -406,6 +583,7 @@ mod tests {
 
     #[test]
     fn sanity_eip7702_tx() {
+        let chain_id = 1;
         let delegate = address!("0000000000000000000000000000000000000000");
         let caller = address!("0000000000000000000000000000000000000001");
         let auth = address!("0000000000000000000000000000000000000100");
@@ -428,14 +606,15 @@ mod tests {
                     )]
                     .into(),
                 );
-                tx.caller = caller;
-                tx.transact_to = TxKind::Call(auth);
+                tx.caller = ChainAddress(chain_id, caller);
+                tx.transact_to = TransactTo::Call(ChainAddress(chain_id, auth));
+                tx.chain_ids = Some(vec![chain_id]);
             })
             .build();
 
         let ok = evm.transact().unwrap();
 
-        let auth_acc = ok.state.get(&auth).unwrap();
+        let auth_acc = ok.state.get(&ChainAddress(chain_id, auth)).unwrap();
         assert_eq!(auth_acc.info.code, Some(Bytecode::new_eip7702(delegate)));
         assert_eq!(auth_acc.info.nonce, 1);
         assert_eq!(

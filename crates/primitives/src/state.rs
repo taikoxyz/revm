@@ -1,15 +1,391 @@
-use crate::{Address, Bytecode, HashMap, SpecId, B256, KECCAK_EMPTY, U256};
+use crate::{Address, Bytecode, HashMap, SpecId, StateChanges, TxEnv, B256, KECCAK_EMPTY, U256, I256};
+use alloy_primitives::Bytes;
 use bitflags::bitflags;
 use core::hash::{Hash, Hasher};
+use std::io::Read;
+
+/// Chain specific address
+///
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct ChainAddress(pub u64, pub Address);
 
 /// EVM State is a mapping from addresses to accounts.
-pub type EvmState = HashMap<Address, Account>;
+pub type EvmState = HashMap<ChainAddress, Account>;
 
 /// Structure used for EIP-1153 transient storage.
-pub type TransientStorage = HashMap<(Address, U256), U256>;
+pub type TransientStorage = HashMap<(ChainAddress, U256), U256>;
 
 /// An account's Storage is a mapping from 256-bit integer keys to [EvmStorageSlot]s.
 pub type EvmStorage = HashMap<U256, EvmStorageSlot>;
+
+/// Data needed for each xcall
+#[derive(Debug, Clone, PartialEq, Eq, Default, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct XCallData {
+    /// The input
+    pub input: XCallInput,
+    /// The output
+    pub output: XCallOutput,
+}
+
+/// XCallOutput data.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct XCallOutput {
+    /// The result of the instruction execution.
+    pub revert: bool,
+    /// The output of the instruction execution.
+    pub output: Bytes,
+    /// The gas usage information.
+    pub gas: u64,
+}
+
+/// XCallInput data.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct XCallInput {
+    /// The call data of the call.
+    pub input: Bytes,
+    /// The return memory offset where the output of the call is written.
+    ///
+    /// In EOF, this range is invalid as EOF calls do not write output to memory.
+    //pub return_memory_offset: Range<usize>,
+    /// The gas limit of the call.
+    pub gas_limit: u64,
+    /// The account address of bytecode that is going to be executed.
+    ///
+    /// Previously `context.code_address`.
+    pub bytecode_address: ChainAddress,
+    /// Target address, this account storage is going to be modified.
+    ///
+    /// Previously `context.address`.
+    pub target_address: ChainAddress,
+    /// This caller is invoking the call.
+    ///
+    /// Previously `context.caller`.
+    pub caller: ChainAddress,
+    /// Call value.
+    ///
+    /// NOTE: This value may not necessarily be transferred from caller to callee, see [`CallValue`].
+    ///
+    /// Previously `transfer.value` or `context.apparent_value`.
+    pub value: U256,
+    /// The call scheme.
+    ///
+    /// Previously `context.scheme`.
+    //pub scheme: CallScheme,
+    /// Whether the call is a static call, or is initiated inside a static call.
+    pub is_static: bool,
+    /// Whether the call is initiated from EOF bytecode.
+    pub is_eof: bool,
+}
+
+/// Journal entries that are used to track changes to the state and are used to revert it.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum JournalEntry {
+    /// Used to mark account that is warm inside EVM in regards to EIP-2929 AccessList.
+    /// Action: We will add Account to state.
+    /// Revert: we will remove account from state.
+    AccountWarmed { address: ChainAddress },
+    /// Mark account to be destroyed and journal balance to be reverted
+    /// Action: Mark account and transfer the balance
+    /// Revert: Unmark the account and transfer balance back
+    AccountDestroyed {
+        address: ChainAddress,
+        target: ChainAddress,
+        was_destroyed: bool, // if account had already been destroyed before this journal entry
+        had_balance: U256,
+    },
+    /// Loading account does not mean that account will need to be added to MerkleTree (touched).
+    /// Only when account is called (to execute contract or transfer balance) only then account is made touched.
+    /// Action: Mark account touched
+    /// Revert: Unmark account touched
+    AccountTouched { address: ChainAddress },
+    /// Transfer balance between two accounts
+    /// Action: Transfer balance
+    /// Revert: Transfer balance back
+    BalanceTransfer {
+        from: ChainAddress,
+        to: ChainAddress,
+        balance: U256,
+    },
+    /// Increment nonce
+    /// Action: Increment nonce by one
+    /// Revert: Decrement nonce by one
+    NonceChange {
+        address: ChainAddress, //geth has nonce value,
+    },
+    /// Create account:
+    /// Actions: Mark account as created
+    /// Revert: Unmart account as created and reset nonce to zero.
+    AccountCreated { address: ChainAddress },
+    /// Entry used to track storage changes
+    /// Action: Storage change
+    /// Revert: Revert to previous value
+    StorageChanged {
+        address: ChainAddress,
+        key: U256,
+        new: U256,
+        had_value: U256,
+    },
+    /// Entry used to track storage warming introduced by EIP-2929.
+    /// Action: Storage warmed
+    /// Revert: Revert to cold state
+    StorageWarmed { address: ChainAddress, key: U256 },
+    /// It is used to track an EIP-1153 transient storage change.
+    /// Action: Transient storage changed.
+    /// Revert: Revert to previous value.
+    TransientStorageChange {
+        address: ChainAddress,
+        key: U256,
+        had_value: U256,
+    },
+    /// Code changed
+    /// Action: Account code changed
+    /// Revert: Revert to previous bytecode.
+    CodeChange { address: ChainAddress },
+    /// Call begin
+    CallBegin { depth: usize, from_chain_id: u64, to_chain_id: u64, data: XCallData, call: bool },
+    /// Call end
+    CallEnd { depth: usize },
+    /// Tx begin
+    TxBegin { tx: TxEnv },
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateDiffStorageSlot {
+    key: U256,
+    value: U256,
+}
+
+/// Journal entries that are used to track changes to the state and are used to revert it.
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum StateDiffEntry {
+    /// Call end
+    Diff { accounts: HashMap<ChainAddress, StateDiffAccount> },
+    /// Call start
+    XCall { call: XCallData },
+}
+
+/// Journal entries that are used to track changes to the state and are used to revert it.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateDiffAccount {
+    /// storage changes
+    pub storage: HashMap<U256, U256>,
+    /// ETH balance change
+    pub balance_delta: U256,
+    /// ETH blaance negative
+    pub balance_negative: bool,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateDiff {
+    /// entries
+    pub entries: Vec<StateDiffEntry>,
+    pub outputs: Vec<(usize, XCallData)>,
+}
+
+pub fn create_state_diff(state_changes: StateChanges, selected_chain_id: u64) -> StateDiff {
+    let mut entries = Vec::new();
+    let mut outputs = Vec::new();
+    // (depth, chain_id, native)
+    let mut call_stack: Vec<(usize, u64, bool)> = Vec::new();
+    for state_change in state_changes.entries.iter() {
+        match state_change {
+            JournalEntry::StorageChanged {
+                address,
+                key,
+                new,
+                had_value,
+            } => {
+                if call_stack.is_empty() {
+                    continue;
+                }
+
+                // Only track the delta's when on the selected chain and we're not on the native chain
+                if address.0 == selected_chain_id && !call_stack.last().unwrap().2 {
+                    assert_eq!(call_stack.last().unwrap().1, selected_chain_id);
+                    if entries.len() == 0 || !matches!(entries.last().unwrap(), StateDiffEntry::Diff { accounts: _ }) {
+                        entries.push(StateDiffEntry::Diff { accounts: HashMap::new() });
+                    }
+
+                    if let StateDiffEntry::Diff { accounts } = entries.last_mut().unwrap() {
+                        if !accounts.contains_key(address) {
+                            accounts.insert(*address, StateDiffAccount::default());
+                        }
+                        let account = accounts.get_mut(address).unwrap();
+                        account.storage.insert(*key, *new);
+                    }
+                }
+            },
+            JournalEntry::BalanceTransfer {
+                from,
+                to,
+                balance,
+            } => {
+                // Track ETH balance changes when not on native chain
+                // Also ignore if the callstack is empty, that means the ETH is sent in the tx itself and will be part of the call
+
+                // L2 -> L1: to.0 == selected_chain_id && !call_stack.last().unwrap().2
+                // L1 <> L1 (from.0 == selected_chain_id && to.0 == selected_chain_id) && !call_stack.last().unwrap().2
+                // L1 -> L2 (from.0 == selected_chain_id) && !call_stack.last().unwrap().2
+                if call_stack.len() > 0 && (
+                    (to.0 == selected_chain_id && !call_stack.last().unwrap().2) ||
+                    ((from.0 == selected_chain_id && to.0 == selected_chain_id) && !call_stack.last().unwrap().2) ||
+                    (call_stack.len() > 1 && from.0 == selected_chain_id && !call_stack.get(call_stack.len() - 2).unwrap().2)) {
+                    //assert_eq!(call_stack.last().unwrap().1, selected_chain_id);
+                    if entries.len() == 0 || !matches!(entries.last().unwrap(), StateDiffEntry::Diff { accounts: _ }) {
+                        entries.push(StateDiffEntry::Diff { accounts: HashMap::new() });
+                    }
+
+                    if let StateDiffEntry::Diff { accounts } = entries.last_mut().unwrap() {
+                        if from.0 == selected_chain_id {
+                            if !accounts.contains_key(from) {
+                                accounts.insert(*from, StateDiffAccount::default());
+                            }
+                            let account = accounts.get_mut(from).unwrap();
+                            if !account.balance_negative {
+                                if account.balance_delta < *balance {
+                                    account.balance_delta = *balance - account.balance_delta;
+                                    account.balance_negative = true;
+                                } else {
+                                    account.balance_delta -= *balance;
+                                }
+                            } else {
+                                account.balance_delta += *balance;
+                            }
+                            //account.balance_delta -= I256::from_limbs(*balance.as_limbs());
+                        }
+                        if to.0 == selected_chain_id {
+                            if !accounts.contains_key(to) {
+                                accounts.insert(*to, StateDiffAccount::default());
+                            }
+                            let account = accounts.get_mut(to).unwrap();
+                            if !account.balance_negative {
+                                account.balance_delta += *balance;
+                            } else {
+                                if account.balance_delta < *balance {
+                                    account.balance_delta = *balance - account.balance_delta;
+                                    account.balance_negative = false;
+                                } else {
+                                    account.balance_delta -= *balance;
+                                }
+                            }
+                            //account.balance_delta += I256::from_limbs(*balance.as_limbs());
+                        }
+                    }
+                }
+            },
+            JournalEntry::CallBegin {
+                depth,
+                from_chain_id,
+                to_chain_id,
+                data,
+                call,
+            } => {
+                if call_stack.is_empty() {
+                    continue;
+                }
+
+                // Only need to care when we do calls between chains
+                if data.input.target_address.0 != data.input.caller.0 {
+                    // L1 -> L2: only when we are on native L1
+                    if data.input.caller.0 == selected_chain_id && call_stack.last().unwrap().2 {
+                        // Check for which call we have to make this output available
+                        let xcall_idx = entries
+                            .iter()
+                            .filter(|entry| matches!(entry, StateDiffEntry::XCall { .. }))
+                            .count();
+                        assert!(xcall_idx > 0, "unexpected xcall idx");
+
+                        outputs.push((xcall_idx - 1, data.clone()));
+                    }
+
+                    // L2 -> L1: only when an actual call is requested in XCALLOPTIONS
+                    if data.input.target_address.0 == selected_chain_id && *call {
+                        entries.push(StateDiffEntry::XCall { call: data.clone() });
+                    }
+
+                    // Add the call to the call stack
+                    call_stack.push((*depth, data.input.target_address.0, *call));
+                }
+            },
+            JournalEntry::CallEnd {
+                depth,
+            } => {
+                if call_stack.is_empty() {
+                    continue;
+                }
+
+                // Remove the call to the call stack
+                if call_stack.last().unwrap().0 == *depth {
+                    call_stack.pop();
+                }
+            },
+            JournalEntry::TxBegin {
+                tx,
+            } => {
+                // Start the call stack on the source chain
+                assert!(call_stack.len() <= 1);
+                call_stack.clear();
+
+                call_stack.push((0, tx.caller.0, tx.caller.0 == selected_chain_id));
+
+                if let Some(to) = tx.transact_to.to() {
+                    if tx.transact_to.to().unwrap().0 == selected_chain_id {
+                        entries.push(StateDiffEntry::XCall {
+                            call: XCallData {
+                                input: XCallInput {
+                                    input: tx.data.clone(),
+                                    gas_limit: tx.gas_limit,
+                                    bytecode_address: *to,
+                                    target_address: *to,
+                                    caller: tx.caller,
+                                    is_static: false,
+                                    is_eof: false,
+                                    value: tx.value,
+                                },
+                                output: XCallOutput {
+                                    revert: false,
+                                    output: Bytes::new(),
+                                    gas: 0,
+                                }
+                            },
+                        });
+                    }
+                }
+            },
+            _ => {}
+        }
+    }
+    StateDiff {
+        entries,
+        outputs,
+    }
+}
+
+
+impl Default for ChainAddress {
+    fn default() -> Self {
+        ChainAddress(1, Address::default())
+    }
+}
+
+pub trait OnChain {
+    fn on_chain(&self, chain_id: u64) -> ChainAddress;
+}
+
+impl OnChain for Address {
+    fn on_chain(&self, chain_id: u64) -> ChainAddress {
+        ChainAddress(chain_id, *self)
+    }
+}
 
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]

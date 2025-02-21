@@ -11,9 +11,9 @@ pub use inner_evm_context::InnerEvmContext;
 use revm_interpreter::{as_u64_saturated, Eip7702CodeLoad, StateLoad};
 
 use crate::{
-    db::{Database, EmptyDB},
+    db::{SyncDatabase as Database, EmptyDB},
     interpreter::{AccountLoad, Host, SStoreResult, SelfDestructResult},
-    primitives::{Address, Bytes, Env, HandlerCfg, Log, B256, BLOCK_HASH_HISTORY, U256},
+    primitives::{Address, Bytes, ChainAddress, Env, HandlerCfg, Log, B256, BLOCK_HASH_HISTORY, U256, XCallData},
 };
 use std::boxed::Box;
 
@@ -108,7 +108,7 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
         &mut self.evm.env
     }
 
-    fn block_hash(&mut self, requested_number: u64) -> Option<B256> {
+    fn block_hash(&mut self, chain_id: u64, requested_number: u64) -> Option<B256> {
         let block_number = as_u64_saturated!(self.env().block.number);
 
         let Some(diff) = block_number.checked_sub(requested_number) else {
@@ -123,7 +123,7 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
         if diff <= BLOCK_HASH_HISTORY {
             return self
                 .evm
-                .block_hash(requested_number)
+                .block_hash(chain_id, requested_number)
                 .map_err(|e| self.evm.error = Err(e))
                 .ok();
         }
@@ -131,35 +131,35 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
         Some(B256::ZERO)
     }
 
-    fn load_account_delegated(&mut self, address: Address) -> Option<AccountLoad> {
+    fn load_account_delegated(&mut self, address: ChainAddress) -> Option<AccountLoad> {
         self.evm
             .load_account_delegated(address)
             .map_err(|e| self.evm.error = Err(e))
             .ok()
     }
 
-    fn balance(&mut self, address: Address) -> Option<StateLoad<U256>> {
+    fn balance(&mut self, address: ChainAddress) -> Option<StateLoad<U256>> {
         self.evm
             .balance(address)
             .map_err(|e| self.evm.error = Err(e))
             .ok()
     }
 
-    fn code(&mut self, address: Address) -> Option<Eip7702CodeLoad<Bytes>> {
+    fn code(&mut self, address: ChainAddress) -> Option<Eip7702CodeLoad<Bytes>> {
         self.evm
             .code(address)
             .map_err(|e| self.evm.error = Err(e))
             .ok()
     }
 
-    fn code_hash(&mut self, address: Address) -> Option<Eip7702CodeLoad<B256>> {
+    fn code_hash(&mut self, address: ChainAddress) -> Option<Eip7702CodeLoad<B256>> {
         self.evm
             .code_hash(address)
             .map_err(|e| self.evm.error = Err(e))
             .ok()
     }
 
-    fn sload(&mut self, address: Address, index: U256) -> Option<StateLoad<U256>> {
+    fn sload(&mut self, address: ChainAddress, index: U256) -> Option<StateLoad<U256>> {
         self.evm
             .sload(address, index)
             .map_err(|e| self.evm.error = Err(e))
@@ -168,7 +168,7 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
 
     fn sstore(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         index: U256,
         value: U256,
     ) -> Option<StateLoad<SStoreResult>> {
@@ -178,11 +178,11 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
             .ok()
     }
 
-    fn tload(&mut self, address: Address, index: U256) -> U256 {
+    fn tload(&mut self, address: ChainAddress, index: U256) -> U256 {
         self.evm.tload(address, index)
     }
 
-    fn tstore(&mut self, address: Address, index: U256, value: U256) {
+    fn tstore(&mut self, address: ChainAddress, index: U256, value: U256) {
         self.evm.tstore(address, index, value)
     }
 
@@ -192,8 +192,8 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
 
     fn selfdestruct(
         &mut self,
-        address: Address,
-        target: Address,
+        address: ChainAddress,
+        target: ChainAddress,
     ) -> Option<StateLoad<SelfDestructResult>> {
         self.evm
             .inner
@@ -201,5 +201,9 @@ impl<EXT, DB: Database> Host for Context<EXT, DB> {
             .selfdestruct(address, target, &mut self.evm.inner.db)
             .map_err(|e| self.evm.error = Err(e))
             .ok()
+    }
+
+    fn xcall(&mut self, xcall: XCallData) {
+        self.evm.journaled_state.xcall(0, 0, xcall);
     }
 }

@@ -1,3 +1,5 @@
+use revm_primitives::{ChainAddress, TransactTo};
+
 use crate::primitives::{Address, Bytes, TxEnv, TxKind, U256};
 use core::ops::Range;
 use std::boxed::Box;
@@ -17,15 +19,15 @@ pub struct CallInputs {
     /// The account address of bytecode that is going to be executed.
     ///
     /// Previously `context.code_address`.
-    pub bytecode_address: Address,
+    pub bytecode_address: ChainAddress,
     /// Target address, this account storage is going to be modified.
     ///
     /// Previously `context.address`.
-    pub target_address: Address,
+    pub target_address: ChainAddress,
     /// This caller is invoking the call.
     ///
     /// Previously `context.caller`.
-    pub caller: Address,
+    pub caller: ChainAddress,
     /// Call value.
     ///
     /// NOTE: This value may not necessarily be transferred from caller to callee, see [`CallValue`].
@@ -40,6 +42,8 @@ pub struct CallInputs {
     pub is_static: bool,
     /// Whether the call is initiated from EOF bytecode.
     pub is_eof: bool,
+    // Booster: Whether this is a sandboxed call.
+    //pub is_sandboxed: bool,
 }
 
 impl CallInputs {
@@ -47,7 +51,7 @@ impl CallInputs {
     ///
     /// Returns `None` if the transaction is not a call.
     pub fn new(tx_env: &TxEnv, gas_limit: u64) -> Option<Self> {
-        let TxKind::Call(target_address) = tx_env.transact_to else {
+        let TransactTo::Call(target_address) = tx_env.transact_to else {
             return None;
         };
         Some(CallInputs {
@@ -61,6 +65,7 @@ impl CallInputs {
             is_static: false,
             is_eof: false,
             return_memory_offset: 0..0,
+            //is_sandboxed: false,
         })
     }
 
@@ -97,7 +102,7 @@ impl CallInputs {
     ///
     /// This is only meaningful if `transfers_value` is `true`.
     #[inline]
-    pub const fn transfer_from(&self) -> Address {
+    pub const fn transfer_from(&self) -> ChainAddress {
         self.caller
     }
 
@@ -105,7 +110,7 @@ impl CallInputs {
     ///
     /// This is only meaningful if `transfers_value` is `true`.
     #[inline]
-    pub const fn transfer_to(&self) -> Address {
+    pub const fn transfer_to(&self) -> ChainAddress {
         self.target_address
     }
 

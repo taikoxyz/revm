@@ -1,6 +1,7 @@
 mod call_helpers;
 
 pub use call_helpers::{calc_call_gas, get_memory_input_and_out_ranges, resize_memory};
+use revm_primitives::{CallOptions, ChainAddress, OnChain};
 
 use crate::{
     gas::{self, cost_per_word, EOF_CREATE_GAS, KECCAK256WORD, MIN_CALLEE_GAS},
@@ -13,6 +14,22 @@ use crate::{
 };
 use core::cmp::max;
 use std::boxed::Box;
+
+#[derive(Debug, Clone)]
+pub struct CallTargets {
+    /// The account address of bytecode that is going to be executed.
+    ///
+    /// Previously `context.code_address`.
+    pub bytecode_address: ChainAddress,
+    /// Target address, this account storage is going to be modified.
+    ///
+    /// Previously `context.address`.
+    pub target_address: ChainAddress,
+    /// This caller is invoking the call.
+    ///
+    /// Previously `context.caller`.
+    pub caller: ChainAddress,
+}
 
 /// EOF Create instruction
 pub fn eofcreate<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &mut H) {
@@ -62,7 +79,7 @@ pub fn eofcreate<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &mut H)
     let created_address = interpreter
         .contract
         .target_address
-        .create2(salt.to_be_bytes(), keccak256(sub_container));
+        .1.create2(salt.to_be_bytes(), keccak256(sub_container));
 
     let gas_limit = interpreter.gas().remaining_63_of_64_parts();
     gas!(interpreter, gas_limit);
@@ -71,7 +88,7 @@ pub fn eofcreate<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &mut H)
     interpreter.next_action = InterpreterAction::EOFCreate {
         inputs: Box::new(EOFCreateInputs::new_opcode(
             interpreter.contract.target_address,
-            created_address,
+            ChainAddress(interpreter.chain_id, created_address),
             value,
             eof,
             gas_limit,
@@ -140,6 +157,7 @@ pub fn return_contract<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &
             output,
             gas: interpreter.gas,
             result,
+            call_options: None
         },
     };
 }
@@ -163,7 +181,7 @@ pub fn extcall_input(interpreter: &mut Interpreter) -> Option<Bytes> {
 pub fn extcall_gas_calc<H: Host + ?Sized>(
     interpreter: &mut Interpreter,
     host: &mut H,
-    target: Address,
+    target: ChainAddress,
     transfers_value: bool,
 ) -> Option<u64> {
     let Some(account_load) = host.load_account_delegated(target) else {
@@ -201,7 +219,7 @@ pub fn extcall_gas_calc<H: Host + ?Sized>(
 ///
 /// Valid address has first 12 bytes as zeroes.
 #[inline]
-pub fn pop_extcall_target_address(interpreter: &mut Interpreter) -> Option<Address> {
+pub fn pop_extcall_target_address(interpreter: &mut Interpreter) -> Option<ChainAddress> {
     pop_ret!(interpreter, target_address, None);
     let target_address = B256::from(target_address);
     // Check if target is left padded with zeroes.
@@ -210,7 +228,7 @@ pub fn pop_extcall_target_address(interpreter: &mut Interpreter) -> Option<Addre
         return None;
     }
     // discard first 12 bytes.
-    Some(Address::from_word(target_address))
+    Some(ChainAddress(interpreter.chain_id, Address::from_word(target_address)))
 }
 
 pub fn extcall<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
@@ -396,8 +414,13 @@ pub fn create<const IS_CREATE2: bool, H: Host + ?Sized, SPEC: Spec>(
 }
 
 pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+    //println!("contract::call");
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
+
+    // Get the target
+    let call_targets = apply_call_options::<H, SPEC>(interpreter, host, to, false, false);
+
     // max gas limit is not possible in real ethereum situation.
     let local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 
@@ -412,7 +435,7 @@ pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &
         return;
     };
 
-    let Some(account_load) = host.load_account_delegated(to) else {
+    let Some(account_load) = host.load_account_delegated(call_targets.bytecode_address) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
     };
@@ -434,9 +457,9 @@ pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &
         inputs: Box::new(CallInputs {
             input,
             gas_limit,
-            target_address: to,
-            caller: interpreter.contract.target_address,
-            bytecode_address: to,
+            target_address: call_targets.target_address,
+            caller: call_targets.caller,
+            bytecode_address: call_targets.bytecode_address,
             value: CallValue::Transfer(value),
             scheme: CallScheme::Call,
             is_static: interpreter.is_static,
@@ -448,8 +471,13 @@ pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &
 }
 
 pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+    //println!("contract::call_code");
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
+
+    // Get the target
+    let call_targets = apply_call_options::<H, SPEC>(interpreter, host, to, false, true);
+
     // max gas limit is not possible in real ethereum situation.
     let local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 
@@ -458,7 +486,7 @@ pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, ho
         return;
     };
 
-    let Some(mut load) = host.load_account_delegated(to) else {
+    let Some(mut load) = host.load_account_delegated(call_targets.bytecode_address) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
     };
@@ -482,9 +510,9 @@ pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, ho
         inputs: Box::new(CallInputs {
             input,
             gas_limit,
-            target_address: interpreter.contract.target_address,
-            caller: interpreter.contract.target_address,
-            bytecode_address: to,
+            target_address: call_targets.target_address,
+            caller: call_targets.caller,
+            bytecode_address: call_targets.bytecode_address,
             value: CallValue::Transfer(value),
             scheme: CallScheme::CallCode,
             is_static: interpreter.is_static,
@@ -496,9 +524,14 @@ pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, ho
 }
 
 pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+    //println!("contract::delegate_call");
     check!(interpreter, HOMESTEAD);
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
+
+    // Get the target
+    let call_targets = apply_call_options::<H, SPEC>(interpreter, host, to, true, false);
+
     // max gas limit is not possible in real ethereum situation.
     let local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 
@@ -506,7 +539,7 @@ pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter
         return;
     };
 
-    let Some(mut load) = host.load_account_delegated(to) else {
+    let Some(mut load) = host.load_account_delegated(call_targets.bytecode_address) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
     };
@@ -523,9 +556,9 @@ pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter
         inputs: Box::new(CallInputs {
             input,
             gas_limit,
-            target_address: interpreter.contract.target_address,
-            caller: interpreter.contract.caller,
-            bytecode_address: to,
+            target_address: call_targets.target_address,
+            caller: call_targets.caller,
+            bytecode_address: call_targets.bytecode_address,
             value: CallValue::Apparent(interpreter.contract.call_value),
             scheme: CallScheme::DelegateCall,
             is_static: interpreter.is_static,
@@ -537,9 +570,14 @@ pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter
 }
 
 pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+    //println!("contract::static_call");
     check!(interpreter, BYZANTIUM);
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
+
+    // Get the target
+    let call_targets = apply_call_options::<H, SPEC>(interpreter, host, to, false, false);
+
     // max gas limit is not possible in real ethereum situation.
     let local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 
@@ -547,7 +585,7 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
         return;
     };
 
-    let Some(mut load) = host.load_account_delegated(to) else {
+    let Some(mut load) = host.load_account_delegated(call_targets.bytecode_address) else {
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
     };
@@ -563,9 +601,9 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
         inputs: Box::new(CallInputs {
             input,
             gas_limit,
-            target_address: to,
-            caller: interpreter.contract.target_address,
-            bytecode_address: to,
+            target_address: call_targets.target_address,
+            caller: call_targets.caller,
+            bytecode_address: call_targets.bytecode_address,
             value: CallValue::Transfer(U256::ZERO),
             scheme: CallScheme::StaticCall,
             is_static: true,
@@ -574,4 +612,56 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
         }),
     };
     interpreter.instruction_result = InstructionResult::CallOrCreate;
+}
+
+/// Collects call options for this CAL
+/// This consumes the data from the PREVIOUS call into the XCALLOPTIONS precompile.
+pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H, to: Address, delegate: bool, code: bool) -> CallTargets {
+    //println!("apply_call_options {:?}", interpreter.call_options);
+    let (call_options, to) = match interpreter.call_options.clone() {
+        Some(mut call_options) => {
+            if !call_options.sandbox {
+                // Already checked in precompiles but let's do it again
+                if call_options.msg_sender.1 != interpreter.contract.target_address.1
+                    || call_options.tx_origin.1 != host.env().tx.caller.1
+                {
+                    interpreter.instruction_result = InstructionResult::Stop;
+                }
+            }
+            // In delegate call, the caller & target address remains on the same chain
+            // Otherwise set to the other chain.
+            let to = if delegate {
+                ChainAddress(interpreter.chain_id, to)
+            } else {
+                ChainAddress(call_options.chain_id, to)
+            };
+            (call_options, to)
+        },
+        None => {
+            (
+                CallOptions {
+                    chain_id: interpreter.chain_id,
+                    sandbox: false,
+                    tx_origin: host.env().tx.caller,
+                    msg_sender: interpreter.contract.target_address,
+                    block_hash: None,
+                    proof: Vec::new(),
+                },
+                ChainAddress(interpreter.chain_id, to)
+            )
+        }
+    };
+
+    let call_targets = CallTargets {
+        target_address: if delegate || code { call_options.msg_sender } else { to },
+        caller: if delegate { interpreter.contract.caller } else { call_options.msg_sender },
+        bytecode_address: if delegate { to.1.on_chain(call_options.chain_id) } else { to },
+    };
+
+    //println!("call targets {:?}", call_targets);
+
+    // Consume the values
+    interpreter.call_options = None;
+
+    call_targets
 }

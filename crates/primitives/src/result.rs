@@ -1,5 +1,6 @@
 use crate::{
-    eip7702::authorization_list::InvalidAuthorization, Address, Bytes, EvmState, Log, U256,
+    eip7702::authorization_list::InvalidAuthorization, Address, Bytes, EvmState, JournalEntry, Log, XCallData, U256
+
 };
 use core::fmt;
 use std::{boxed::Box, string::String, vec::Vec};
@@ -19,6 +20,13 @@ pub struct ResultAndState {
     pub state: EvmState,
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateChanges {
+    /// Entries
+    pub entries: Vec<JournalEntry>
+}
+
 /// Result of a transaction execution.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -30,6 +38,7 @@ pub enum ExecutionResult {
         gas_refunded: u64,
         logs: Vec<Log>,
         output: Output,
+        state_changes: StateChanges,
     },
     /// Reverted by `REVERT` opcode that doesn't spend all gas.
     Revert { gas_used: u64, output: Bytes },
@@ -98,6 +107,15 @@ impl ExecutionResult {
             Self::Success { gas_used, .. }
             | Self::Revert { gas_used, .. }
             | Self::Halt { gas_used, .. } => gas_used,
+        }
+    }
+
+
+    /// Returns the state changes if execution is successful, or an empty change list otherwise.
+    pub fn state_changes(&self) -> StateChanges {
+        match self {
+            Self::Success { state_changes, .. } => state_changes.clone(),
+            _ => StateChanges::default(),
         }
     }
 }
