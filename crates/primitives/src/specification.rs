@@ -112,6 +112,8 @@ impl From<&str> for SpecId {
             "Hekla" => Self::HEKLA,
             #[cfg(feature = "taiko")]
             "Ontake" => Self::ONTAKE,
+            #[cfg(feature = "taiko")]
+            "Pacaya" => Self::PACAYA,
             _ => Self::LATEST,
         }
     }
