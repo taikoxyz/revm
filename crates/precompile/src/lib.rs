@@ -19,8 +19,8 @@ pub mod kzg_point_evaluation;
 pub mod modexp;
 pub mod secp256k1;
 pub mod utilities;
+pub mod zk_op;
 
-use core::hash::Hash;
 use once_cell::race::OnceBox;
 #[doc(hidden)]
 pub use revm_primitives as primitives;
@@ -268,10 +268,8 @@ impl PrecompileSpecId {
             CANCUN => Self::CANCUN,
             PRAGUE => Self::PRAGUE,
             LATEST => Self::LATEST,
-            #[cfg(feature = "optimism")]
-            BEDROCK | REGOLITH | CANYON => Self::BERLIN,
-            #[cfg(feature = "optimism")]
-            ECOTONE => Self::CANCUN,
+            #[cfg(feature = "taiko")]
+            KATLA | HEKLA | ONTAKE | PACAYA => Self::BERLIN,
         }
     }
 }
