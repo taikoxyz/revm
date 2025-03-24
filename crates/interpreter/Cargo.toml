@@ -52,7 +52,6 @@ hashbrown = ["revm-primitives/hashbrown"]
 serde = ["dep:serde", "revm-primitives/serde"]
 arbitrary = ["std", "revm-primitives/arbitrary"]
 asm-keccak = ["revm-primitives/asm-keccak"]
-portable = ["revm-primitives/portable"]
 parse = ["dep:paste", "dep:phf"]
 
 taiko = ["revm-primitives/taiko"]

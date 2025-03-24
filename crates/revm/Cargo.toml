@@ -70,7 +70,7 @@ alloy-provider = { git = "https://github.com/alloy-rs/alloy.git", rev = "44b8a6d
 alloy-transport-http = { git = "https://github.com/alloy-rs/alloy.git", rev = "44b8a6d" }
 
 [features]
-default = ["std", "c-kzg", "secp256k1", "portable", "blst"]
+default = ["std", "c-kzg", "secp256k1", "blst"]
 std = [
     "serde?/std",
     "serde_json?/std",
@@ -83,7 +83,6 @@ serde = ["dep:serde", "revm-interpreter/serde"]
 serde-json = ["serde", "dep:serde_json"]
 arbitrary = ["revm-interpreter/arbitrary"]
 asm-keccak = ["revm-interpreter/asm-keccak", "revm-precompile/asm-keccak"]
-portable = ["revm-precompile/portable", "revm-interpreter/portable"]
 
 test-utils = []
 
@@ -137,7 +136,6 @@ optional_beneficiary_reward = ["revm-interpreter/optional_beneficiary_reward"]
 secp256k1 = ["revm-precompile/secp256k1"]
 c-kzg = ["revm-precompile/c-kzg"]
 blst = ["revm-precompile/blst"]
-
 sp1-cycle-tracker = ["revm-precompile/sp1-cycle-tracker"]
 
 [[example]]

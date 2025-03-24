@@ -282,7 +282,7 @@ Summary:
 * Optimism support
 * no_std build
 
-Note: c-kzg can't be build for wasm and is behind "c-kzg" feature flag.
+~~Note: c-kzg can't be build for wasm and is behind "c-kzg" feature flag.~~
 
 Full git log:
 * ea0d8d8 - fix: use u128 for calc data fee result (#757) (46 minutes ago) <Dan Cline>
