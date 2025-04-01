@@ -171,7 +171,7 @@ fn return_inner(interpreter: &mut Interpreter, instruction_result: InstructionRe
     interpreter.next_action = crate::InterpreterAction::Return {
         result: InterpreterResult {
             output,
-            gas: interpreter.gas,
+            gas: interpreter.gas.clone(),
             result: instruction_result,
             call_options: None,
         },

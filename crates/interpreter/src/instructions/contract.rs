@@ -155,7 +155,7 @@ pub fn return_contract<H: Host + ?Sized>(interpreter: &mut Interpreter, _host: &
     interpreter.next_action = crate::InterpreterAction::Return {
         result: InterpreterResult {
             output,
-            gas: interpreter.gas,
+            gas: interpreter.gas.clone(),
             result,
             call_options: None
         },
@@ -414,7 +414,7 @@ pub fn create<const IS_CREATE2: bool, H: Host + ?Sized, SPEC: Spec>(
 }
 
 pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    //println!("contract::call");
+    println!("contract::call");
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
 
@@ -427,6 +427,7 @@ pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &
     pop!(interpreter, value);
     let has_transfer = !value.is_zero();
     if interpreter.is_static && has_transfer {
+        println!("static transfer");
         interpreter.instruction_result = InstructionResult::CallNotAllowedInsideStatic;
         return;
     }
@@ -436,9 +437,32 @@ pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &
     };
 
     let Some(account_load) = host.load_account_delegated(call_targets.bytecode_address) else {
+        println!("bytecode account load failed");
         interpreter.instruction_result = InstructionResult::FatalExternalError;
         return;
     };
+
+    //let mut account_load = account_load.clone();
+
+    // TODO(Brecht)
+    println!("call start");
+
+    // If the contract doesn't have any code, try to load the code from the parent chain
+    // if account_load.info.is_empty_code_hash() {
+    //     println!("empty!: {:?}", self.env.cfg.parent_chain_id);
+    //     if let Some(parent_chain_id) = &self.env.cfg.parent_chain_id {
+    //         println!("parent loading...!");
+    //         let parent_account = self
+    //             .inner
+    //             .journaled_state
+    //             .load_code(ChainAddress(*parent_chain_id, inputs.bytecode_address.1), &mut self.inner.db)?.clone();
+    //         if !parent_account.info.is_empty_code_hash() {
+    //             println!("Using code of parent chain for {:?}", inputs.bytecode_address);
+    //             account = parent_account;
+    //         }
+    //     }
+    // }
+
     let Some(mut gas_limit) =
         calc_call_gas::<SPEC>(interpreter, account_load, has_transfer, local_gas_limit)
     else {
@@ -471,7 +495,7 @@ pub fn call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &
 }
 
 pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    //println!("contract::call_code");
+    println!("contract::call_code");
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
 
@@ -524,7 +548,7 @@ pub fn call_code<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, ho
 }
 
 pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    //println!("contract::delegate_call");
+    println!("contract::delegate_call");
     check!(interpreter, HOMESTEAD);
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
@@ -570,7 +594,7 @@ pub fn delegate_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter
 }
 
 pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
-    //println!("contract::static_call");
+    println!("contract::static_call");
     check!(interpreter, BYZANTIUM);
     pop!(interpreter, local_gas_limit);
     pop_address!(interpreter, to);
@@ -619,15 +643,16 @@ pub fn static_call<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, 
 pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H, to: Address, delegate: bool, code: bool) -> CallTargets {
     //println!("apply_call_options {:?}", interpreter.call_options);
     let (call_options, to) = match interpreter.call_options.clone() {
-        Some(mut call_options) => {
-            if !call_options.sandbox {
-                // Already checked in precompiles but let's do it again
-                if call_options.msg_sender.1 != interpreter.contract.target_address.1
-                    || call_options.tx_origin.1 != host.env().tx.caller.1
-                {
-                    interpreter.instruction_result = InstructionResult::Stop;
-                }
-            }
+        Some(call_options) => {
+            println!("apply_call_options {:?}", call_options);
+            // if !call_options.sandbox {
+            //     // Already checked in precompiles but let's do it again
+            //     if call_options.msg_sender.1 != interpreter.contract.target_address.1
+            //         || call_options.tx_origin.1 != host.env().tx.caller.1
+            //     {
+            //         interpreter.instruction_result = InstructionResult::Stop;
+            //     }
+            // }
             // In delegate call, the caller & target address remains on the same chain
             // Otherwise set to the other chain.
             let to = if delegate {

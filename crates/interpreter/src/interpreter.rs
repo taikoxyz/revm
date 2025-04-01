@@ -78,6 +78,11 @@ impl Interpreter {
     /// Create new interpreter
     pub fn new(contract: Contract, gas_limit: u64, is_static: bool, chain_id: u64, sandboxed: bool) -> Self {
         //println!("Interpreter::new IS_STATIC: {} SANDBOXED {}", is_static, sandboxed);
+
+        let mut contract_dummy = contract.clone();
+        contract_dummy.bytecode = Bytecode::new();
+        println!("contract: {:?}", contract_dummy);
+
         if !contract.bytecode.is_execution_ready() {
             panic!("Contract is not execution ready {:?}", contract.bytecode);
         }
@@ -368,6 +373,8 @@ impl Interpreter {
         // Get current opcode.
         let opcode = unsafe { *self.instruction_pointer };
 
+        //println!("opcode: {}", opcode);
+
         // SAFETY: In analysis we are doing padding of bytecode so that we are sure that last
         // byte instruction is STOP so we are safe to just increment program_counter bcs on last instruction
         // it will do noop and just stop execution of this contract
@@ -392,7 +399,10 @@ impl Interpreter {
     where
         FN: Fn(&mut Interpreter, &mut H),
     {
-        //println!("Interpreter::run");
+        println!("Interpreter::run");
+
+        //println!("bytecode: {:?}", self.bytecode);
+
         self.next_action = InterpreterAction::None;
         self.shared_memory = shared_memory;
         // main loop
@@ -410,7 +420,7 @@ impl Interpreter {
                 result: self.instruction_result,
                 // return empty bytecode
                 output: Bytes::new(),
-                gas: self.gas,
+                gas: self.gas.clone(),
                 call_options: None,
             },
         }
@@ -420,7 +430,7 @@ impl Interpreter {
     #[inline]
     #[must_use]
     pub fn resize_memory(&mut self, new_size: usize) -> bool {
-        resize_memory(&mut self.shared_memory, &mut self.gas, new_size)
+        resize_memory(self.chain_id, &mut self.shared_memory, &mut self.gas, new_size)
     }
 }
 
@@ -487,12 +497,12 @@ impl InterpreterResult {
 #[inline(never)]
 #[cold]
 #[must_use]
-pub fn resize_memory(memory: &mut SharedMemory, gas: &mut Gas, new_size: usize) -> bool {
+pub fn resize_memory(chain_id: u64, memory: &mut SharedMemory, gas: &mut Gas, new_size: usize) -> bool {
     let new_words = num_words(new_size as u64);
     let new_cost = gas::memory_gas(new_words);
     let current_cost = memory.current_expansion_cost();
     let cost = new_cost - current_cost;
-    let success = gas.record_cost(cost);
+    let success = gas.record_cost(chain_id, cost);
     if success {
         memory.resize((new_words as usize) * 32);
     }

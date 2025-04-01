@@ -55,7 +55,7 @@ impl CallOutcome {
     ///
     /// An instance of `Gas` representing the gas usage.
     pub fn gas(&self) -> Gas {
-        self.result.gas
+        self.result.gas.clone()
     }
 
     /// Returns a reference to the output data.

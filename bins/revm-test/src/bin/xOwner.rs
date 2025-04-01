@@ -4,7 +4,7 @@ use alloy_sol_macro::sol;
 use alloy_sol_types::{sol_data::Address, SolCall, SolInterface, SolType};
 use revm::{
     db::{CacheDB, EmptyDB}, primitives::{
-        address, keccak256, ruint::Uint, AccountInfo, Bytecode, Bytes, ChainAddress, ExecutionResult, OnChain, Output, TransactTo, B256, KECCAK_EMPTY, U256
+        address, create_state_diff, keccak256, ruint::Uint, AccountInfo, Bytecode, Bytes, ChainAddress, ExecutionResult, OnChain, Output, TransactTo, B256, KECCAK_EMPTY, U256
     }, Database, Evm
 };
 
@@ -102,6 +102,11 @@ fn main() {
        let res = evm.transact().unwrap().result;
        evm.transact_commit().unwrap();
        drop(evm);
+
+       if let ExecutionResult::Success { reason, gas_used, gas_refunded, logs, output, state_changes } = res.clone() {
+            println!("{:?}", create_state_diff(state_changes, 1));
+        }
+
        res
     };
 

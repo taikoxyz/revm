@@ -156,43 +156,52 @@ fn main() {
         deployment.on_chain(A),
         ERC20::BYTECODE.clone(),
     );
-    deploy_contract(
-        &mut db,
-        operator.on_chain(B),
-        deployment.on_chain(B),
-        ERC20::BYTECODE.clone(),
-    );
+    // deploy_contract(
+    //     &mut db,
+    //     operator.on_chain(B),
+    //     deployment.on_chain(B),
+    //     ERC20::BYTECODE.clone(),
+    // );
 
     let mut do_transact = |addr: ChainAddress, op: Vec<u8>, value: U256| -> ExecutionResult {
         println!("\n\n");
         let mut evm = Evm::builder()
             .modify_cfg_env(|c| {
                 c.xchain = true;
+                c.parent_chain_id = Some(A);
             })
             .modify_tx_env(|tx| {
                 tx.caller = addr;
                 tx.transact_to = TransactTo::Call(ChainAddress(addr.0, deployment));
                 tx.data = op.clone().into();
                 tx.value = value;
+                tx.gas_limit = 30_000_000;
                 tx.gas_price = U256::ZERO;
+                tx.chain_ids = Some(vec![A, B]);
             })
             .with_db(&mut db)
             .build();
         let res = evm.transact().unwrap().result;
         evm.transact_commit().unwrap();
         drop(evm);
-        println!("{:?}\n~~~~~~~~~\n", res);
+        //println!("{:?}\n~~~~~~~~~\n", res);
 
-        // if let ExecutionResult::Success { reason, gas_used, gas_refunded, logs, output, state_changes } = res.clone() {
-        //     for entry in state_changes.entries.iter() {
-        //         println!("- {:?}", entry);
-        //     }
-        //     println!("*****************");
-        //     let state_diff = create_state_diff(state_changes, 1);
-        //     for entry in state_diff.entries.iter() {
-        //         println!("- {:?}", entry);
-        //     }
-        // }
+        if let ExecutionResult::Success { reason, gas_used, gas_refunded, logs, output, state_changes, gas_used_per_chain, gas_refunded_per_chain } = res.clone() {
+            // for entry in state_changes.entries.iter() {
+            //     println!("- {:?}", entry);
+            // }
+            // println!("*****************");
+            // let state_diff = create_state_diff(state_changes, 1);
+            // for entry in state_diff.entries.iter() {
+            //     println!("- {:?}", entry);
+            // }
+            // println!("out");
+            // for output in state_diff.outputs.iter() {
+            //     println!("- {:?}", output);
+            // }
+            println!("gas used: {:?}", gas_used);
+            println!("gas used per chain: {:?}", gas_used_per_chain);
+        }
 
         res
     };
@@ -209,33 +218,43 @@ fn main() {
             U256::ZERO,
         ),
         do_transact(
-            operator.on_chain(B),
-            ERC20::transferCall {
-                to: alice,
-                value: Uint::from(9876),
-            }
-            .abi_encode(),
-            U256::ZERO,
-        ),
-        do_transact(
             operator.on_chain(A),
-            ERC20::transferCall {
-                to: bob,
-                value: Uint::from(9876),
+            ERC20::xTransferCall {
+                chain: Uint::from(B),
+                to: operator,
+                value: Uint::from(19999),
             }
             .abi_encode(),
             U256::ZERO,
         ),
-        // Give Bob some money
-        do_transact(
-            operator.on_chain(B),
-            ERC20::transferCall {
-                to: bob,
-                value: Uint::from(1234),
-            }
-            .abi_encode(),
-            U256::ZERO,
-        ),
+        // do_transact(
+        //     operator.on_chain(B),
+        //     ERC20::transferCall {
+        //         to: alice,
+        //         value: Uint::from(9876),
+        //     }
+        //     .abi_encode(),
+        //     U256::ZERO,
+        // ),
+        // do_transact(
+        //     operator.on_chain(A),
+        //     ERC20::transferCall {
+        //         to: bob,
+        //         value: Uint::from(9876),
+        //     }
+        //     .abi_encode(),
+        //     U256::ZERO,
+        // ),
+        // // Give Bob some money
+        // do_transact(
+        //     operator.on_chain(B),
+        //     ERC20::transferCall {
+        //         to: bob,
+        //         value: Uint::from(1234),
+        //     }
+        //     .abi_encode(),
+        //     U256::ZERO,
+        // ),
         // From A, Alice xTransfer 666 to Bob on B.
         do_transact(
             alice.on_chain(A),
@@ -247,73 +266,74 @@ fn main() {
             .abi_encode(),
             U256::ZERO,
         ),
-        // From B, Bob xApprove Alice to spend his 666 on A.
-        do_transact(
-            bob.on_chain(B),
-            ERC20::xApproveCall {
-                chain: Uint::from(A),
-                spender: alice,
-                value: Uint::from(666),
-            }
-            .abi_encode(),
-            U256::ZERO,
-        ),
-        // From B, Bob checks if he transfer 555 to Alice on A in sandboxed mode.
-        do_transact(
-            bob.on_chain(B),
-            ERC20::sandboxedTransferCall {
-                chain: Uint::from(A),
-                to: alice,
-                value: Uint::from(666),
-            }
-            .abi_encode(),
-            U256::ZERO,
-        ),
-        // From A, Alice transfer Bob's 666 to herself.
-        do_transact(
-            alice.on_chain(A),
-            ERC20::transferFromCall {
-                from: bob,
-                to: alice,
-                value: Uint::from(666),
-            }
-            .abi_encode(),
-            U256::ZERO,
-        ),
-        // L1 -> L2
-        do_transact(
-            alice.on_chain(A),
-            ERC20::sendETHCall {
-                chain: Uint::from(B),
-                to: bob,
-            }
-            .abi_encode(),
-            U256::from(123),
-        ),
+        // // From B, Bob xApprove Alice to spend his 666 on A.
+        // do_transact(
+        //     bob.on_chain(B),
+        //     ERC20::xApproveCall {
+        //         chain: Uint::from(A),
+        //         spender: alice,
+        //         value: Uint::from(666),
+        //     }
+        //     .abi_encode(),
+        //     U256::ZERO,
+        // ),
+        // // From B, Bob checks if he transfer 555 to Alice on A in sandboxed mode.
+        // do_transact(
+        //     bob.on_chain(B),
+        //     ERC20::sandboxedTransferCall {
+        //         chain: Uint::from(A),
+        //         to: alice,
+        //         value: Uint::from(666),
+        //     }
+        //     .abi_encode(),
+        //     U256::ZERO,
+        // ),
+        // // From A, Alice transfer Bob's 666 to herself.
+        // do_transact(
+        //     alice.on_chain(A),
+        //     ERC20::transferFromCall {
+        //         from: bob,
+        //         to: alice,
+        //         value: Uint::from(666),
+        //     }
+        //     .abi_encode(),
+        //     U256::ZERO,
+        // ),
+        // // L1 -> L2
+        // do_transact(
+        //     alice.on_chain(A),
+        //     ERC20::sendETHCall {
+        //         chain: Uint::from(B),
+        //         to: bob,
+        //     }
+        //     .abi_encode(),
+        //     U256::from(123),
+        // ),
         // L2 -> L1
-        do_transact(
-            alice.on_chain(B),
-            ERC20::sendETHCall {
-                chain: Uint::from(A),
-                to: bob,
-            }
-            .abi_encode(),
-            U256::from(123),
-        ),
+        // do_transact(
+        //     alice.on_chain(B),
+        //     ERC20::sendETHCall {
+        //         chain: Uint::from(A),
+        //         to: bob,
+        //     }
+        //     .abi_encode(),
+        //     U256::from(123),
+        // ),
         // L2 -> L1 -> L1
-        do_transact(
-            alice.on_chain(B),
-            ERC20::sendETHFromCall {
-                fromChain: Uint::from(A),
-                toChain: Uint::from(A),
-                to: bob,
-            }
-            .abi_encode(),
-            U256::from(123),
-        ),
+        // do_transact(
+        //     alice.on_chain(B),
+        //     ERC20::sendETHFromCall {
+        //         fromChain: Uint::from(A),
+        //         toChain: Uint::from(A),
+        //         to: bob,
+        //     }
+        //     .abi_encode(),
+        //     U256::from(0),
+        // ),
     ];
 
     for res in results {
+        //println!("res: {:?}", res);
         assert!(res.is_success());
     }
 
@@ -327,6 +347,9 @@ fn deploy_contract(
     code: Bytes,
 ) {
     let mut evm = Evm::builder()
+        .modify_cfg_env(|cfg: &mut revm::primitives::CfgEnv| {
+            cfg.parent_chain_id = Some(A);
+        })
         .modify_tx_env(|tx| {
             tx.caller = deployer;
             tx.transact_to = TransactTo::Create;

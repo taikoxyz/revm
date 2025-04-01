@@ -50,9 +50,10 @@ where
 
 impl<DB: Database> InnerEvmContext<DB> {
     pub fn new(db: DB) -> Self {
+        println!("journaled state created without cfg");
         Self {
             env: Box::default(),
-            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::new()),
+            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::new()/*, CfgEnv::default()*/),
             db,
             error: Ok(()),
             #[cfg(feature = "optimism")]
@@ -64,8 +65,8 @@ impl<DB: Database> InnerEvmContext<DB> {
     #[inline]
     pub fn new_with_env(db: DB, env: Box<Env>) -> Self {
         Self {
-            env,
-            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::new()),
+            env: env.clone(),
+            journaled_state: JournaledState::new(SpecId::LATEST, HashSet::new()/*, env.cfg.clone()*/),
             db,
             error: Ok(()),
             #[cfg(feature = "optimism")]
@@ -339,7 +340,7 @@ impl<DB: Database> InnerEvmContext<DB> {
 
         // deduct gas for code deployment.
         let gas_for_code = interpreter_result.output.len() as u64 * gas::CODEDEPOSIT;
-        if !interpreter_result.gas.record_cost(gas_for_code) {
+        if !interpreter_result.gas.record_cost(address.0, gas_for_code) {
             self.journaled_state.checkpoint_revert(journal_checkpoint);
             interpreter_result.result = InstructionResult::OutOfGas;
             return;
@@ -365,6 +366,7 @@ impl<DB: Database> InnerEvmContext<DB> {
         journal_checkpoint: JournalCheckpoint,
     ) {
         // revert changes or not.
+        println!("interpreter_result.result: {:?}", interpreter_result.result);
         if matches!(interpreter_result.result, return_ok!()) {
             self.journaled_state.checkpoint_commit();
         } else {
@@ -405,7 +407,7 @@ impl<DB: Database> InnerEvmContext<DB> {
             return;
         }
         let gas_for_code = interpreter_result.output.len() as u64 * gas::CODEDEPOSIT;
-        if !interpreter_result.gas.record_cost(gas_for_code) {
+        if !interpreter_result.gas.record_cost(address.0, gas_for_code) {
             // record code deposit gas cost and check if we are out of gas.
             // EIP-2 point 3: If contract creation does not have enough gas to pay for the
             // final gas fee for adding the contract code to the state, the contract

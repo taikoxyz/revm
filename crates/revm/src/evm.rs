@@ -85,6 +85,8 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
 
         let tx = self.context.evm.env().tx.clone();
 
+        println!("tx: {:?}", tx);
+
         // TODO(Brecht): real account abstraction
         if !self.cfg().xchain && tx.caller.1 == address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") {
             for item in tx.access_list.iter() {
@@ -194,6 +196,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                             }
                         });
 
+                        println!("call inputs: {:?}", inputs);
                         let res = exec.call(&mut self.context, inputs.clone())?;
                         match &res {
                             FrameOrResult::Frame(_) => {
@@ -203,7 +206,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                                 //}
                             }
                             FrameOrResult::Result(FrameResult::Call(outcome)) => {
-                                //println!("call done: {:?}", outcome);
+                                println!("call done: {:?}", outcome);
                                 let depth = self.context.evm.journaled_state.depth();
                                 //if let Some(&xcall_idx) = pending_xcalls.get(&depth) {
                                     //println!("xcall: {:?}", xcall_idx);
@@ -244,6 +247,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
                     let ctx = &mut self.context;
                     FrameOrResult::Result(match returned_frame {
                         Frame::Call(frame) => {
+                            println!("return call");
                             // return_call
                             FrameResult::Call(exec.call_return(ctx, frame, result)?)
                         }
@@ -484,6 +488,8 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         let ctx = &mut self.context;
         let pre_exec = self.handler.pre_execution();
 
+        println!("revm env: {:?}", ctx.evm.env);
+
         // load access list and beneficiary if needed.
         pre_exec.load_accounts(ctx, ctx.evm.env.tx.caller.0)?;
 
@@ -508,9 +514,11 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         //println!("first_frame_or_result from transact_to {:?}", ctx.evm.env.tx.transact_to);
         let first_frame_or_result = match ctx.evm.env.tx.transact_to {
             TransactTo::Call(to) => {
+                println!("revm call to: {:?}", to);
                 // TODO(Brecht)
                 let tx = ctx.evm.env.tx.clone();
                 if !xchain && tx.transact_to.is_call() && !(tx.caller.1 == address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") && tx.transact_to.to().cloned().unwrap_or_default().1 == address!("9fCF7D13d10dEdF17d0f24C62f0cf4ED462f65b7")) {
+                    println!("[FAKE AA] call disabled");
                     let mut tx_env = tx.clone();
                     tx_env.transact_to = TransactTo::Call(ChainAddress(to.0, Address::ZERO));
                     tx_env.value = U256::ZERO;
@@ -520,7 +528,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
                     )?
                 } else {
                     ctx.evm.journaled_state.state_changes.push(JournalEntry::TxBegin { tx });
-
+                    println!("start call");
                     exec.call(
                         ctx,
                         CallInputs::new_boxed(&ctx.evm.env.tx, gas_limit).unwrap(),
@@ -552,12 +560,16 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
             FrameOrResult::Result(result) => result,
         };
 
+        println!("result after run the loop: {:?}", result.gas());
+
         let ctx = &mut self.context;
 
         // handle output of call/create calls.
         self.handler
             .execution()
             .last_frame_return(ctx, &mut result)?;
+
+        println!("result after last frame return: {:?}", result.gas());
 
         let post_exec = self.handler.post_execution();
         // calculate final refund and add EIP-7702 refund to gas.
