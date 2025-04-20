@@ -645,14 +645,6 @@ pub fn apply_call_options<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interp
     let (call_options, to) = match interpreter.call_options.clone() {
         Some(call_options) => {
             println!("apply_call_options {:?}", call_options);
-            // if !call_options.sandbox {
-            //     // Already checked in precompiles but let's do it again
-            //     if call_options.msg_sender.1 != interpreter.contract.target_address.1
-            //         || call_options.tx_origin.1 != host.env().tx.caller.1
-            //     {
-            //         interpreter.instruction_result = InstructionResult::Stop;
-            //     }
-            // }
             // In delegate call, the caller & target address remains on the same chain
             // Otherwise set to the other chain.
             let to = if delegate {

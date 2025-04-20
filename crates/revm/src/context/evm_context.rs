@@ -134,8 +134,6 @@ impl<DB: Database> EvmContext<DB> {
             return Ok(None);
         };
 
-        println!("qqq!");
-
         let mut result = InterpreterResult {
             result: InstructionResult::Return,
             gas,
@@ -162,7 +160,7 @@ impl<DB: Database> EvmContext<DB> {
             }
             Err(PrecompileErrors::Fatal { msg }) => return Err(EVMError::Precompile(msg)),
         }
-        println!("res: {:?}", result);
+        //println!("res: {:?}", result);
         Ok(Some(result))
     }
 
@@ -231,6 +229,8 @@ impl<DB: Database> EvmContext<DB> {
 
         // Only place that sets the Call Options
         //println!("make_call_frame *==> call_precompile {:?}", inputs.input);
+
+        println!("calling call_precompile: {:?}", inputs.caller);
         if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas.clone(), inputs.caller)? {
             println!("precompile: {:?}", result);
             if matches!(result.result, return_ok!()) {
@@ -258,16 +258,18 @@ impl<DB: Database> EvmContext<DB> {
             if account.info.is_empty_code_hash() {
                 println!("empty!: {:?}", self.env.cfg.parent_chain_id);
                 if let Some(parent_chain_id) = &self.env.cfg.parent_chain_id {
-                    println!("parent loading...!");
-                    let parent_account = self
-                        .inner
-                        .journaled_state
-                        .load_code(ChainAddress(*parent_chain_id, inputs.bytecode_address.1), &mut self.inner.db)?.clone();
-                    if !parent_account.info.is_empty_code_hash() {
-                        println!("Using code of parent chain for {:?}", inputs.bytecode_address);
-                        account = parent_account;
-                    } else {
-                        println!("parent also empty");
+                    if *parent_chain_id != inputs.bytecode_address.0 {
+                        println!("parent loading...!");
+                        let parent_account = self
+                            .inner
+                            .journaled_state
+                            .load_code(ChainAddress(*parent_chain_id, inputs.bytecode_address.1), &mut self.inner.db)?.clone();
+                        if !parent_account.info.is_empty_code_hash() {
+                            println!("Using code of parent chain for {:?}", inputs.bytecode_address);
+                            account = parent_account;
+                        } else {
+                            println!("parent also empty");
+                        }
                     }
                 }
             }
@@ -283,6 +285,7 @@ impl<DB: Database> EvmContext<DB> {
             }
 
             if bytecode.is_empty() {
+                println!("bytecode is empty, peace out");
                 self.journaled_state.checkpoint_commit();
                 return return_result(InstructionResult::Stop);
             }

@@ -399,7 +399,7 @@ impl Interpreter {
     where
         FN: Fn(&mut Interpreter, &mut H),
     {
-        println!("Interpreter::run");
+        println!("Interpreter::run {:?} {:?}", self.contract.bytecode_address, self.contract.hash);
 
         //println!("bytecode: {:?}", self.bytecode);
 

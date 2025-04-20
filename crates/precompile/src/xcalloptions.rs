@@ -17,8 +17,6 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
         return Err(Error::XCallOptionsInvalidInputLength.into());
     }
 
-    println!("A");
-
     // Read the input data
     let version = u16::from_be_bytes(input[0..2].try_into().unwrap());
     let chain_id = u64::from_be_bytes(input[2..10].try_into().unwrap());
@@ -33,18 +31,14 @@ fn xcalloptions_run(input: &[u8], _gas_limit: u64, env: &Env, caller: ChainAddre
         return Err(Error::XCallOptionsInvalidVersion.into());
     }
 
-    println!("B");
-
-    // if !sandbox {
-    //     // env.tx.caller is the Signer of the transaction
-    //     // caller is the address of the contract that is calling the precompile
-    //     if tx_origin != env.tx.caller.1 || msg_sender != caller.1 {
-    //         println!("  tx_origin: {:?}, env.tx.caller.1: {:?}, msg_sender: {:?}, caller.1: {:?}", tx_origin, env.tx.caller.1, msg_sender, caller.1);
-    //         return Err(Error::XCallOptionsInvalidOrigin.into());
-    //     }
-    // }
-
-    println!("C");
+    if !sandbox && !env.cfg.allow_mocking {
+        // env.tx.caller is the Signer of the transaction
+        // caller is the address of the contract that is calling the precompile
+        if tx_origin != env.tx.caller.1 || msg_sender != caller.1 {
+            println!("  tx_origin: {:?}, env.tx.caller.1: {:?}, msg_sender: {:?}, caller.1: {:?}", tx_origin, env.tx.caller.1, msg_sender, caller.1);
+            return Err(Error::XCallOptionsInvalidOrigin.into());
+        }
+    }
 
     // Set the call options
     *call_options = Some(CallOptions {

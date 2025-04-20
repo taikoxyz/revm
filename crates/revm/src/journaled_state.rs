@@ -217,14 +217,20 @@ impl JournaledState {
         balance: U256,
         db: &mut DB,
     ) -> Result<Option<InstructionResult>, EVMError<DB::Error>> {
+        println!("transfer from {:?} to {:?}: {:?}", from, to, balance);
+
         // load accounts
         self.load_account(*from, db)?;
         self.load_account(*to, db)?;
 
         // sub balance from
         let from_account = &mut self.state.get_mut(from).unwrap();
+        println!("account: {:?}", from_account);
+
         Self::touch_account(self.journal.last_mut().unwrap(), from, from_account);
         let from_balance = &mut from_account.info.balance;
+
+        println!("balance: {:?}", from_balance);
 
         let Some(from_balance_incr) = from_balance.checked_sub(balance) else {
             return Ok(Some(InstructionResult::OutOfFunds));

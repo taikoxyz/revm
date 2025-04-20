@@ -85,7 +85,7 @@ impl<'a, EXT, DB: Database> Evm<'a, EXT, DB> {
 
         let tx = self.context.evm.env().tx.clone();
 
-        println!("tx: {:?}", tx);
+        //println!("tx: {:?}", tx);
 
         // TODO(Brecht): real account abstraction
         if !self.cfg().xchain && tx.caller.1 == address!("E25583099BA105D9ec0A67f5Ae86D90e50036425") {
@@ -488,7 +488,7 @@ impl<EXT, DB: Database> Evm<'_, EXT, DB> {
         let ctx = &mut self.context;
         let pre_exec = self.handler.pre_execution();
 
-        println!("revm env: {:?}", ctx.evm.env);
+        //println!("revm env: {:?}", ctx.evm.env);
 
         // load access list and beneficiary if needed.
         pre_exec.load_accounts(ctx, ctx.evm.env.tx.caller.0)?;
