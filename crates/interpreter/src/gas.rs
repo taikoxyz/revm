@@ -145,7 +145,7 @@ impl Gas {
                 self.used.insert(chain_id, 0);
             }
             //println!("[{}] gas: {} ({})", chain_id, self.used.get_mut(&chain_id).unwrap(), cost);
-            *self.used.get_mut(&chain_id).unwrap() += cost;
+            //*self.used.get_mut(&chain_id).unwrap() += cost;
         }
         success
     }

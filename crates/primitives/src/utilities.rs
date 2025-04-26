@@ -35,7 +35,11 @@ pub fn calc_blob_gasprice(excess_blob_gas: u64) -> u128 {
 /// (`calc_excess_blob_gas`).
 #[inline]
 pub fn calc_excess_gwyneth_gas(parent_excess_gas: u64, parent_gas_used: u64, parent_time_stamp: u64, current_time_stamp: u64, target_gas_per_second: u64) -> u64 {
-    (parent_excess_gas + parent_gas_used).saturating_sub(current_time_stamp.checked_sub(parent_time_stamp).unwrap() * target_gas_per_second)
+    let mut excess_gas = (parent_excess_gas + parent_gas_used).saturating_sub(current_time_stamp.checked_sub(parent_time_stamp).unwrap() * target_gas_per_second);
+    if excess_gas == 0 {
+        excess_gas = 1;
+    }
+    excess_gas
 }
 
 /// Calculates the gwyneth gas price from the header's excess gas field.

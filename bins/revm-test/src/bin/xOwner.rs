@@ -103,7 +103,7 @@ fn main() {
        evm.transact_commit().unwrap();
        drop(evm);
 
-       if let ExecutionResult::Success { reason, gas_used, gas_refunded, logs, output, state_changes } = res.clone() {
+       if let ExecutionResult::Success { reason, gas_used, gas_refunded, logs, output, state_changes, gas_used_per_chain, gas_refunded_per_chain } = res.clone() {
             println!("{:?}", create_state_diff(state_changes, 1));
         }
 
