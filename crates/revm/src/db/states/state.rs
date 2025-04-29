@@ -329,13 +329,13 @@ mod tests {
 
         assert_eq!(
             state.block_hashes,
-            BTreeMap::from([(1, block1_hash), (2, block2_hash)])
+            HashMap::from([(chain_id, BTreeMap::from([(1, block1_hash), (2, block2_hash)]))])
         );
 
         state.block_hash(chain_id, test_number).unwrap();
         assert_eq!(
             state.block_hashes,
-            BTreeMap::from([(test_number, block_test_hash), (2, block2_hash)])
+            HashMap::from([(chain_id, BTreeMap::from([(test_number, block_test_hash), (2, block2_hash)]))])
         );
     }
 

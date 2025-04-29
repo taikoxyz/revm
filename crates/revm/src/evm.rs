@@ -622,6 +622,9 @@ mod tests {
                 tx.transact_to = TransactTo::Call(ChainAddress(chain_id, auth));
                 tx.chain_ids = Some(vec![chain_id]);
             })
+            .modify_cfg_env(|c| {
+                c.xchain = true;
+            })
             .build();
 
         let ok = evm.transact().unwrap();

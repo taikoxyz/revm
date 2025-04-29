@@ -1,13 +1,4 @@
-use std::{io::Read, str::FromStr};
-
 use alloy_sol_macro::sol;
-use alloy_sol_types::{sol_data::Address, SolCall, SolInterface, SolType};
-use revm::{
-    db::{CacheDB, EmptyDB}, precompile::kzg_point_evaluation::as_bytes32, primitives::{
-        address, keccak256, ruint::Uint, AccountInfo, Bytecode, Bytes, ChainAddress, ExecutionResult, OnChain, Output, TransactTo, B256, KECCAK_EMPTY, U256
-    }, Database, Evm
-};
-
 
 sol! {
     // deloyed bytecode with param ["0x0000000000000000000000000000000000000000000000000000000000000123", "0x0000000000000000000000000000000000000000000000000000000000000456", "0x0000000000000000000000000000000000000000000000000000000000000789"]
@@ -34,10 +25,6 @@ sol! {
 
         Proposal[] public proposals;
 
-        /**
-         * @dev Create a new ballot to choose one of 'proposalNames'.
-         * @param proposalNames names of proposals
-         */
         constructor(bytes32[] memory proposalNames) {
             init(proposalNames);
         }
@@ -57,10 +44,6 @@ sol! {
             }
         }
 
-        /**
-         * @dev Give 'voter' the right to vote on this ballot. May only be called by 'chairperson'.
-         * @param voter address of voter
-         */
         function giveRightToVote(address voter) public {
             require(
                 msg.sender == chairperson,
@@ -74,10 +57,6 @@ sol! {
             voters[voter].weight = 1;
         }
 
-        /**
-         * @dev Delegate your vote to the voter 'to'.
-         * @param to address to which vote is delegated
-         */
         function delegate(address to) public {
             Voter storage sender = voters[msg.sender];
             require(!sender.voted, "You already voted.");
@@ -103,10 +82,6 @@ sol! {
             }
         }
 
-        /**
-         * @dev Give your vote (including votes delegated to you) to proposal 'proposals[proposal].name'.
-         * @param proposal index of proposal in the proposals array
-         */
         function vote(uint256 proposal) public {
             Voter storage sender = voters[msg.sender];
             require(sender.weight != 0, "Has no right to vote");
@@ -120,10 +95,6 @@ sol! {
             proposals[proposal].voteCount += sender.weight;
         }
 
-        /**
-         * @dev Computes the winning proposal taking all previous votes into account.
-         * @return winningProposal_ index of winning proposal in the proposals array
-         */
         function winningProposal() public view returns (uint winningProposal_)
         {
             uint winningVoteCount = 0;
@@ -135,10 +106,6 @@ sol! {
             }
         }
 
-        /**
-         * @dev Calls winningProposal() function to get the index of the winner contained in the proposals array and then
-         * @return winnerName_ the name of the winner
-         */
         function winnerName() public view returns (bytes32 winnerName_)
         {
             winnerName_ = proposals[winningProposal()].name;
@@ -194,112 +161,125 @@ sol! {
     }
 }
 
+#[cfg(test)]
+mod test {
+    use super::*;
 
-const A: u64 = 1;
-const B: u64 = 160010;
+    use alloy_sol_types::{sol_data::Address, SolCall, SolInterface, SolType};
+    use revm::{
+        db::{CacheDB, EmptyDB},
+        primitives::{
+            address, keccak256, ruint::Uint, AccountInfo, Bytecode, Bytes, ChainAddress, ExecutionResult, OnChain, Output, TransactTo, B256, KECCAK_EMPTY, U256
+        }, Database, Evm
+    };
 
-/// This examples uses code on A to modify state on B
-/// The chairperson gives Alice right to vote.
-/// Alice delegate the right to Bob.
-/// Bob votes for proposal 0.
-fn main() {
-    let alice = address!("2222000000000000000000000000000000000000");
-    let bob = address!("3333000000000000000000000000000000000000");
-    let chainperson = address!("4444000000000000000000000000000000000000");
+    const A: u64 = 1;
+    const B: u64 = 160010;
 
-    let deployment = address!("37ab31eed8a6ae736a28d1371d41ff9dc2c21d37");
+    /// This examples uses code on A to modify state on B
+    /// The chairperson gives Alice right to vote.
+    /// Alice delegate the right to Bob.
+    /// Bob votes for proposal 0.
+    #[test]
+    fn test_xballot() {
+        let alice = address!("2222000000000000000000000000000000000000");
+        let bob = address!("3333000000000000000000000000000000000000");
+        let chainperson = address!("4444000000000000000000000000000000000000");
 
-    let mut db = CacheDB::new(EmptyDB::default());
-    db.insert_account_info(
-        alice.on_chain(B),
-        AccountInfo::new(U256::MAX, 0, KECCAK_EMPTY, Bytecode::default()),
-    );
-    db.insert_account_info(
-        bob.on_chain(A),
-        AccountInfo::new(U256::MAX, 0, KECCAK_EMPTY, Bytecode::default()),
-    );
-    deploy_contract(
-        &mut db,
-        chainperson.on_chain(A),
-        deployment.on_chain(A),
-        Ballot::BYTECODE.clone(),
-    );
-    deploy_contract(
-        &mut db,
-        chainperson.on_chain(B),
-        deployment.on_chain(B),
-        BallotState::BYTECODE.clone(),
-    );
+        let deployment = address!("37ab31eed8a6ae736a28d1371d41ff9dc2c21d37");
 
-    let mut do_transact = |addr: ChainAddress, op: Vec<u8>| -> ExecutionResult {
-        println!("\n\n");
+        let mut db = CacheDB::new(EmptyDB::default());
+        db.insert_account_info(
+            alice.on_chain(B),
+            AccountInfo::new(U256::MAX, 0, KECCAK_EMPTY, Bytecode::default()),
+        );
+        db.insert_account_info(
+            bob.on_chain(A),
+            AccountInfo::new(U256::MAX, 0, KECCAK_EMPTY, Bytecode::default()),
+        );
+        deploy_contract(
+            &mut db,
+            chainperson.on_chain(A),
+            deployment.on_chain(A),
+            Ballot::BYTECODE.clone(),
+        );
+        deploy_contract(
+            &mut db,
+            chainperson.on_chain(B),
+            deployment.on_chain(B),
+            BallotState::BYTECODE.clone(),
+        );
+
+        let mut do_transact = |addr: ChainAddress, op: Vec<u8>| -> ExecutionResult {
+            println!("\n\n");
+            let mut evm = Evm::builder()
+                .modify_cfg_env(|c| {
+                    c.xchain = true;
+                })
+                .modify_tx_env(|tx| {
+                    tx.caller = addr;
+                    tx.transact_to = TransactTo::Call(ChainAddress(addr.0, deployment));
+                    tx.data = op.clone().into();
+                })
+                .with_db(&mut db)
+                .build();
+            let res = evm.transact().unwrap().result;
+            evm.transact_commit().unwrap();
+            drop(evm);
+            println!("{:?}\n~~~~~~~~~\n", res);
+            res
+        };
+
+        let results = vec![
+            // Chairperson gives Alice right to vote
+            do_transact(
+                chainperson.on_chain(B),
+                BallotState::giveRightToVoteCall {
+                    voter: alice,
+                }
+                .abi_encode(),
+            ),
+            // Alice delegates the right to Bob
+            do_transact(
+                alice.on_chain(B),
+                BallotState::delegateCall {
+                    to: bob,
+                }
+                .abi_encode(),
+            ),
+            // Bob votes for proposal 0
+            do_transact(
+                bob.on_chain(B),
+                BallotState::voteCall { proposal: Uint::from(0) }.abi_encode(),
+            ),
+        ];
+
+        for res in results {
+            assert!(res.is_success());
+        }
+
+        println!("Success");
+    }
+
+    fn deploy_contract(
+        cache_db: &mut CacheDB<EmptyDB>,
+        deployer: ChainAddress,
+        addr: ChainAddress,
+        code: Bytes,
+    ) {
         let mut evm = Evm::builder()
             .modify_cfg_env(|c| {
                 c.xchain = true;
             })
             .modify_tx_env(|tx| {
-                tx.caller = addr;
-                tx.transact_to = TransactTo::Call(ChainAddress(addr.0, deployment));
-                tx.data = op.clone().into();
+                tx.caller = deployer;
+                tx.transact_to = TransactTo::Create;
+                tx.data = code;
             })
-            .with_db(&mut db)
+            .with_db(cache_db)
             .build();
-        let res = evm.transact().unwrap().result;
+        assert!(evm.transact().unwrap().result.is_success());
         evm.transact_commit().unwrap();
         drop(evm);
-        println!("{:?}\n~~~~~~~~~\n", res);
-        res
-    };
-
-    let results = vec![
-        // Chairperson gives Alice right to vote
-        do_transact(
-            chainperson.on_chain(B),
-            BallotState::giveRightToVoteCall {
-                voter: alice,
-            }
-            .abi_encode(),
-        ),
-        // Alice delegates the right to Bob
-        do_transact(
-            alice.on_chain(B),
-            BallotState::delegateCall {
-                to: bob,
-            }
-            .abi_encode(),
-        ),
-        // Bob votes for proposal 0
-        do_transact(
-            bob.on_chain(B),
-            BallotState::voteCall { proposal: Uint::from(0) }.abi_encode(),
-        ),
-    ];
-
-    for res in results {
-        assert!(res.is_success());
     }
-
-    println!("Success");
-}
-
-fn deploy_contract(
-    cache_db: &mut CacheDB<EmptyDB>,
-    deployer: ChainAddress,
-    addr: ChainAddress,
-    code: Bytes,
-) {
-    let mut evm = Evm::builder()
-        .modify_cfg_env(|c| {
-            c.xchain = true;
-        })
-        .modify_tx_env(|tx| {
-            tx.caller = deployer;
-            tx.transact_to = TransactTo::Create;
-            tx.data = code;
-        })
-        .with_db(cache_db)
-        .build();
-    assert!(evm.transact().unwrap().result.is_success());
-    evm.transact_commit().unwrap();
-    drop(evm);
 }

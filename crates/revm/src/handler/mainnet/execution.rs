@@ -221,7 +221,7 @@ mod tests {
         ));
         last_frame_return::<CancunSpec, _, _>(&mut ctx, &mut first_frame).unwrap();
         refund::<CancunSpec, _, _>(&mut ctx, first_frame.gas_mut(), 0);
-        *first_frame.gas()
+        first_frame.gas().clone()
     }
 
     #[test]
@@ -237,7 +237,7 @@ mod tests {
         let mut return_gas = Gas::new(90);
         return_gas.record_refund(30);
 
-        let gas = call_last_frame_return(InstructionResult::Stop, return_gas);
+        let gas = call_last_frame_return(InstructionResult::Stop, return_gas.clone());
         assert_eq!(gas.remaining(), 90);
         assert_eq!(gas.spent(), 10);
         assert_eq!(gas.refunded(), 2);

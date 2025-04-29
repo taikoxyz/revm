@@ -1,14 +1,4 @@
-use std::{io::Read, str::FromStr};
-
 use alloy_sol_macro::sol;
-use alloy_sol_types::{sol_data::Address, SolCall, SolInterface, SolType};
-use revm::{
-    db::{CacheDB, EmptyDB},
-    primitives::{
-        address, create_state_diff, keccak256, ruint::Uint, AccountInfo, Bytecode, Bytes, ChainAddress, ExecutionResult, OnChain, Output, TransactTo, B256, KECCAK_EMPTY, U256
-    },
-    Database, Evm,
-};
 
 sol! {
     // Compiled with constructor parameter = 99999
@@ -116,257 +106,268 @@ sol! {
     }
 }
 
-const A: u64 = 1;
-const B: u64 = 160010;
+#[cfg(test)]
+mod test {
+    use super::*;
 
-/// From A, Alice xTransfer her money to Bob on B.
-/// From B, Bob xApprove Alice to spend his on A.
-/// From B, Bob checks if he transfer his A money to Alice on A in snadboxed mode.
-/// From A, Alice transfer Bob's money to herself.
-fn main() {
-    let alice = address!("2222000000000000000000000000000000000000");
-    let bob = address!("3333000000000000000000000000000000000000");
-    let operator = address!("4444000000000000000000000000000000000000");
+    use std::{io::Read, str::FromStr};
 
-    let deployment = address!("37ab31eed8a6ae736a28d1371d41ff9dc2c21d37");
+    use alloy_sol_types::{sol_data::Address, SolCall, SolInterface, SolType};
+    use revm::{
+        db::{CacheDB, EmptyDB},
+        primitives::{
+            address, create_state_diff, keccak256, ruint::Uint, AccountInfo, Bytecode, Bytes, ChainAddress, ExecutionResult, OnChain, Output, TransactTo, B256, KECCAK_EMPTY, U256
+        },
+        Database, Evm,
+    };
 
-    let mut db = CacheDB::new(EmptyDB::default());
-    db.insert_account_info(
-        alice.on_chain(A),
-        AccountInfo::new(U256::from(10000), 0, KECCAK_EMPTY, Bytecode::default()),
-    );
-    db.insert_account_info(
-        alice.on_chain(B),
-        AccountInfo::new(U256::from(10000), 0, KECCAK_EMPTY, Bytecode::default()),
-    );
-    db.insert_account_info(
-        bob.on_chain(A),
-        AccountInfo::new(U256::from(10000), 0, KECCAK_EMPTY, Bytecode::default()),
-    );
-    db.insert_account_info(
-        operator.on_chain(B),
-        AccountInfo::new(U256::from(10000), 0, KECCAK_EMPTY, Bytecode::default()),
-    );
-    db.insert_account_info(
-        operator.on_chain(A),
-        AccountInfo::new(U256::from(10000), 0, KECCAK_EMPTY, Bytecode::default()),
-    );
-    deploy_contract(
-        &mut db,
-        operator.on_chain(A),
-        deployment.on_chain(A),
-        ERC20::BYTECODE.clone(),
-    );
-    // deploy_contract(
-    //     &mut db,
-    //     operator.on_chain(B),
-    //     deployment.on_chain(B),
-    //     ERC20::BYTECODE.clone(),
-    // );
+    const A: u64 = 1;
+    const B: u64 = 160010;
 
-    let mut do_transact = |addr: ChainAddress, op: Vec<u8>, value: U256| -> ExecutionResult {
-        println!("\n\n");
-        let mut evm = Evm::builder()
-            .modify_cfg_env(|c| {
-                c.xchain = true;
-                c.parent_chain_id = Some(A);
-            })
-            .modify_tx_env(|tx| {
-                tx.caller = addr;
-                tx.transact_to = TransactTo::Call(ChainAddress(addr.0, deployment));
-                tx.data = op.clone().into();
-                tx.value = value;
-                tx.gas_limit = 30_000_000;
-                tx.gas_price = U256::ZERO;
-                tx.chain_ids = Some(vec![A, B]);
-            })
-            .with_db(&mut db)
-            .build();
-        let res = evm.transact().unwrap().result;
-        evm.transact_commit().unwrap();
-        drop(evm);
-        //println!("{:?}\n~~~~~~~~~\n", res);
+    /// From A, Alice xTransfer her money to Bob on B.
+    /// From B, Bob xApprove Alice to spend his on A.
+    /// From B, Bob checks if he transfer his A money to Alice on A in snadboxed mode.
+    /// From A, Alice transfer Bob's money to herself.
+    #[test]
+    fn test_xtransfer() {
+        let alice = address!("2222000000000000000000000000000000000000");
+        let bob = address!("3333000000000000000000000000000000000000");
+        let operator = address!("4444000000000000000000000000000000000000");
 
-        if let ExecutionResult::Success { reason, gas_used, gas_refunded, logs, output, state_changes, gas_used_per_chain, gas_refunded_per_chain } = res.clone() {
-            // for entry in state_changes.entries.iter() {
-            //     println!("- {:?}", entry);
-            // }
-            // println!("*****************");
-            // let state_diff = create_state_diff(state_changes, 1);
-            // for entry in state_diff.entries.iter() {
-            //     println!("- {:?}", entry);
-            // }
-            // println!("out");
-            // for output in state_diff.outputs.iter() {
-            //     println!("- {:?}", output);
-            // }
-            println!("gas used: {:?}", gas_used);
-            println!("gas used per chain: {:?}", gas_used_per_chain);
+        let deployment = address!("37ab31eed8a6ae736a28d1371d41ff9dc2c21d37");
+
+        let mut db = CacheDB::new(EmptyDB::default());
+        db.insert_account_info(
+            alice.on_chain(A),
+            AccountInfo::new(U256::from(10000), 0, KECCAK_EMPTY, Bytecode::default()),
+        );
+        db.insert_account_info(
+            alice.on_chain(B),
+            AccountInfo::new(U256::from(10000), 0, KECCAK_EMPTY, Bytecode::default()),
+        );
+        db.insert_account_info(
+            bob.on_chain(A),
+            AccountInfo::new(U256::from(10000), 0, KECCAK_EMPTY, Bytecode::default()),
+        );
+        db.insert_account_info(
+            operator.on_chain(B),
+            AccountInfo::new(U256::from(10000), 0, KECCAK_EMPTY, Bytecode::default()),
+        );
+        db.insert_account_info(
+            operator.on_chain(A),
+            AccountInfo::new(U256::from(10000), 0, KECCAK_EMPTY, Bytecode::default()),
+        );
+        deploy_contract(
+            &mut db,
+            operator.on_chain(A),
+            deployment.on_chain(A),
+            ERC20::BYTECODE.clone(),
+        );
+
+        let mut do_transact = |addr: ChainAddress, op: Vec<u8>, value: U256| -> ExecutionResult {
+            println!("\n\n");
+            let mut evm = Evm::builder()
+                .modify_cfg_env(|c| {
+                    c.xchain = true;
+                    c.parent_chain_id = Some(A);
+                })
+                .modify_tx_env(|tx| {
+                    tx.caller = addr;
+                    tx.transact_to = TransactTo::Call(ChainAddress(addr.0, deployment));
+                    tx.data = op.clone().into();
+                    tx.value = value;
+                    tx.gas_limit = 30_000_000;
+                    tx.gas_price = U256::ZERO;
+                    tx.chain_ids = Some(vec![A, B]);
+                })
+                .with_db(&mut db)
+                .build();
+            let res = evm.transact().unwrap().result;
+            evm.transact_commit().unwrap();
+            drop(evm);
+            //println!("{:?}\n~~~~~~~~~\n", res);
+
+            if let ExecutionResult::Success { reason, gas_used, gas_refunded, logs, output, state_changes, gas_used_per_chain, gas_refunded_per_chain } = res.clone() {
+                // for entry in state_changes.entries.iter() {
+                //     println!("- {:?}", entry);
+                // }
+                // println!("*****************");
+                // let state_diff = create_state_diff(state_changes, 1);
+                // for entry in state_diff.entries.iter() {
+                //     println!("- {:?}", entry);
+                // }
+                // println!("out");
+                // for output in state_diff.outputs.iter() {
+                //     println!("- {:?}", output);
+                // }
+                println!("gas used: {:?}", gas_used);
+                println!("gas used per chain: {:?}", gas_used_per_chain);
+            }
+
+            res
+        };
+
+        let results = vec![
+            // Give Alice some money
+            do_transact(
+                operator.on_chain(A),
+                ERC20::transferCall {
+                    to: alice,
+                    value: Uint::from(1234),
+                }
+                .abi_encode(),
+                U256::ZERO,
+            ),
+            do_transact(
+                operator.on_chain(A),
+                ERC20::xTransferCall {
+                    chain: Uint::from(B),
+                    to: operator,
+                    value: Uint::from(19999),
+                }
+                .abi_encode(),
+                U256::ZERO,
+            ),
+            do_transact(
+                operator.on_chain(B),
+                ERC20::transferCall {
+                    to: alice,
+                    value: Uint::from(9876),
+                }
+                .abi_encode(),
+                U256::ZERO,
+            ),
+            do_transact(
+                operator.on_chain(A),
+                ERC20::transferCall {
+                    to: bob,
+                    value: Uint::from(9876),
+                }
+                .abi_encode(),
+                U256::ZERO,
+            ),
+            // Give Bob some money
+            do_transact(
+                operator.on_chain(B),
+                ERC20::transferCall {
+                    to: bob,
+                    value: Uint::from(1234),
+                }
+                .abi_encode(),
+                U256::ZERO,
+            ),
+            // From A, Alice xTransfer 666 to Bob on B.
+            do_transact(
+                alice.on_chain(A),
+                ERC20::xTransferCall {
+                    chain: Uint::from(B),
+                    to: bob,
+                    value: Uint::from(666),
+                }
+                .abi_encode(),
+                U256::ZERO,
+            ),
+            // From B, Bob xApprove Alice to spend his 666 on A.
+            do_transact(
+                bob.on_chain(B),
+                ERC20::xApproveCall {
+                    chain: Uint::from(A),
+                    spender: alice,
+                    value: Uint::from(666),
+                }
+                .abi_encode(),
+                U256::ZERO,
+            ),
+            // From B, Bob checks if he transfer 555 to Alice on A in sandboxed mode.
+            do_transact(
+                bob.on_chain(B),
+                ERC20::sandboxedTransferCall {
+                    chain: Uint::from(A),
+                    to: alice,
+                    value: Uint::from(666),
+                }
+                .abi_encode(),
+                U256::ZERO,
+            ),
+            // From A, Alice transfer Bob's 666 to herself.
+            do_transact(
+                alice.on_chain(A),
+                ERC20::transferFromCall {
+                    from: bob,
+                    to: alice,
+                    value: Uint::from(666),
+                }
+                .abi_encode(),
+                U256::ZERO,
+            ),
+            // L1 -> L2
+            do_transact(
+                alice.on_chain(A),
+                ERC20::sendETHCall {
+                    chain: Uint::from(B),
+                    to: bob,
+                }
+                .abi_encode(),
+                U256::from(123),
+            ),
+            // L2 -> L1
+            do_transact(
+                alice.on_chain(B),
+                ERC20::sendETHCall {
+                    chain: Uint::from(A),
+                    to: bob,
+                }
+                .abi_encode(),
+                U256::from(123),
+            ),
+            // L2 -> L1 -> L2
+            do_transact(
+                alice.on_chain(B),
+                ERC20::sendETHFromCall {
+                    fromChain: Uint::from(A),
+                    toChain: Uint::from(B),
+                    to: bob,
+                }
+                .abi_encode(),
+                U256::from(456),
+            ),
+        ];
+
+        let balance = ERC20::balanceOfCall {
+            _0: alice,
+        };
+
+    let balance = db.load_account(alice.on_chain(B)).unwrap().info.balance.as_limbs()[0];
+
+        for res in results {
+            //println!("res: {:?}", res);
+            assert!(res.is_success());
         }
 
-        res
-    };
-
-    let results = vec![
-        // Give Alice some money
-        do_transact(
-            operator.on_chain(A),
-            ERC20::transferCall {
-                to: alice,
-                value: Uint::from(1234),
-            }
-            .abi_encode(),
-            U256::ZERO,
-        ),
-        do_transact(
-            operator.on_chain(A),
-            ERC20::xTransferCall {
-                chain: Uint::from(B),
-                to: operator,
-                value: Uint::from(19999),
-            }
-            .abi_encode(),
-            U256::ZERO,
-        ),
-        // do_transact(
-        //     operator.on_chain(B),
-        //     ERC20::transferCall {
-        //         to: alice,
-        //         value: Uint::from(9876),
-        //     }
-        //     .abi_encode(),
-        //     U256::ZERO,
-        // ),
-        // do_transact(
-        //     operator.on_chain(A),
-        //     ERC20::transferCall {
-        //         to: bob,
-        //         value: Uint::from(9876),
-        //     }
-        //     .abi_encode(),
-        //     U256::ZERO,
-        // ),
-        // // Give Bob some money
-        // do_transact(
-        //     operator.on_chain(B),
-        //     ERC20::transferCall {
-        //         to: bob,
-        //         value: Uint::from(1234),
-        //     }
-        //     .abi_encode(),
-        //     U256::ZERO,
-        // ),
-        // From A, Alice xTransfer 666 to Bob on B.
-        do_transact(
-            alice.on_chain(A),
-            ERC20::xTransferCall {
-                chain: Uint::from(B),
-                to: bob,
-                value: Uint::from(666),
-            }
-            .abi_encode(),
-            U256::ZERO,
-        ),
-        // // From B, Bob xApprove Alice to spend his 666 on A.
-        // do_transact(
-        //     bob.on_chain(B),
-        //     ERC20::xApproveCall {
-        //         chain: Uint::from(A),
-        //         spender: alice,
-        //         value: Uint::from(666),
-        //     }
-        //     .abi_encode(),
-        //     U256::ZERO,
-        // ),
-        // // From B, Bob checks if he transfer 555 to Alice on A in sandboxed mode.
-        // do_transact(
-        //     bob.on_chain(B),
-        //     ERC20::sandboxedTransferCall {
-        //         chain: Uint::from(A),
-        //         to: alice,
-        //         value: Uint::from(666),
-        //     }
-        //     .abi_encode(),
-        //     U256::ZERO,
-        // ),
-        // // From A, Alice transfer Bob's 666 to herself.
-        // do_transact(
-        //     alice.on_chain(A),
-        //     ERC20::transferFromCall {
-        //         from: bob,
-        //         to: alice,
-        //         value: Uint::from(666),
-        //     }
-        //     .abi_encode(),
-        //     U256::ZERO,
-        // ),
-        // L1 -> L2
-        do_transact(
-            alice.on_chain(A),
-            ERC20::sendETHCall {
-                chain: Uint::from(B),
-                to: bob,
-            }
-            .abi_encode(),
-            U256::from(123),
-        ),
-        // L2 -> L1
-        do_transact(
-            alice.on_chain(B),
-            ERC20::sendETHCall {
-                chain: Uint::from(A),
-                to: bob,
-            }
-            .abi_encode(),
-            U256::from(123),
-        ),
-        // L2 -> L1 -> L2
-        do_transact(
-            alice.on_chain(B),
-            ERC20::sendETHFromCall {
-                fromChain: Uint::from(A),
-                toChain: Uint::from(B),
-                to: bob,
-            }
-            .abi_encode(),
-            U256::from(456),
-        ),
-    ];
-
-    let balance = ERC20::balanceOfCall {
-        _0: alice,
-    };
-
-   let balance = db.load_account(alice.on_chain(B)).unwrap().info.balance.as_limbs()[0];
-
-    for res in results {
-        //println!("res: {:?}", res);
-        assert!(res.is_success());
+        println!("Success");
     }
 
-    println!("Success");
-}
-
-fn deploy_contract(
-    cache_db: &mut CacheDB<EmptyDB>,
-    deployer: ChainAddress,
-    addr: ChainAddress,
-    code: Bytes,
-) {
-    let mut evm = Evm::builder()
-        .modify_cfg_env(|cfg: &mut revm::primitives::CfgEnv| {
-            cfg.parent_chain_id = Some(A);
-        })
-        .modify_tx_env(|tx| {
-            tx.caller = deployer;
-            tx.transact_to = TransactTo::Create;
-            tx.data = code;
-        })
-        .with_db(cache_db)
-        .build();
-    let res = evm.transact().unwrap();
-    //println!("res: {:?}", res);
-    assert!(res.result.is_success());
-    evm.transact_commit().unwrap();
-    drop(evm);
+    fn deploy_contract(
+        cache_db: &mut CacheDB<EmptyDB>,
+        deployer: ChainAddress,
+        addr: ChainAddress,
+        code: Bytes,
+    ) {
+        let mut evm = Evm::builder()
+            .modify_cfg_env(|cfg: &mut revm::primitives::CfgEnv| {
+                cfg.parent_chain_id = Some(A);
+            })
+            .modify_tx_env(|tx| {
+                tx.caller = deployer;
+                tx.transact_to = TransactTo::Create;
+                tx.data = code;
+            })
+            .with_db(cache_db)
+            .build();
+        let res = evm.transact().unwrap();
+        //println!("res: {:?}", res);
+        assert!(res.result.is_success());
+        evm.transact_commit().unwrap();
+        drop(evm);
+    }
 }
