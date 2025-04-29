@@ -79,10 +79,6 @@ impl Interpreter {
     pub fn new(contract: Contract, gas_limit: u64, is_static: bool, chain_id: u64, sandboxed: bool) -> Self {
         //println!("Interpreter::new IS_STATIC: {} SANDBOXED {}", is_static, sandboxed);
 
-        let mut contract_dummy = contract.clone();
-        contract_dummy.bytecode = Bytecode::new();
-        println!("contract: {:?}", contract_dummy);
-
         if !contract.bytecode.is_execution_ready() {
             panic!("Contract is not execution ready {:?}", contract.bytecode);
         }
