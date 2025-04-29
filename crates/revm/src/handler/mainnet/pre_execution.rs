@@ -123,7 +123,7 @@ pub fn apply_eip7702_auth_list<SPEC: Spec, EXT, DB: Database>(
 
         // 2. Verify the chain id is either 0 or the chain's current ID.
         if !authorization.chain_id().is_zero()
-            && !context.evm.inner.env.tx.chain_ids.clone().unwrap_or_default().contains(&authorization.chain_id().as_limbs()[0])
+            && context.evm.inner.env.cfg.chain_id != authorization.chain_id().as_limbs()[0]
         {
             continue;
         }

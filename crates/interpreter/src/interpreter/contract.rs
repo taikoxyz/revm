@@ -56,6 +56,7 @@ impl Contract {
     /// Creates a new contract from the given [`Env`].
     #[inline]
     pub fn new_env(env: &Env, bytecode: Bytecode, hash: Option<B256>) -> Self {
+        println!("new_env");
         let contract_address = match env.tx.transact_to {
             TransactTo::Call(caller) => caller,
             TransactTo::Create => ChainAddress(1, Address::ZERO),

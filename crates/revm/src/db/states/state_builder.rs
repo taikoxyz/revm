@@ -4,7 +4,7 @@ use revm_interpreter::primitives::{
     db::{SyncDatabase as Database, SyncDatabaseRef as DatabaseRef, WrapDatabaseRef},
     B256,
 };
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// Allows building of State and initializing it with different options.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -27,7 +27,7 @@ pub struct StateBuilder<DB> {
     /// Default is false.
     with_background_transition_merge: bool,
     /// If we want to set different block hashes
-    with_block_hashes: BTreeMap<u64, B256>,
+    with_block_hashes: HashMap<u64, BTreeMap<u64, B256>>,
 }
 
 impl StateBuilder<EmptyDB> {
@@ -56,7 +56,7 @@ impl<DB: Database> StateBuilder<DB> {
             with_bundle_prestate: None,
             with_bundle_update: false,
             with_background_transition_merge: false,
-            with_block_hashes: BTreeMap::new(),
+            with_block_hashes: HashMap::new(),
         }
     }
 
@@ -143,7 +143,7 @@ impl<DB: Database> StateBuilder<DB> {
         }
     }
 
-    pub fn with_block_hashes(self, block_hashes: BTreeMap<u64, B256>) -> Self {
+    pub fn with_block_hashes(self, block_hashes: HashMap<u64, BTreeMap<u64, B256>>) -> Self {
         Self {
             with_block_hashes: block_hashes,
             ..self

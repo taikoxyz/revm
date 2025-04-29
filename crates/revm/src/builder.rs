@@ -476,6 +476,9 @@ mod test {
                 db.insert_account_info(to_addr, AccountInfo::new(U256::ZERO, 0, code_hash, code))
             })
             .modify_tx_env(|tx| tx.transact_to = TransactTo::Call(to_addr))
+            .modify_cfg_env(|c| {
+                c.xchain = true;
+            })
             // we need to use handle register box to capture the custom context in the handle
             // register
             .append_handler_register_box(Box::new(move |handler| {
@@ -526,6 +529,9 @@ mod test {
                 db.insert_account_info(to_addr, AccountInfo::new(U256::ZERO, 0, code_hash, code))
             })
             .modify_tx_env(|tx| tx.transact_to = TransactTo::Call(to_addr))
+            .modify_cfg_env(|c| {
+                c.xchain = true;
+            })
             .append_handler_register(|handler| {
                 handler.instruction_table.insert(0xED, custom_instruction)
             })

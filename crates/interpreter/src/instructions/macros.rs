@@ -54,7 +54,7 @@ macro_rules! gas {
         $crate::gas!($interp, $gas, ())
     };
     ($interp:expr, $gas:expr, $ret:expr) => {
-        if !$interp.gas.record_cost($gas) {
+        if !$interp.gas.record_cost($interp.chain_id, $gas) {
             $interp.instruction_result = $crate::InstructionResult::OutOfGas;
             return $ret;
         }
@@ -101,6 +101,7 @@ macro_rules! resize_memory {
 
             // Note: we can't use `Interpreter` directly here because of potential double-borrows.
             if !$crate::interpreter::resize_memory(
+                $interp.chain_id,
                 &mut $interp.shared_memory,
                 &mut $interp.gas,
                 new_size,

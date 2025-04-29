@@ -117,12 +117,12 @@ impl<DB: Database> EvmContext<DB> {
         gas: Gas,
         caller: ChainAddress,
     ) -> Result<Option<InterpreterResult>, EVMError<DB::Error>> {
-        //println!("call_precompile {:?}", address);
+        println!("call_precompile {:?}", address);
 
         // Disable XCALLOPTIONS functionality when xchain is disabled
         // TODO(Brecht): address is still set warm!
         if address.1 == *XCALLOPTIONS.address() && !self.env.cfg.xchain {
-            //println!("Skipping XCALLOPTIONS precompile!");
+            println!("Skipping XCALLOPTIONS precompile!");
             return Ok(None);
         }
 
@@ -143,7 +143,7 @@ impl<DB: Database> EvmContext<DB> {
 
         match outcome {
             Ok(output) => {
-                if result.gas.record_cost(output.gas_used) {
+                if result.gas.record_cost(address.0, output.gas_used) {
                     result.result = InstructionResult::Return;
                     result.output = output.bytes.clone();
                     result.call_options = call_options;
@@ -160,6 +160,7 @@ impl<DB: Database> EvmContext<DB> {
             }
             Err(PrecompileErrors::Fatal { msg }) => return Err(EVMError::Precompile(msg)),
         }
+        //println!("res: {:?}", result);
         Ok(Some(result))
     }
 
@@ -169,15 +170,16 @@ impl<DB: Database> EvmContext<DB> {
         &mut self,
         inputs: &CallInputs,
     ) -> Result<FrameOrResult, EVMError<DB::Error>> {
+        //
         let gas = Gas::new(inputs.gas_limit);
 
-        //println!("make_call_frame {:?}", inputs.bytecode_address);
+        println!("make_call_frame {:?}", inputs.bytecode_address);
 
         let return_result = |instruction_result: InstructionResult| {
             Ok(FrameOrResult::new_call_result(
                 InterpreterResult {
                     result: instruction_result,
-                    gas,
+                    gas: gas.clone(),
                     output: Bytes::new(),
                     call_options: None,
                 },
@@ -209,38 +211,68 @@ impl<DB: Database> EvmContext<DB> {
             CallValue::Transfer(value) => {
                 // Transfer value from caller to called account. As value get transferred
                 // target gets touched.
+                println!("do the transfer");
                 if let Some(result) = self.inner.journaled_state.transfer(
                     &inputs.caller,
                     &inputs.target_address,
                     value,
                     &mut self.inner.db,
                 )? {
+                    println!("transfer revert");
                     self.journaled_state.checkpoint_revert(checkpoint);
                     return return_result(result);
                 }
             }
             _ => {}
         };
+        println!("transfer done");
 
         // Only place that sets the Call Options
         //println!("make_call_frame *==> call_precompile {:?}", inputs.input);
-        if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas, inputs.caller)? {
+
+        println!("calling call_precompile: {:?}", inputs.caller);
+        if let Some(result) = self.call_precompile(&inputs.bytecode_address, &inputs.input, gas.clone(), inputs.caller)? {
+            println!("precompile: {:?}", result);
             if matches!(result.result, return_ok!()) {
                 self.journaled_state.checkpoint_commit();
             } else {
                 self.journaled_state.checkpoint_revert(checkpoint);
             }
+            println!("new call result");
             // Pass out the Call Options in CallOutcome
             Ok(FrameOrResult::new_call_result(
                 result,
                 inputs.return_memory_offset.clone(),
             ))
         } else {
+            println!("not precompile");
             //println!("make_call_frame: load_code");
-            let account = self
+            let mut account = self
                 .inner
                 .journaled_state
-                .load_code(inputs.bytecode_address, &mut self.inner.db)?;
+                .load_code(inputs.bytecode_address, &mut self.inner.db)?.clone();
+
+            println!("loading account!");
+
+            // If the contract doesn't have any code, try to load the code from the parent chain
+            if account.info.is_empty_code_hash() {
+                println!("empty!: {:?}", self.env.cfg.parent_chain_id);
+                if let Some(parent_chain_id) = &self.env.cfg.parent_chain_id {
+                    if *parent_chain_id != inputs.bytecode_address.0 {
+                        println!("parent loading...!");
+                        let parent_account = self
+                            .inner
+                            .journaled_state
+                            .load_code(ChainAddress(*parent_chain_id, inputs.bytecode_address.1), &mut self.inner.db)?.clone();
+                        if !parent_account.info.is_empty_code_hash() {
+                            println!("Using code of parent chain for {:?}", inputs.bytecode_address);
+                            account = parent_account;
+                        } else {
+                            println!("parent also empty");
+                        }
+                    }
+                }
+            }
 
             let code_hash = account.info.code_hash();
             let mut bytecode = account.info.code.clone().unwrap_or_default();
@@ -253,6 +285,7 @@ impl<DB: Database> EvmContext<DB> {
             }
 
             if bytecode.is_empty() {
+                println!("bytecode is empty, peace out");
                 self.journaled_state.checkpoint_commit();
                 return return_result(InstructionResult::Stop);
             }
@@ -271,6 +304,9 @@ impl<DB: Database> EvmContext<DB> {
             let contract =
                 Contract::new_with_context(inputs.input.clone(), bytecode, Some(code_hash), inputs);
             // Create interpreter and executes call and push new CallStackFrame.
+
+            println!("new call frame");
+
             Ok(FrameOrResult::new_call_frame(
                 inputs.return_memory_offset.clone(),
                 checkpoint,
@@ -509,6 +545,7 @@ pub(crate) mod test_utils {
         journaled_state::JournaledState,
         primitives::{address, HashSet, SpecId, B256},
     };
+    use crate::primitives::CfgEnv;
 
     /// Mock caller address.
     pub const MOCK_CALLER: ChainAddress = ChainAddress(1, address!("0000000000000000000000000000000000000000"));
@@ -591,10 +628,11 @@ mod tests {
     use crate::{
         db::{CacheDB, EmptyDB},
         primitives::{address, Bytecode},
-        Frame, JournalEntry,
+        Frame,
     };
     use std::boxed::Box;
     use test_utils::*;
+    use crate::primitives::JournalEntry;
 
     // Tests that the `EVMContext::make_call_frame` function returns an error if the
     // call stack is too deep.

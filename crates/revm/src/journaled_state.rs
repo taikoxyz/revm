@@ -11,6 +11,7 @@ use crate::{
 use core::mem;
 use std::vec::Vec;
 use crate::primitives::{ChainAddress, XCallData};
+use crate::primitives::CfgEnv;
 
 /// A journal of state changes internal to the EVM.
 ///
@@ -18,6 +19,8 @@ use crate::primitives::{ChainAddress, XCallData};
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct JournaledState {
+    /// dfkdjfks
+    //pub cfg: CfgEnv,
     /// The current state.
     pub state: EvmState,
     /// Transient storage that is discarded after every transaction.
@@ -61,8 +64,9 @@ impl JournaledState {
     ///
     /// This function will journal state after Spurious Dragon fork.
     /// And will not take into account if account is not existing or empty.
-    pub fn new(spec: SpecId, warm_preloaded_addresses: HashSet<ChainAddress>) -> JournaledState {
+    pub fn new(spec: SpecId, warm_preloaded_addresses: HashSet<ChainAddress>/*, cfg: CfgEnv*/) -> JournaledState {
         Self {
+            //cfg,
             state: HashMap::new(),
             transient_storage: TransientStorage::default(),
             logs: Vec::new(),
@@ -108,7 +112,7 @@ impl JournaledState {
     /// Clears the JournaledState. Preserving only the spec.
     pub fn clear(&mut self) {
         let spec = self.spec;
-        *self = Self::new(spec, HashSet::new());
+        *self = Self::new(spec, HashSet::new()/*, self.cfg.clone()*/);
     }
 
     /// Does cleanup and returns modified state.
@@ -117,6 +121,7 @@ impl JournaledState {
     #[inline]
     pub fn finalize(&mut self) -> (EvmState, Vec<Log>, Vec<JournalEntry>) {
         let Self {
+            //cfg: _,
             state,
             transient_storage,
             logs,
@@ -212,14 +217,20 @@ impl JournaledState {
         balance: U256,
         db: &mut DB,
     ) -> Result<Option<InstructionResult>, EVMError<DB::Error>> {
+        println!("transfer from {:?} to {:?}: {:?}", from, to, balance);
+
         // load accounts
         self.load_account(*from, db)?;
         self.load_account(*to, db)?;
 
         // sub balance from
         let from_account = &mut self.state.get_mut(from).unwrap();
+        println!("account: {:?}", from_account);
+
         Self::touch_account(self.journal.last_mut().unwrap(), from, from_account);
         let from_balance = &mut from_account.info.balance;
+
+        println!("balance: {:?}", from_balance);
 
         let Some(from_balance_incr) = from_balance.checked_sub(balance) else {
             return Ok(Some(InstructionResult::OutOfFunds));
@@ -644,13 +655,31 @@ impl JournaledState {
         db: &mut DB,
     ) -> Result<AccountLoad, EVMError<DB::Error>> {
         let spec = self.spec;
-        let account = self.load_code(address, db)?;
+        // Brecht
+        let mut account = self.load_code(address, db)?;
+
+        // If the contract doesn't have any code, try to load the code from the parent chain
+        // if account.info.is_empty_code_hash() {
+        //     println!("JS empty!: {:?}", self.cfg.parent_chain_id);
+        //     //if let Some(parent_chain_id) = &self.cfg.parent_chain_id {
+        //     let parent_chain_id = 1;
+        //         println!("JS parent loading...!");
+        //         let parent_account = self
+        //             .load_code(ChainAddress(parent_chain_id, address.1), db)?.clone();
+        //         if !parent_account.info.is_empty_code_hash() {
+        //             println!("JS Using code of parent chain for {:?}", address);
+        //             account = parent_account;
+        //         }
+        //     //}
+        // }
+
         let is_empty = account.state_clear_aware_is_empty(spec);
 
         let chain_id = address.0;
         let mut account_load = AccountLoad {
             is_empty,
-            load: Eip7702CodeLoad::new_not_delegated((), account.is_cold),
+            //load: Eip7702CodeLoad::new_not_delegated((), account.is_cold),
+            load: Eip7702CodeLoad::new_not_delegated((), true),
         };
         // load delegate code if account is EIP-7702
         if let Some(Bytecode::Eip7702(code)) = &account.info.code {

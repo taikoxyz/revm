@@ -47,6 +47,7 @@ pub fn last_frame_return<SPEC: Spec, EXT, DB: Database>(
     let gas = frame_result.gas_mut();
     let remaining = gas.remaining();
     let refunded = gas.refunded();
+    let used = gas.used_per_chain();
 
     // Spend the gas limit. Gas is reimbursed when the tx returns successfully.
     *gas = Gas::new_spent(context.evm.env.tx.gas_limit);
@@ -54,10 +55,12 @@ pub fn last_frame_return<SPEC: Spec, EXT, DB: Database>(
     match instruction_result {
         return_ok!() => {
             gas.erase_cost(remaining);
+            gas.track_used_per_chain(used);
             gas.record_refund(refunded);
         }
         return_revert!() => {
             gas.erase_cost(remaining);
+            gas.track_used_per_chain(used);
         }
         _ => {}
     }
@@ -80,7 +83,7 @@ pub fn call_return<EXT, DB: Database>(
     frame: Box<CallFrame>,
     interpreter_result: InterpreterResult,
 ) -> Result<CallOutcome, EVMError<DB::Error>> {
-    //println!("mainnet::call_return");
+    println!("mainnet::call_return");
     context
         .evm
         .call_return(&interpreter_result, frame.frame_data.checkpoint);
@@ -218,7 +221,7 @@ mod tests {
         ));
         last_frame_return::<CancunSpec, _, _>(&mut ctx, &mut first_frame).unwrap();
         refund::<CancunSpec, _, _>(&mut ctx, first_frame.gas_mut(), 0);
-        *first_frame.gas()
+        first_frame.gas().clone()
     }
 
     #[test]
@@ -234,7 +237,7 @@ mod tests {
         let mut return_gas = Gas::new(90);
         return_gas.record_refund(30);
 
-        let gas = call_last_frame_return(InstructionResult::Stop, return_gas);
+        let gas = call_last_frame_return(InstructionResult::Stop, return_gas.clone());
         assert_eq!(gas.remaining(), 90);
         assert_eq!(gas.spent(), 10);
         assert_eq!(gas.refunded(), 2);

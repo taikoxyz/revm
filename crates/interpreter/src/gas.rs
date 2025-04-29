@@ -3,11 +3,13 @@
 mod calc;
 mod constants;
 
+use std::collections::HashMap;
+
 pub use calc::*;
 pub use constants::*;
 
 /// Represents the state of gas during execution.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Gas {
     /// The initial gas limit. This is constant throughout execution.
@@ -16,26 +18,30 @@ pub struct Gas {
     remaining: u64,
     /// Refunded gas. This is used only at the end of execution.
     refunded: i64,
+    /// Gas used on each chain
+    used: HashMap<u64, u64>,
 }
 
 impl Gas {
     /// Creates a new `Gas` struct with the given gas limit.
     #[inline]
-    pub const fn new(limit: u64) -> Self {
+    pub fn new(limit: u64) -> Self {
         Self {
             limit,
             remaining: limit,
             refunded: 0,
+            used: HashMap::new(),
         }
     }
 
     /// Creates a new `Gas` struct with the given gas limit, but without any gas remaining.
     #[inline]
-    pub const fn new_spent(limit: u64) -> Self {
+    pub fn new_spent(limit: u64) -> Self {
         Self {
             limit,
             remaining: 0,
             refunded: 0,
+            used: HashMap::new(),
         }
     }
 
@@ -83,6 +89,12 @@ impl Gas {
         self.remaining += returned;
     }
 
+    /// Track gas used per chain
+    #[inline]
+    pub fn track_used_per_chain(&mut self, used: HashMap<u64, u64>) {
+        self.used = used;
+    }
+
     /// Spends all remaining gas.
     #[inline]
     pub fn spend_all(&mut self) {
@@ -120,12 +132,27 @@ impl Gas {
     /// Returns `false` if the gas limit is exceeded.
     #[inline]
     #[must_use = "prefer using `gas!` instead to return an out-of-gas error on failure"]
-    pub fn record_cost(&mut self, cost: u64) -> bool {
+    pub fn record_cost(&mut self, chain_id: u64, cost: u64) -> bool {
+        //println!("remaining: {}, cost: {}", self.remaining, cost);
         let (remaining, overflow) = self.remaining.overflowing_sub(cost);
         let success = !overflow;
         if success {
             self.remaining = remaining;
+
+            // per chain gas tracking
+            if !self.used.contains_key(&chain_id) {
+                println!("inserting chain id {}", chain_id);
+                self.used.insert(chain_id, 0);
+            }
+            //println!("[{}] gas: {} ({})", chain_id, self.used.get_mut(&chain_id).unwrap(), cost);
+            //*self.used.get_mut(&chain_id).unwrap() += cost;
         }
         success
+    }
+
+    /// Returns the total amount of gas spent.
+    #[inline]
+    pub fn used_per_chain(&self) -> HashMap<u64, u64> {
+        self.used.clone()
     }
 }

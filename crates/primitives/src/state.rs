@@ -1,7 +1,7 @@
 use crate::{Address, Bytecode, HashMap, SpecId, StateChanges, TxEnv, B256, KECCAK_EMPTY, U256, I256};
 use alloy_primitives::Bytes;
 use bitflags::bitflags;
-use core::hash::{Hash, Hasher};
+use core::{fmt, hash::{Hash, Hasher}};
 use std::io::Read;
 
 /// Chain specific address
@@ -9,6 +9,12 @@ use std::io::Read;
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ChainAddress(pub u64, pub Address);
+
+impl fmt::Display for ChainAddress {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}:{:#x}", self.0, self.1)
+    }
+}
 
 /// EVM State is a mapping from addresses to accounts.
 pub type EvmState = HashMap<ChainAddress, Account>;
