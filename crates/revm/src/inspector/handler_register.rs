@@ -1,9 +1,9 @@
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     handler::register::EvmHandler,
     interpreter::{opcode, InstructionResult, Interpreter},
-    primitives::EVMError,
-    Context, FrameOrResult, FrameResult, Inspector, JournalEntry,
+    primitives::{JournalEntry, EVMError},
+    Context, FrameOrResult, FrameResult, Inspector,
 };
 use core::cell::RefCell;
 use revm_interpreter::opcode::DynInstruction;
@@ -336,10 +336,11 @@ mod tests {
             db::BenchmarkDB,
             inspector::inspector_handle_register,
             interpreter::opcode,
-            primitives::{address, Bytecode, Bytes, TxKind},
+            primitives::{address, Bytecode, Bytes, ChainAddress, TxKind, TransactTo},
             Evm,
         };
 
+        let chain_id = 1;
         let contract_data: Bytes = Bytes::from(vec![
             opcode::PUSH1,
             0x1,
@@ -361,8 +362,8 @@ mod tests {
             .with_external_context(StackInspector::default())
             .modify_tx_env(|tx| {
                 tx.clear();
-                tx.caller = address!("1000000000000000000000000000000000000000");
-                tx.transact_to = TxKind::Call(address!("0000000000000000000000000000000000000000"));
+                tx.caller = ChainAddress(chain_id, address!("1000000000000000000000000000000000000000"));
+                tx.transact_to = TransactTo::Call(ChainAddress(chain_id, address!("0000000000000000000000000000000000000000")));
                 tx.gas_limit = 21100;
             })
             .append_handler_register(inspector_handle_register)

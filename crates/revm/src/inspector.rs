@@ -12,7 +12,7 @@ use crate::{
     interpreter::{
         CallInputs, CallOutcome, CreateInputs, CreateOutcome, EOFCreateInputs, Interpreter,
     },
-    primitives::{db::Database, Address, Log, U256},
+    primitives::{db::SyncDatabase as Database, Address, ChainAddress, Log, U256},
     EvmContext,
 };
 use auto_impl::auto_impl;
@@ -162,7 +162,7 @@ pub trait Inspector<DB: Database> {
 
     /// Called when a contract has been self-destructed with funds transferred to target.
     #[inline]
-    fn selfdestruct(&mut self, contract: Address, target: Address, value: U256) {
+    fn selfdestruct(&mut self, contract: ChainAddress, target: ChainAddress, value: U256) {
         let _ = contract;
         let _ = target;
         let _ = value;

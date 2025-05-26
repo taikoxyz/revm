@@ -1,11 +1,11 @@
 use crate::{
-    db::Database,
+    db::SyncDatabase as Database,
     frame::EOFCreateFrame,
     interpreter::{
         return_ok, return_revert, CallInputs, CreateInputs, CreateOutcome, Gas, InstructionResult,
         SharedMemory,
     },
-    primitives::{EVMError, Spec},
+    primitives::{ChainAddress, EVMError, Spec},
     CallFrame, Context, CreateFrame, Frame, FrameOrResult, FrameResult,
 };
 use core::mem;
@@ -23,6 +23,7 @@ pub fn execute_frame<SPEC: Spec, EXT, DB: Database>(
     instruction_tables: &InstructionTables<'_, Context<EXT, DB>>,
     context: &mut Context<EXT, DB>,
 ) -> Result<InterpreterAction, EVMError<DB::Error>> {
+    //println!("mainnet::execute_frame");
     let interpreter = frame.interpreter_mut();
     let memory = mem::replace(shared_memory, EMPTY_SHARED_MEMORY);
     let next_action = match instruction_tables {
@@ -41,10 +42,12 @@ pub fn last_frame_return<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     frame_result: &mut FrameResult,
 ) -> Result<(), EVMError<DB::Error>> {
+    //println!("mainnet::last_frame_return");
     let instruction_result = frame_result.interpreter_result().result;
     let gas = frame_result.gas_mut();
     let remaining = gas.remaining();
     let refunded = gas.refunded();
+    let used = gas.used_per_chain();
 
     // Spend the gas limit. Gas is reimbursed when the tx returns successfully.
     *gas = Gas::new_spent(context.evm.env.tx.gas_limit);
@@ -52,10 +55,12 @@ pub fn last_frame_return<SPEC: Spec, EXT, DB: Database>(
     match instruction_result {
         return_ok!() => {
             gas.erase_cost(remaining);
+            gas.track_used_per_chain(used);
             gas.record_refund(refunded);
         }
         return_revert!() => {
             gas.erase_cost(remaining);
+            gas.track_used_per_chain(used);
         }
         _ => {}
     }
@@ -68,6 +73,7 @@ pub fn call<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     inputs: Box<CallInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
+    //println!("mainnet::call ==> make_call_frame {} -> {}", inputs.caller.0, inputs.target_address.0);
     context.evm.make_call_frame(&inputs)
 }
 
@@ -77,12 +83,14 @@ pub fn call_return<EXT, DB: Database>(
     frame: Box<CallFrame>,
     interpreter_result: InterpreterResult,
 ) -> Result<CallOutcome, EVMError<DB::Error>> {
+    println!("mainnet::call_return");
     context
         .evm
         .call_return(&interpreter_result, frame.frame_data.checkpoint);
     Ok(CallOutcome::new(
         interpreter_result,
         frame.return_memory_range,
+        None,
     ))
 }
 
@@ -107,6 +115,7 @@ pub fn create<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     inputs: Box<CreateInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
+    //println!("mainnet::create");
     context.evm.make_create_frame(SPEC::SPEC_ID, &inputs)
 }
 
@@ -116,9 +125,10 @@ pub fn create_return<SPEC: Spec, EXT, DB: Database>(
     frame: Box<CreateFrame>,
     mut interpreter_result: InterpreterResult,
 ) -> Result<CreateOutcome, EVMError<DB::Error>> {
+    //println!("mainnet::create_return");
     context.evm.create_return::<SPEC>(
         &mut interpreter_result,
-        frame.created_address,
+        ChainAddress(frame.frame_data.interpreter.chain_id, frame.created_address),
         frame.frame_data.checkpoint,
     );
     Ok(CreateOutcome::new(
@@ -133,6 +143,7 @@ pub fn insert_create_outcome<EXT, DB: Database>(
     frame: &mut Frame,
     outcome: CreateOutcome,
 ) -> Result<(), EVMError<DB::Error>> {
+    //println!("mainnet::insert_create_outcome");
     context.evm.take_error()?;
     frame
         .frame_data_mut()
@@ -147,6 +158,7 @@ pub fn eofcreate<SPEC: Spec, EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     inputs: Box<EOFCreateInputs>,
 ) -> Result<FrameOrResult, EVMError<DB::Error>> {
+    //println!("mainnet::eofcreate");
     context.evm.make_eofcreate_frame(SPEC::SPEC_ID, &inputs)
 }
 
@@ -156,9 +168,10 @@ pub fn eofcreate_return<SPEC: Spec, EXT, DB: Database>(
     frame: Box<EOFCreateFrame>,
     mut interpreter_result: InterpreterResult,
 ) -> Result<CreateOutcome, EVMError<DB::Error>> {
+    //println!("mainnet::eofcreate_return");
     context.evm.eofcreate_return::<SPEC>(
         &mut interpreter_result,
-        frame.created_address,
+        ChainAddress(frame.frame_data.interpreter.chain_id, frame.created_address),
         frame.frame_data.checkpoint,
     );
     Ok(CreateOutcome::new(
@@ -173,6 +186,7 @@ pub fn insert_eofcreate_outcome<EXT, DB: Database>(
     frame: &mut Frame,
     outcome: CreateOutcome,
 ) -> Result<(), EVMError<DB::Error>> {
+    //println!("mainnet::insert_eofcreate_outcome");
     core::mem::replace(&mut context.evm.error, Ok(()))?;
     frame
         .frame_data_mut()
@@ -200,12 +214,14 @@ mod tests {
                 result: instruction_result,
                 output: Bytes::new(),
                 gas,
+                call_options: None,
             },
             0..0,
+            None
         ));
         last_frame_return::<CancunSpec, _, _>(&mut ctx, &mut first_frame).unwrap();
         refund::<CancunSpec, _, _>(&mut ctx, first_frame.gas_mut(), 0);
-        *first_frame.gas()
+        first_frame.gas().clone()
     }
 
     #[test]
@@ -221,7 +237,7 @@ mod tests {
         let mut return_gas = Gas::new(90);
         return_gas.record_refund(30);
 
-        let gas = call_last_frame_return(InstructionResult::Stop, return_gas);
+        let gas = call_last_frame_return(InstructionResult::Stop, return_gas.clone());
         assert_eq!(gas.remaining(), 90);
         assert_eq!(gas.spent(), 10);
         assert_eq!(gas.refunded(), 2);

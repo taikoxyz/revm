@@ -5,6 +5,7 @@ use revm_interpreter::primitives::{
     Account, AccountInfo, Address, Bytecode, EvmState, HashMap, B256,
 };
 use std::vec::Vec;
+use crate::primitives::ChainAddress;
 
 /// Cache state contains both modified and original values.
 ///
@@ -15,7 +16,7 @@ use std::vec::Vec;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CacheState {
     /// Block state account with account state.
-    pub accounts: HashMap<Address, CacheAccount>,
+    pub accounts: HashMap<ChainAddress, CacheAccount>,
     /// Created contracts.
     // TODO add bytecode counter for number of bytecodes added/removed.
     pub contracts: HashMap<B256, Bytecode>,
@@ -47,7 +48,7 @@ impl CacheState {
     /// Helper function that returns all accounts.
     ///
     /// Used inside tests to generate merkle tree.
-    pub fn trie_account(&self) -> impl IntoIterator<Item = (Address, &PlainAccount)> {
+    pub fn trie_account(&self) -> impl IntoIterator<Item = (ChainAddress, &PlainAccount)> {
         self.accounts.iter().filter_map(|(address, account)| {
             account
                 .account
@@ -57,13 +58,13 @@ impl CacheState {
     }
 
     /// Insert not existing account.
-    pub fn insert_not_existing(&mut self, address: Address) {
+    pub fn insert_not_existing(&mut self, address: ChainAddress) {
         self.accounts
             .insert(address, CacheAccount::new_loaded_not_existing());
     }
 
     /// Insert Loaded (Or LoadedEmptyEip161 if account is empty) account.
-    pub fn insert_account(&mut self, address: Address, info: AccountInfo) {
+    pub fn insert_account(&mut self, address: ChainAddress, info: AccountInfo) {
         let account = if !info.is_empty() {
             CacheAccount::new_loaded(info, HashMap::default())
         } else {
@@ -75,7 +76,7 @@ impl CacheState {
     /// Similar to `insert_account` but with storage.
     pub fn insert_account_with_storage(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         info: AccountInfo,
         storage: PlainStorage,
     ) {
@@ -88,7 +89,7 @@ impl CacheState {
     }
 
     /// Apply output of revm execution and create account transitions that are used to build BundleState.
-    pub fn apply_evm_state(&mut self, evm_state: EvmState) -> Vec<(Address, TransitionAccount)> {
+    pub fn apply_evm_state(&mut self, evm_state: EvmState) -> Vec<(ChainAddress, TransitionAccount)> {
         let mut transitions = Vec::with_capacity(evm_state.len());
         for (address, account) in evm_state {
             if let Some(transition) = self.apply_account_state(address, account) {
@@ -102,7 +103,7 @@ impl CacheState {
     /// Returns account transition if applicable.
     fn apply_account_state(
         &mut self,
-        address: Address,
+        address: ChainAddress,
         account: Account,
     ) -> Option<TransitionAccount> {
         // not touched account are never changed.

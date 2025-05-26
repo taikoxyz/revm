@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use crate::{
     interpreter::{Gas, SuccessOrHalt},
     primitives::{
-        db::Database, EVMError, ExecutionResult, ResultAndState, Spec, SpecId, SpecId::LONDON, U256,
+        db::SyncDatabase as Database, EVMError, ExecutionResult, ResultAndState, Spec, SpecId, SpecId::LONDON, U256, StateChanges,
     },
     Context, FrameResult,
 };
@@ -98,15 +100,18 @@ pub fn output<EXT, DB: Database>(
     context: &mut Context<EXT, DB>,
     result: FrameResult,
 ) -> Result<ResultAndState, EVMError<DB::Error>> {
+    println!("mainnet::output");
+    println!("result: {:?}", result.gas());
     context.evm.take_error()?;
     // used gas with refund calculated.
     let gas_refunded = result.gas().refunded() as u64;
     let final_gas_used = result.gas().spent() - gas_refunded;
+    let gas_used_per_chain = result.gas().used_per_chain();
     let output = result.output();
     let instruction_result = result.into_interpreter_result();
 
     // reset journal and return present state.
-    let (state, logs) = context.evm.journaled_state.finalize();
+    let (state, logs, state_changes) = context.evm.journaled_state.finalize();
 
     let result = match instruction_result.result.into() {
         SuccessOrHalt::Success(reason) => ExecutionResult::Success {
@@ -115,14 +120,19 @@ pub fn output<EXT, DB: Database>(
             gas_refunded,
             logs,
             output,
+            state_changes: StateChanges { entries: state_changes },
+            gas_used_per_chain,
+            gas_refunded_per_chain: HashMap::new(),
         },
         SuccessOrHalt::Revert => ExecutionResult::Revert {
             gas_used: final_gas_used,
             output: output.into_data(),
+            gas_used_per_chain,
         },
         SuccessOrHalt::Halt(reason) => ExecutionResult::Halt {
             reason,
             gas_used: final_gas_used,
+            gas_used_per_chain,
         },
         // Only two internal return flags.
         flag @ (SuccessOrHalt::FatalExternalError | SuccessOrHalt::Internal(_)) => {

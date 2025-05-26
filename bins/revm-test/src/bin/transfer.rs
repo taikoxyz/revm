@@ -1,6 +1,6 @@
 use revm::{
     db::BenchmarkDB,
-    primitives::{Bytecode, TxKind, U256},
+    primitives::{Bytecode, ChainAddress, TransactTo, TxKind, U256},
     Evm,
 };
 
@@ -12,14 +12,10 @@ fn main() {
         .with_db(BenchmarkDB::new_bytecode(Bytecode::new()))
         .modify_tx_env(|tx| {
             // execution globals block hash/gas_limit/coinbase/timestamp..
-            tx.caller = "0x0000000000000000000000000000000000000001"
-                .parse()
-                .unwrap();
+            tx.caller = ChainAddress(1, "0x0000000000000000000000000000000000000001".parse().unwrap());
             tx.value = U256::from(10);
-            tx.transact_to = TxKind::Call(
-                "0x0000000000000000000000000000000000000000"
-                    .parse()
-                    .unwrap(),
+            tx.transact_to = TransactTo::Call(
+                ChainAddress(1, "0x0000000000000000000000000000000000000000".parse().unwrap()),
             );
         })
         .build();

@@ -2,7 +2,7 @@ use revm::{
     db::BenchmarkDB,
     inspector_handle_register,
     inspectors::TracerEip3155,
-    primitives::{Address, Bytecode, BytecodeDecodeError, TxKind},
+    primitives::{Address, Bytecode, BytecodeDecodeError, ChainAddress, TransactTo, TxKind},
     Evm,
 };
 use std::io::Error as IoError;
@@ -79,10 +79,10 @@ impl Cmd {
             )?))
             .modify_tx_env(|tx| {
                 // execution globals block hash/gas_limit/coinbase/timestamp..
-                tx.caller = "0x0000000000000000000000000000000000000001"
+                tx.caller = ChainAddress(1, "0x0000000000000000000000000000000000000001"
                     .parse()
-                    .unwrap();
-                tx.transact_to = TxKind::Call(Address::ZERO);
+                    .unwrap());
+                tx.transact_to = TransactTo::Call(ChainAddress(1, Address::ZERO));
                 tx.data = input;
             })
             .build();

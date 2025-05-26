@@ -5,15 +5,15 @@ use crate::{
 };
 
 /// EIP-1344: ChainID opcode
-pub fn chainid<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host: &mut H) {
+pub fn chainid<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, _host: &mut H) {
     check!(interpreter, ISTANBUL);
     gas!(interpreter, gas::BASE);
-    push!(interpreter, U256::from(host.env().cfg.chain_id));
+    push!(interpreter, U256::from(interpreter.chain_id));
 }
 
 pub fn coinbase<H: Host + ?Sized>(interpreter: &mut Interpreter, host: &mut H) {
     gas!(interpreter, gas::BASE);
-    push_b256!(interpreter, host.env().block.coinbase.into_word());
+    push_b256!(interpreter, host.env().block.coinbase.1.into_word());
 }
 
 pub fn timestamp<H: Host + ?Sized>(interpreter: &mut Interpreter, host: &mut H) {
@@ -54,7 +54,7 @@ pub fn basefee<H: Host + ?Sized, SPEC: Spec>(interpreter: &mut Interpreter, host
 
 pub fn origin<H: Host + ?Sized>(interpreter: &mut Interpreter, host: &mut H) {
     gas!(interpreter, gas::BASE);
-    push_b256!(interpreter, host.env().tx.caller.into_word());
+    push_b256!(interpreter, host.env().tx.caller.1.into_word());
 }
 
 // EIP-4844: Shard Blob Transactions

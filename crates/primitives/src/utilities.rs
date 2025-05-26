@@ -29,6 +29,32 @@ pub fn calc_blob_gasprice(excess_blob_gas: u64) -> u128 {
     )
 }
 
+/// Calculates the `excess_gwyneth_gas` from the parent header's `gas_used` and `excess_gas_gas`.
+///
+/// See also [the EIP-4844 helpers]<https://eips.ethereum.org/EIPS/eip-4844#helpers>
+/// (`calc_excess_blob_gas`).
+#[inline]
+pub fn calc_excess_gwyneth_gas(parent_excess_gas: u64, parent_gas_used: u64, parent_time_stamp: u64, current_time_stamp: u64, target_gas_per_second: u64) -> u64 {
+    let mut excess_gas = (parent_excess_gas + parent_gas_used).saturating_sub(current_time_stamp.checked_sub(parent_time_stamp).unwrap() * target_gas_per_second);
+    if excess_gas == 0 {
+        excess_gas = 1;
+    }
+    excess_gas
+}
+
+/// Calculates the gwyneth gas price from the header's excess gas field.
+///
+/// See also [the EIP-4844 helpers](https://eips.ethereum.org/EIPS/eip-4844#helpers)
+/// (`get_blob_gasprice`).
+#[inline]
+pub fn calc_gwyneth_gasprice(excess_gwyneth_gas: u64) -> u128 {
+    fake_exponential(
+        MIN_BLOB_GASPRICE,
+        excess_gwyneth_gas,
+        BLOB_GASPRICE_UPDATE_FRACTION,
+    )
+}
+
 /// Approximates `factor * e ** (numerator / denominator)` using Taylor expansion.
 ///
 /// This is used to calculate the blob price.

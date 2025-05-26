@@ -6,7 +6,7 @@ use ethers_providers::{Http, Provider};
 use indicatif::ProgressBar;
 use revm::db::{CacheDB, EthersDB, StateBuilder};
 use revm::inspectors::TracerEip3155;
-use revm::primitives::{AccessListItem, Address, TxKind, B256, U256};
+use revm::primitives::{AccessListItem, Address, ChainAddress, TransactTo, TxKind, B256, U256};
 use revm::{inspector_handle_register, Evm};
 use std::fs::OpenOptions;
 use std::io::BufWriter;
@@ -83,7 +83,8 @@ async fn main() -> anyhow::Result<()> {
                 let nn = number.0[0];
                 b.number = U256::from(nn);
             }
-            local_fill!(b.coinbase, block.author);
+            b.coinbase = ChainAddress(chain_id, Address::from(block.author.unwrap().as_fixed_bytes()));
+            //local_fill!(b.coinbase, block.author);
             local_fill!(b.timestamp, Some(block.timestamp), U256::from_limbs);
             local_fill!(b.difficulty, Some(block.difficulty), U256::from_limbs);
             local_fill!(b.gas_limit, Some(block.gas_limit), U256::from_limbs);
@@ -111,7 +112,7 @@ async fn main() -> anyhow::Result<()> {
         evm = evm
             .modify()
             .modify_tx_env(|etx| {
-                etx.caller = Address::from(tx.from.as_fixed_bytes());
+                etx.caller = ChainAddress(chain_id, Address::from(tx.from.as_fixed_bytes()));
                 etx.gas_limit = tx.gas.as_u64();
                 local_fill!(etx.gas_price, tx.gas_price, U256::from_limbs);
                 local_fill!(etx.value, Some(tx.value), U256::from_limbs);
@@ -123,7 +124,7 @@ async fn main() -> anyhow::Result<()> {
                     U256::from_limbs
                 );
                 etx.gas_priority_fee = Some(gas_priority_fee);
-                etx.chain_id = Some(chain_id);
+                etx.chain_ids = Some(vec![chain_id]);
                 etx.nonce = Some(tx.nonce.as_u64());
                 if let Some(access_list) = tx.access_list {
                     etx.access_list = access_list
@@ -147,8 +148,8 @@ async fn main() -> anyhow::Result<()> {
                 }
 
                 etx.transact_to = match tx.to {
-                    Some(to_address) => TxKind::Call(Address::from(to_address.as_fixed_bytes())),
-                    None => TxKind::Create,
+                    Some(to_address) => TransactTo::Call(ChainAddress(chain_id, Address::from(to_address.as_fixed_bytes()))),
+                    None => TransactTo::Create,
                 };
             })
             .build();

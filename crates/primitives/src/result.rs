@@ -1,8 +1,9 @@
 use crate::{
-    eip7702::authorization_list::InvalidAuthorization, Address, Bytes, EvmState, Log, U256,
+    eip7702::authorization_list::InvalidAuthorization, Address, Bytes, EvmState, JournalEntry, Log, XCallData, U256
+
 };
 use core::fmt;
-use std::{boxed::Box, string::String, vec::Vec};
+use std::{boxed::Box, collections::HashMap, string::String, vec::Vec};
 
 /// Result of EVM execution.
 pub type EVMResult<DBError> = EVMResultGeneric<ResultAndState, DBError>;
@@ -19,8 +20,15 @@ pub struct ResultAndState {
     pub state: EvmState,
 }
 
+#[derive(Debug, Default, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct StateChanges {
+    /// Entries
+    pub entries: Vec<JournalEntry>
+}
+
 /// Result of a transaction execution.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ExecutionResult {
     /// Returned successfully
@@ -30,14 +38,19 @@ pub enum ExecutionResult {
         gas_refunded: u64,
         logs: Vec<Log>,
         output: Output,
+        state_changes: StateChanges,
+        gas_used_per_chain: HashMap<u64, u64>,
+        gas_refunded_per_chain: HashMap<u64, u64>,
     },
     /// Reverted by `REVERT` opcode that doesn't spend all gas.
-    Revert { gas_used: u64, output: Bytes },
+    Revert { gas_used: u64, gas_used_per_chain: HashMap<u64, u64>, output: Bytes },
     /// Reverted for various reasons and spend all gas.
     Halt {
         reason: HaltReason,
         /// Halting will spend all the gas, and will be equal to gas_limit.
         gas_used: u64,
+        /// Per chain
+        gas_used_per_chain: HashMap<u64, u64>,
     },
 }
 
@@ -98,6 +111,15 @@ impl ExecutionResult {
             Self::Success { gas_used, .. }
             | Self::Revert { gas_used, .. }
             | Self::Halt { gas_used, .. } => gas_used,
+        }
+    }
+
+
+    /// Returns the state changes if execution is successful, or an empty change list otherwise.
+    pub fn state_changes(&self) -> StateChanges {
+        match self {
+            Self::Success { state_changes, .. } => state_changes.clone(),
+            _ => StateChanges::default(),
         }
     }
 }

@@ -54,7 +54,7 @@ macro_rules! gas {
         $crate::gas!($interp, $gas, ())
     };
     ($interp:expr, $gas:expr, $ret:expr) => {
-        if !$interp.gas.record_cost($gas) {
+        if !$interp.gas.record_cost($interp.chain_id, $gas) {
             $interp.instruction_result = $crate::InstructionResult::OutOfGas;
             return $ret;
         }
@@ -101,6 +101,7 @@ macro_rules! resize_memory {
 
             // Note: we can't use `Interpreter` directly here because of potential double-borrows.
             if !$crate::interpreter::resize_memory(
+                $interp.chain_id,
                 &mut $interp.shared_memory,
                 &mut $interp.gas,
                 new_size,
@@ -150,6 +151,21 @@ macro_rules! pop_address_ret {
         }));
     };
 }
+
+/// Pops `U256` values from the stack. Fails the instruction if the stack is too small.
+#[macro_export]
+macro_rules! pop_chain_address {
+    ($interp:expr, $x1:ident) => {
+        pop_address!($interp, $x1);
+        let $x1 = $crate::primitives::ChainAddress($interp.chain_id, $x1);
+    };
+    ($interp:expr, $x1:ident, $x2:ident) => {
+        pop_address!($interp, $x1, $x2);
+        let $x1 = ChainAddress($interp.chain_id, $x1);
+        let $x2 = ChainAddress($interp.chain_id, $x2);
+    };
+}
+
 
 /// Pops `U256` values from the stack. Fails the instruction if the stack is too small.
 #[macro_export]

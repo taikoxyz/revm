@@ -9,7 +9,7 @@ pub use handle_types::*;
 // Includes.
 use crate::{
     interpreter::{opcode::InstructionTables, Host, InterpreterAction, SharedMemory},
-    primitives::{db::Database, spec_to_generic, EVMError, HandlerCfg, Spec, SpecId},
+    primitives::{db::SyncDatabase as Database, spec_to_generic, EVMError, HandlerCfg, Spec, SpecId},
     Context, Frame,
 };
 use core::mem;

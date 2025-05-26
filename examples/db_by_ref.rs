@@ -4,17 +4,17 @@ use revm::{
     inspector_handle_register,
     inspectors::{NoOpInspector, TracerEip3155},
     primitives::ResultAndState,
-    DatabaseCommit, DatabaseRef, Evm,
+    DatabaseCommit, DatabaseRef, Evm, SyncDatabaseRef,
 };
 use std::error::Error;
 
-trait DatabaseRefDebugError: DatabaseRef<Error = Self::DBError> {
+trait DatabaseRefDebugError: SyncDatabaseRef<Error = Self::DBError> {
     type DBError: std::fmt::Debug + Error + Send + Sync + 'static;
 }
 
 impl<DBError, DB> DatabaseRefDebugError for DB
 where
-    DB: DatabaseRef<Error = DBError>,
+    DB: SyncDatabaseRef<Error = DBError>,
     DBError: std::fmt::Debug + Error + Send + Sync + 'static,
 {
     type DBError = DBError;

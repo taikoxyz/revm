@@ -2,7 +2,7 @@
 use crate::{
     handler::mainnet,
     interpreter::Gas,
-    primitives::{db::Database, EVMError, EVMResultGeneric, ResultAndState, Spec},
+    primitives::{db::SyncDatabase as Database, EVMError, EVMResultGeneric, ResultAndState, Spec},
     Context, FrameResult,
 };
 use std::sync::Arc;
