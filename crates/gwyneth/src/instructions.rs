@@ -44,7 +44,7 @@ mod hack {
     use revm::{
         context::Cfg,
         interpreter::{
-            gas,
+            check, gas,
             instructions::{
                 contract::{calc_call_gas, get_memory_input_and_out_ranges},
                 utility::IntoAddress,
@@ -53,10 +53,10 @@ mod hack {
             popn, CallInput, CallInputs, CallScheme, CallValue, FrameInput, Host,
             InstructionContext, InstructionResult, InterpreterAction, InterpreterTypes,
         },
-        primitives::Address,
+        primitives::{Address, B256, U256},
     };
 
-    pub fn call<WIRE: InterpreterTypes, H: GwynethContextTr + Host>(
+    pub fn call<WIRE: InterpreterTypes, H: GwynethContextTr + Host + ?Sized>(
         context: InstructionContext<'_, H, WIRE>,
     ) {
         popn!([local_gas_limit, to, value], context.interpreter);
@@ -134,7 +134,7 @@ mod hack {
         );
     }
 
-    pub fn call_code<WIRE: InterpreterTypes, H: Host + ?Sized>(
+    pub fn call_code<WIRE: InterpreterTypes, H: GwynethContextTr + Host + ?Sized>(
         context: InstructionContext<'_, H, WIRE>,
     ) {
         popn!([local_gas_limit, to, value], context.interpreter);
@@ -203,7 +203,7 @@ mod hack {
         );
     }
 
-    pub fn delegate_call<WIRE: InterpreterTypes, H: Host + ?Sized>(
+    pub fn delegate_call<WIRE: InterpreterTypes, H: GwynethContextTr + Host + ?Sized>(
         context: InstructionContext<'_, H, WIRE>,
     ) {
         check!(context.interpreter, HOMESTEAD);
@@ -266,7 +266,7 @@ mod hack {
         );
     }
 
-    pub fn static_call<WIRE: InterpreterTypes, H: Host + ?Sized>(
+    pub fn static_call<WIRE: InterpreterTypes, H: GwynethContextTr + Host + ?Sized>(
         context: InstructionContext<'_, H, WIRE>,
     ) {
         check!(context.interpreter, BYZANTIUM);

@@ -2121,6 +2121,7 @@ version = "0.1.0"
 dependencies = [
  "auto_impl",
  "revm",
+ "revm-primitives",
  "serde",
 ]
 

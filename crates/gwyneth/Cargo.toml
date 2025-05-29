@@ -12,6 +12,7 @@ edition.workspace = true
 
 [dependencies]
 revm.workspace = true
+primitives.workspace = true
 auto_impl.workspace = true
 
 # optional

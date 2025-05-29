@@ -1,28 +1,32 @@
-use crate::precompiles::GwynethPrecompiles;
+use crate::{
+    context::GwynethContextTr, instructions::GwynethInstructions, precompiles::GwynethPrecompiles,
+};
 use revm::{
     context::{ContextSetters, Evm},
     context_interface::ContextTr,
-    handler::{
-        instructions::{EthInstructions, InstructionProvider},
-        EvmTr, PrecompileProvider,
-    },
+    handler::{instructions::InstructionProvider, EvmTr, PrecompileProvider},
     inspector::{InspectorEvmTr, JournalExt},
-    interpreter::{interpreter::EthInterpreter, Interpreter, InterpreterAction, InterpreterTypes},
+    interpreter::{
+        interpreter::EthInterpreter, Host, Interpreter, InterpreterAction, InterpreterTypes,
+    },
     Inspector,
 };
 
-pub struct GwynethEvm<CTX, INSP, I = EthInstructions<EthInterpreter, CTX>, P = GwynethPrecompiles>(
-    pub Evm<CTX, INSP, I, P>,
-);
+pub struct GwynethEvm<
+    CTX,
+    INSP,
+    I = GwynethInstructions<EthInterpreter, CTX>,
+    P = GwynethPrecompiles,
+>(pub Evm<CTX, INSP, I, P>);
 
-impl<CTX: ContextTr, INSP>
-    GwynethEvm<CTX, INSP, EthInstructions<EthInterpreter, CTX>, GwynethPrecompiles>
+impl<CTX: GwynethContextTr + Host, INSP>
+    GwynethEvm<CTX, INSP, GwynethInstructions<EthInterpreter, CTX>, GwynethPrecompiles>
 {
     pub fn new(ctx: CTX, inspector: INSP) -> Self {
         Self(Evm {
             ctx,
             inspector,
-            instruction: EthInstructions::new_mainnet(),
+            instruction: GwynethInstructions::new_mainnet(),
             precompiles: GwynethPrecompiles::default(),
         })
     }
