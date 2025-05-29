@@ -29,12 +29,6 @@ impl GwynethPrecompiles {
         }
     }
 
-    // Precompiles getter.
-    #[inline]
-    pub fn precompiles(&self) -> &'static Precompiles {
-        self.inner.precompiles
-    }
-
     /// Check if the current spec is BERLIN.
     /// We need attach the xcall precompile in BERLIN fork
     pub fn is_in_berlin(&self) -> bool {
