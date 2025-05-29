@@ -158,7 +158,7 @@ mod hack {
     ) -> CallTargets {
         //println!("apply_call_options {:?}", interpreter.call_options);
         let chain_id = context.host.cfg().chain_id();
-        let (xcall_options, mut to) = match context.host.chain().xcall_options.clone() {
+        let (xcall_options, mut to) = match context.host.chain().xcall_options.take() {
             Some(xcall_options) => {
                 println!("apply_call_options {:?}", xcall_options);
                 // In delegate call, the caller & target address remains on the same chain
@@ -206,10 +206,6 @@ mod hack {
         };
 
         //println!("call targets {:?}", call_targets);
-
-        // Consume the values
-        context.host.chain().xcall_options = None;
-
         call_targets
     }
 }
