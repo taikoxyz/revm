@@ -1,6 +1,7 @@
 use crate::{cfg::CfgExt, context::GwynethContextTr};
 use revm::{
-    context::Transaction,
+    context::{LocalContextTr, Transaction},
+    interpreter::{CallInput, InputsImpl},
     precompile::{u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult},
     primitives::{Address, Bytes, FixedBytes, B256},
 };
@@ -31,40 +32,55 @@ pub struct XCallOptions {
 
 /// Run the xcall precompile.
 pub fn run_xcall<CTX: GwynethContextTr>(
-    input: &[u8],
+    inputs: &InputsImpl,
     _gas_limit: u64,
-    ctx: &mut CTX,
+    context: &mut CTX,
     caller: Address,
 ) -> PrecompileResult {
-    println!("  xcalloptions_run: {}, {:?}", input.len(), input);
+    let (chain_id, sandbox, tx_origin, msg_sender, block_hash, proof) = {
+        let r;
+        let input = match &inputs.input {
+            CallInput::SharedBuffer(range) => {
+                if let Some(slice) = context.local().shared_memory_buffer_slice(range.clone()) {
+                    r = slice;
+                    r.as_ref()
+                } else {
+                    &[]
+                }
+            }
+            CallInput::Bytes(bytes) => bytes.0.iter().as_slice(),
+        };
+        println!("  xcalloptions_run: {}, {:?}", input.len(), input);
 
-    // Verify input length.
-    if input.len() < 83 {
-        return Err(PrecompileError::other(XCALL_INVALID_INPUT_LENGTH));
-    }
+        // Verify input length.
+        if input.len() < 83 {
+            return Err(PrecompileError::other(XCALL_INVALID_INPUT_LENGTH));
+        }
 
-    // Read the input data
-    let version = u16::from_be_bytes(input[0..2].try_into().unwrap());
-    let chain_id = u64::from_be_bytes(input[2..10].try_into().unwrap());
-    let sandbox = input[10] != 0;
-    let tx_origin: Address = (&input[11..31], chain_id).try_into().unwrap();
-    let msg_sender: Address = (&input[31..51], caller.chain_id()).try_into().unwrap();
-    let block_hash: Option<FixedBytes<32>> = Some(input[51..83].try_into().unwrap());
-    let proof = &input[83..];
+        // Read the input data
+        let version = u16::from_be_bytes(input[0..2].try_into().unwrap());
+        let chain_id = u64::from_be_bytes(input[2..10].try_into().unwrap());
+        let sandbox = input[10] != 0;
+        let tx_origin: Address = (&input[11..31], chain_id).try_into().unwrap();
+        let msg_sender: Address = (&input[31..51], caller.chain_id()).try_into().unwrap();
+        let block_hash: Option<FixedBytes<32>> = Some(input[51..83].try_into().unwrap());
+        let proof = input[83..].to_vec();
 
-    // Check the version
-    if version != 1 {
-        return Err(PrecompileError::other(XCALL_INVALID_VERSION));
-    }
+        // Check the version
+        if version != 1 {
+            return Err(PrecompileError::other(XCALL_INVALID_VERSION));
+        }
+        (chain_id, sandbox, tx_origin, msg_sender, block_hash, proof)
+    };
 
-    if !sandbox && !ctx.cfg().allow_mocking() {
+    if !sandbox && !context.cfg().allow_mocking() {
         // env.tx.caller is the Signer of the transaction
         // caller is the address of the contract that is calling the precompile
-        if tx_origin != ctx.tx().caller() || msg_sender != caller {
+        if tx_origin != context.tx().caller() || msg_sender != caller {
             println!(
                 "  tx_origin: {:?}, tx.caller: {:?}, msg_sender: {:?}, caller: {:?}",
                 tx_origin,
-                ctx.tx().caller(),
+                context.tx().caller(),
                 msg_sender,
                 caller
             );
@@ -73,15 +89,15 @@ pub fn run_xcall<CTX: GwynethContextTr>(
     }
 
     // Set the call options
-    *(&mut ctx.chain().xcall_options) = Some(XCallOptions {
+    *(&mut context.chain().xcall_options) = Some(XCallOptions {
         chain_id,
         sandbox,
         tx_origin,
         msg_sender,
         block_hash,
-        proof: proof.to_vec(),
+        proof,
     });
-    println!("  CallOptions: {:?}", ctx.chain().xcall_options);
+    println!("  CallOptions: {:?}", context.chain().xcall_options);
 
     Ok(PrecompileOutput::new(
         0,

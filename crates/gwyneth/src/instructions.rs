@@ -59,7 +59,16 @@ mod hack {
         popn!([local_gas_limit, to, value], context.interpreter);
         let to = to.into_address();
         // Get the target
-        let call_targets = apply_xcall_options::<WIRE, H>(context, to, false, false);
+
+        let call_targets = apply_xcall_options::<WIRE, H>(
+            InstructionContext {
+                host: context.host,
+                interpreter: context.interpreter,
+            },
+            to,
+            false,
+            false,
+        );
         // Max gas limit is not possible in real ethereum situation.
         let local_gas_limit = u64::try_from(local_gas_limit).unwrap_or(u64::MAX);
 

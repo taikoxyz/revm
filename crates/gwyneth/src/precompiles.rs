@@ -1,7 +1,7 @@
 use revm::{
-    context::{Cfg, LocalContextTr},
+    context::Cfg,
     handler::{EthPrecompiles, PrecompileProvider},
-    interpreter::{CallInput, Gas, InputsImpl, InstructionResult, InterpreterResult},
+    interpreter::{Gas, InputsImpl, InstructionResult, InterpreterResult},
     precompile::{PrecompileError, PrecompileSpecId, Precompiles},
     primitives::{hardfork::SpecId, Address, Bytes},
 };
@@ -65,21 +65,7 @@ impl<CTX: GwynethContextTr> PrecompileProvider<CTX> for GwynethPrecompiles {
                 gas: Gas::new(gas_limit),
                 output: Bytes::new(),
             };
-
-            let r;
-            let input_bytes = match &inputs.input {
-                CallInput::SharedBuffer(range) => {
-                    if let Some(slice) = context.local().shared_memory_buffer_slice(range.clone()) {
-                        r = slice;
-                        r.as_ref()
-                    } else {
-                        &[]
-                    }
-                }
-                CallInput::Bytes(bytes) => bytes.0.iter().as_slice(),
-            };
-
-            match xcall::run_xcall(input_bytes, gas_limit, context, inputs.caller_address) {
+            match xcall::run_xcall(inputs, gas_limit, context, inputs.caller_address) {
                 Ok(output) => {
                     let underflow = result.gas.record_cost(output.gas_used);
                     assert!(underflow, "Gas underflow is not possible");
