@@ -53,7 +53,7 @@ impl<CTX: GwynethContextTr> PrecompileProvider<CTX> for GwynethPrecompiles {
         is_static: bool,
         gas_limit: u64,
     ) -> Result<Option<Self::Output>, String> {
-        if self.is_in_berlin() && *address == xcall::XCALL_ADDRESS {
+        if self.is_in_berlin() && address == &xcall::XCALL_ADDRESS {
             let mut result = InterpreterResult {
                 result: InstructionResult::Return,
                 gas: Gas::new(gas_limit),
@@ -83,11 +83,18 @@ impl<CTX: GwynethContextTr> PrecompileProvider<CTX> for GwynethPrecompiles {
 
     #[inline]
     fn warm_addresses(&self) -> Box<impl Iterator<Item = Address>> {
-        self.inner.warm_addresses()
+        Box::new(
+            self.inner
+                .warm_addresses()
+                .chain(std::iter::once(xcall::XCALL_ADDRESS)),
+        )
     }
 
     #[inline]
     fn contains(&self, address: &Address) -> bool {
+        if address == &xcall::XCALL_ADDRESS {
+            return self.is_in_berlin();
+        }
         self.inner.contains(address)
     }
 }
