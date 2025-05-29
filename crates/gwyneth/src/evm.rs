@@ -1,7 +1,4 @@
-use crate::{
-    interpreter::InterpreterExtend,
-    precompiles::{GwynethPrecompiles, OpPrecompiles},
-};
+use crate::precompiles::GwynethPrecompiles;
 use revm::{
     context::{ContextSetters, Evm},
     context_interface::ContextTr,
@@ -26,25 +23,8 @@ impl<CTX: ContextTr, INSP>
             ctx,
             inspector,
             instruction: EthInstructions::new_mainnet(),
-            precompiles: OpPrecompiles::default(),
+            precompiles: GwynethPrecompiles::default(),
         })
-    }
-}
-
-impl<CTX, INSP, I, P> GwynethEvm<CTX, INSP, I, P> {
-    /// Consumed self and returns a new Evm type with given Inspector.
-    pub fn with_inspector<OINSP>(self, inspector: OINSP) -> OpEvm<CTX, OINSP, I, P> {
-        OpEvm(self.0.with_inspector(inspector))
-    }
-
-    /// Consumes self and returns a new Evm type with given Precompiles.
-    pub fn with_precompiles<OP>(self, precompiles: OP) -> OpEvm<CTX, INSP, I, OP> {
-        OpEvm(self.0.with_precompiles(precompiles))
-    }
-
-    /// Consumes self and returns the inner Inspector.
-    pub fn into_inspector(self) -> INSP {
-        self.0.into_inspector()
     }
 }
 

@@ -1,5 +1,5 @@
 use crate::cfg::CfgExt;
-use revm::context::{Cfg, ContextTr};
+use revm::context::ContextTr;
 
 // Type alias for Gwyneth context
 pub trait GwynethContextTr: ContextTr<Cfg: CfgExt, Chain = GwynethContext> {}

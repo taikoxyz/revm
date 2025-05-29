@@ -1,15 +1,14 @@
 use revm::{
     context::{Cfg, LocalContextTr},
-    context_interface::ContextTr,
     handler::{EthPrecompiles, PrecompileProvider},
     interpreter::{CallInput, Gas, InputsImpl, InstructionResult, InterpreterResult},
-    precompile::{PrecompileSpecId, Precompiles},
+    precompile::{PrecompileError, PrecompileSpecId, Precompiles},
     primitives::{hardfork::SpecId, Address, Bytes},
 };
 use std::boxed::Box;
 use std::string::String;
 
-use crate::{context::GwynethContextTr, interpreter::GwynethInterpreterResult, xcall};
+use crate::{context::GwynethContextTr, xcall};
 
 // Gwyneth precompile provider
 #[derive(Default, Debug, Clone)]
@@ -60,7 +59,7 @@ impl<CTX: GwynethContextTr> PrecompileProvider<CTX> for GwynethPrecompiles {
         is_static: bool,
         gas_limit: u64,
     ) -> Result<Option<Self::Output>, String> {
-        if self.is_in_berlin() && address == xcall::XCALL_ADDRESS {
+        if self.is_in_berlin() && *address == xcall::XCALL_ADDRESS {
             let mut result = InterpreterResult {
                 result: InstructionResult::Return,
                 gas: Gas::new(gas_limit),

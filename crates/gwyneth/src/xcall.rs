@@ -1,6 +1,6 @@
 use crate::{cfg::CfgExt, context::GwynethContextTr};
 use revm::{
-    context::{ContextTr, Transaction},
+    context::Transaction,
     precompile::{u64_to_address, PrecompileError, PrecompileOutput, PrecompileResult},
     primitives::{Address, Bytes, FixedBytes, B256},
 };
@@ -33,7 +33,7 @@ pub struct XCallOptions {
 pub fn run_xcall<CTX: GwynethContextTr>(
     input: &[u8],
     _gas_limit: u64,
-    ctx: &CTX,
+    ctx: &mut CTX,
     caller: Address,
 ) -> PrecompileResult {
     println!("  xcalloptions_run: {}, {:?}", input.len(), input);
@@ -73,7 +73,7 @@ pub fn run_xcall<CTX: GwynethContextTr>(
     }
 
     // Set the call options
-    *ctx.chain().xcall_options = Some(XCallOptions {
+    *(&mut ctx.chain().xcall_options) = Some(XCallOptions {
         chain_id,
         sandbox,
         tx_origin,
@@ -81,7 +81,7 @@ pub fn run_xcall<CTX: GwynethContextTr>(
         block_hash,
         proof: proof.to_vec(),
     });
-    println!("  CallOptions: {:?}", xcall_options);
+    println!("  CallOptions: {:?}", ctx.chain().xcall_options);
 
     Ok(PrecompileOutput::new(
         0,
