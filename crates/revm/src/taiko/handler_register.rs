@@ -43,9 +43,7 @@ pub fn reward_beneficiary<SPEC: Spec, EXT, DB: Database>(
 
     mainnet::reward_beneficiary::<SPEC, EXT, DB>(context, gas)?;
 
-    if SPEC::enabled(SpecId::SHASTA) {
-        reward_beneficiary_ontake::<SPEC, EXT, DB>(context, gas)
-    } else if SPEC::enabled(SpecId::ONTAKE) {
+    if SPEC::enabled(SpecId::ONTAKE) {
         reward_beneficiary_ontake::<SPEC, EXT, DB>(context, gas)
     } else {
         reward_beneficiary_hekla::<SPEC, EXT, DB>(context, gas)
